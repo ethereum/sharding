@@ -24,26 +24,19 @@ def sample():
     pass
 
 """
-msg_hash = utils.sha3("123")
-print(len(msg_hash))
-v, r, s = utils.ecsign(msg_hash, t.k0)
+privkey = t.k2
+pubkey = utils.privtoaddr(privkey)
+msg_hash = utils.sha3("withdraw")
+v, r, s = utils.ecsign(msg_hash, privkey)
 
-validator_addr = t.a0
+validator_addr = pubkey
 validation_code = """
 def test_ecrecover(h, v, r, s):
-    return(ecrecover(h, v, r, s)) # confirm the addr matches the signature
-"""
-validation_code = """
-~calldatacopy(0, 0, 128)
-~call(3000, 1, 0, 0, 128, 0, 32)
-return(~mload(0) == {})
+    return(ecrecover(h, v, r, s) == {}) # confirm the addr matches the signature
 """.format(utils.checksum_encode(validator_addr))
 
 c = t.Chain()
 vc = c.contract(validation_code, language='serpent')
-#vmc = c.contract(validation_manager_code, language='serpent')
-#result = vc.test_ecrecover(utils.big_endian_to_int(msg_hash), 1, 2, 3)
-vc_data = serpent.compile(validation_code)
-valcode_addr = c.tx(t.k0, '', 0, vc_data)
-print(valcode_addr)
-#print(x.deposit(1, 1))
+vmc = c.contract(validation_manager_code, language='serpent')
+result = vc.test_ecrecover(msg_hash, v, r, s)
+print(result)
