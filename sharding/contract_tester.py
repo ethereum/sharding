@@ -4,21 +4,12 @@ import serpent
 
 validation_manager_code = """
 data validator_set_size
-data validator_set[](validator_addr, deposit, validation_code_addr, return_addr)
+data validator_set[](deposit, validation_code_addr, return_addr)
 
 def init():
     self.validator_set_size = 0
 
-# internal use: to find the index for the addr in the validator set
-def get_validator_index(addr):
-    index = 0
-    while index < self.validator_set_size and addr != self.validator_set[index].validator_addr:
-        index = index + 1
-    return(index)
-
 def deposit(validation_code_addr, return_addr):
-    index = self.get_validator_index(msg.sender)
-    self.validator_set[index].validator_addr = msg.sender
     self.validator_set[index].deposit = self.validator_set[index].deposit + msg.value
     self.validator_set[index].validation_code_addr = validation_code_addr
     self.validator_set[index].return_addr = return_addr
