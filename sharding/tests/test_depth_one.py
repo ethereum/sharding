@@ -45,7 +45,7 @@ def test_simple_sharding_script():
 
     # Node 1:
     # main shard (shard 0)
-    # assume a0 in shard 0
+    # assume a0, a1, a2 are in shard 0
     ms_signer_alloc = copy.deepcopy(base_alloc)
     ms_signer = tester.Chain(ms_signer_alloc, env, shardId=0)
 
@@ -59,8 +59,7 @@ def test_simple_sharding_script():
 
     # Node 3:
     # collator of child shard (shard 1)
-    # assume a1 and a2 are in shard 1
-    # assume a3 is the collator
+    # assume a3, a4, a5 are in shard 1
     child_shardId = 1
 
     cs_collator_alloc = copy.deepcopy(ms_signer_alloc)
@@ -82,10 +81,10 @@ def test_simple_sharding_script():
     print_current_block_number(cs_collator)
     print_current_block_number(cs_signer)
 
-    logger.info('[Part 1][STEP 1] The collator of `child_shard`(shard 1) creates a collation and broadcasts it')
+    logger.info('[STEP 1] The collator of `child_shard`(shard 1) creates a collation and broadcasts it')
     # Some transactions
-    tx1 = cs_collator.generate_shard_tx(tester.k2, tester.a3, 1)
-    tx2 = cs_collator.generate_shard_tx(tester.k1, tester.a2, 1)
+    tx1 = cs_collator.generate_shard_tx(tester.k3, tester.a4, 2)
+    tx2 = cs_collator.generate_shard_tx(tester.k4, tester.a5, 5)
     # Prepare txqueue
     txqueue = TransactionQueue()
     txqueue.add_transaction(tx1)
@@ -99,7 +98,7 @@ def test_simple_sharding_script():
         tester.a3)
     print_collation(collation)
 
-    logger.info('[Part 1][STEP 2-1] The signer of `child_shard` receives the collation and verifies it')
+    logger.info('[STEP 2-1] The signer of `child_shard` receives the collation and verifies it')
     # The signer validates the collation
     prev_state = cs_signer.chain.get_shard_head_state()
     is_valid = collator.verify_collation_header(
@@ -109,18 +108,19 @@ def test_simple_sharding_script():
         children_header=[],
         main_chain_included=False)
     assert is_valid
-    logger.info('[Part 1][STEP 2-2] The signer of `child_shard` signs')
+    is_valid = collator.verify_collation(
+        cs_signer.chain,
+        collation=collation,
+        prev_state=prev_state,
+        children_header=[])
+    assert is_valid
+
+    logger.info('[STEP 2-2] The signer of `child_shard` signs')
     signed, collation.header = collator.sign_collation_header(cs_signer.chain, collation.header, '')
 
-    logger.info('[Part 1][STEP 2-3] The signer of `child_shard` broadcasts to the collator of `main_shard`')
     child_shard_collation = collation
 
-    logger.info('[Part 1][STEP 3] The collator of `main_shard` verifies child_shard_collation and stores it')
-    # TODO
-    logger.info('[Part 1][STEP 4] The signer of `main_shard` verifies child_shard_collation and stores it')
-    # TODO
-
-    logger.info('[Part 1][STEP 5] The collator of `main_shard` creates a collation and broadcasts it')
+    logger.info('[STEP 3] The collator of `main_shard` creates a collation and broadcasts it')
     prev_state = ms_collator.chain.get_shard_head_state()
     children_header = [child_shard_collation.header]
     collation = collator.create_collation(
@@ -130,7 +130,7 @@ def test_simple_sharding_script():
         children_header=children_header)
     print_collation(collation)
 
-    logger.info('[Part 1][STEP 6-1] The signer of `main_shard` verifies the collation')
+    logger.info('[STEP 4-1] The signer of `main_shard` verifies the collation')
     prev_state = ms_signer.chain.get_shard_head_state()
     children_header = [child_shard_collation.header]
     is_valid = collator.verify_collation_header(
@@ -140,42 +140,50 @@ def test_simple_sharding_script():
         children_header=children_header,
         main_chain_included=False)
     assert is_valid
+    is_valid = collator.verify_collation(
+        cs_signer.chain,
+        collation=collation,
+        prev_state=prev_state,
+        children_header=children_header)
+    assert is_valid
 
-    logger.info('[Part 1][STEP 6-2] The signer of `main_shard` signs')
+    logger.info('[STEP 4-2] The signer of `main_shard` signs collation and broadcasts it')
     signed, collation.header = collator.sign_collation_header(ms_signer.chain, collation.header, '')
     print_collation(collation)
 
-    logger.info('[Part 1][STEP 7] The signer of `main_shard` broadcasts to the miner of top-level block')
-    # skip
-
-    logger.info('[Part 1][STEP 8] The miner of top-level block sets the block.header.extra_data to collation_header of shard 0 and broadcasts')
+    logger.info('[STEP 5] The miner of top-level block sets the block.header.extra_data to collation_header of shard 0 and broadcasts')
     prev_state = ms_signer.chain.get_shard_head_state()
     ms_signer.mine(1, coinbase=tester.a0, collation_header=collation.header)
     blknum = ms_signer.chain.state.block_number
     blk = ms_signer.chain.get_block_by_number(blknum)
     ms_signer.chain.add_block(blk)
-    apply_collation(ms_signer.chain, blk.header.hash, collation)
+    # apply_collation(ms_signer.chain, blk.header.hash, collation, children_header)
+    collator.apply_collation(ms_signer.chain, prev_state, collation, blk.header.hash, children_header=children_header)
 
     # assert main_shard.chain.block_contains_collation_header(blk.hash)
-    logger.info('[Part 1][STEP 9-1] The collator of `main_shard` receives the latest block, call `add_block`and update the `parent_block` list')
+    logger.info('[STEP 6-1] The collator of `main_shard` receives the latest block, call `add_block`and update the `parent_block` list')
     ms_collator.chain.add_block(blk)
-    logger.info('[Part 1][STEP 9-2] The collator of `main_shard` apply collation')
-    apply_collation(ms_collator.chain, blk.header.hash, collation)
+    logger.info('[STEP 6-2] The collator of `main_shard` apply collation')
+    prev_state = ms_collator.chain.get_shard_head_state()
+    collator.apply_collation(ms_collator.chain, prev_state, collation, blk.header.hash, children_header=children_header)
+    # apply_collation(ms_collator.chain, blk.header.hash, collation, children_header)
 
-    logger.info('[Part 1][STEP 10-1] The collator of `child_shard` receives the latest block, call `add_block`and update the `parent_block` list')
+    logger.info('[STEP 6-3] The collator of `child_shard` receives the latest block, call `add_block`and update the `parent_block` list')
     cs_collator.chain.add_block(blk)
-    logger.info('[Part 1][STEP 10-2] The collator of `child_shard` apply child_shard_collation')
-    apply_collation(cs_collator.chain, blk.header.hash, child_shard_collation)
+    logger.info('[STEP 6-4] The collator of `child_shard` apply child_shard_collation')
+    prev_state = cs_collator.chain.get_shard_head_state()
+    collator.apply_collation(cs_collator.chain, prev_state, child_shard_collation, blk.header.hash)
 
-    logger.info('[Part 1][STEP 11-1] The signer of `child_shard` receives the latest block, call `add_block`and update the `parent_block` list')
+    logger.info('[STEP 6-5] The signer of `child_shard` receives the latest block, call `add_block`and update the `parent_block` list')
     cs_signer.chain.add_block(blk)
-    logger.info('[Part 1][STEP 11-2] The signer of `child_shard` apply child_shard_collation')
-    apply_collation(cs_signer.chain, blk.header.hash, child_shard_collation)
+    logger.info('[STEP 6-6] The signer of `child_shard` apply child_shard_collation')
+    prev_state = cs_signer.chain.get_shard_head_state()
+    collator.apply_collation(cs_signer.chain, prev_state, child_shard_collation, blk.header.hash)
 
     logger.info('---------------------------------------------------------')
-    logger.info('[Part 2][STEP 1] The collator of `child_shard`(shard 1) creates a collation and broadcasts it')
-    tx1 = cs_collator.generate_shard_tx(tester.k1, tester.a2, 1)
-    tx2 = cs_collator.generate_shard_tx(tester.k2, tester.a3, 1)
+    logger.info('[STEP 7] The collator of `child_shard`(shard 1) creates a collation and broadcasts it')
+    tx1 = cs_collator.generate_shard_tx(tester.k3, tester.a4, 2)
+    tx2 = cs_collator.generate_shard_tx(tester.k4, tester.a5, 3)
     txqueue = TransactionQueue()
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
@@ -189,7 +197,7 @@ def test_simple_sharding_script():
         tester.a3)
     print_collation(collation)
 
-    logger.info('[Part 2][STEP 2-1] The signer of `child_shard` receives the collation and verifies it')
+    logger.info('[STEP 8] The signer of `child_shard` receives the collation and verifies it')
     # The signer validates the collation
     # Assume the signed received the collation
     prev_state = cs_signer.chain.get_prev_state(collation.header.parent_block_hash)
@@ -207,7 +215,7 @@ def test_simple_sharding_script():
         children_header=[])
     assert is_valid
 
-    logger.info('[Part 2][STEP 2-2] The signer of `child_shard` signs the collation')
+    logger.info('[STEP 8] The signer of `child_shard` signs the collation')
     signed, collation.header = collator.sign_collation_header(cs_signer.chain, collation.header, '')
     print_collation(collation)
     assert signed
@@ -219,18 +227,6 @@ def print_current_block_number(shard):
     block_number = shard.head_state.block_number
     logger.info('block_number of shard #{}: {}'.format(
         shard.chain.shardId, block_number))
-
-
-def apply_collation(chain, block_hash, collation):
-    """Apply Collation
-    """
-    # TODO: Scoring Algorithm
-    prev_state = chain.get_shard_head_state()
-    collator.apply_collation(
-        chain,
-        prev_state=prev_state,
-        collation=collation,
-        block_hash=block_hash)
 
 
 def print_collation(collation):

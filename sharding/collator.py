@@ -64,7 +64,6 @@ def verify_collation_header(
         collation_header,
         prev_state=None,
         children_header=[],
-        local_validation_code_addr='\x35' * 20,
         main_chain_included=False):
     """Verfiy the collation header only
 
@@ -120,7 +119,7 @@ def sign_collation_header(chain, collation_header, local_validation_code_addr):
                 if validation_code_addr == local_validation_code_addr:
                     # the sig is empty
                     # TODO: set collation_header.signatures[index] = local_sign
-                    collation_header.signatures[index] = '123'
+                    collation_header.signatures[index] = b'\x11'
                     valid_signature_count += 1
                     break
             else:
@@ -145,15 +144,7 @@ def verify_collation(
         # state transition
         temp_state = copy.deepcopy(prev_state)
         apply_state_transition(chain, temp_state, collation)
-        verify_execution_results(collation, temp_state)
-
-        # The `state_branch_node` is the hash of the post_state_root together with the `state_branch_node` of each child; if a given child is empty then we take the current state branch node of that shard.
-        state_branch_node = generate_state_branch_node(
-            children_header, temp_state)
-        if collation.header.state_branch_node != state_branch_node:
-            raise ValueError(
-                'state_branch_node is wrong, header: %s, computed: %s',
-                collation.header.state_branch_node, state_branch_node)
+        verify_execution_results(collation, temp_state, children_header)
     except Exception as e:
         print(str(e))
         return False
@@ -162,7 +153,7 @@ def verify_collation(
 
 
 # [TODO]
-def apply_collation(chain, prev_state, collation, block_hash):
+def apply_collation(chain, prev_state, collation, block_hash, children_header=[]):
     """Apply collation
     """
     snapshot = prev_state.snapshot()
@@ -170,7 +161,7 @@ def apply_collation(chain, prev_state, collation, block_hash):
         # state transition
         temp_state = copy.deepcopy(prev_state)
         apply_state_transition(chain, temp_state, collation)
-        verify_execution_results(collation, temp_state)
+        verify_execution_results(collation, temp_state, children_header)
 
         chain.set_head_shard_state(collation.header, block_hash, temp_state.trie.root_hash)
 
@@ -297,7 +288,7 @@ def apply_state_transition(chain, temp_state, collation):
     temp_state.commit()
 
 
-def verify_execution_results(collation, state):
+def verify_execution_results(collation, state, children_header):
     """Verify the results by Merkle Proof
     """
     if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
@@ -310,3 +301,11 @@ def verify_execution_results(collation, state):
         raise ValueError("Receipt root mismatch: header %s computed %s, computed %d, %d receipts" %
                          (encode_hex(collation.header.receipts_root), encode_hex(mk_receipt_sha(state.receipts)),
                           state.gas_used, len(state.receipts)))
+
+    # The `state_branch_node` is the hash of the post_state_root together with the `state_branch_node` of each child; if a given child is empty then we take the current state branch node of that shard.
+    state_branch_node = generate_state_branch_node(
+        children_header, state)
+    if collation.header.state_branch_node != state_branch_node:
+        raise ValueError(
+            'state_branch_node is wrong, header: %s, computed: %s',
+            encode_hex(collation.header.state_branch_node), encode_hex(state_branch_node))
