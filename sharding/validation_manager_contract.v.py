@@ -12,17 +12,68 @@ validators: public({
     return_addr: address,
 }[num])
 
-num_validators: public(num)
+biggest_validators_index: public(num)
+
+# indexs of empty slots caused by the function `withdraw`
+empty_slots_queue: num[num]
+
+# the front index of the queue in empty_slots_queue
+front: num
+
+# the end index of the queue in empty_slots_queue
+end: num
+
+
+def is_queue_empty() -> bool:
+
+    return (self.front == self.end)
+
+def enqueue(index: num):
+
+    self.empty_slots_queue[self.end] = index
+    self.end += 1
+
+def dequeue() -> num:
+
+    if self.is_queue_empty():
+        return -1
+    temp = self.empty_slots_queue[self.front]
+    self.front += 1
+    return temp
+
+def peek() -> num:
+
+    if self.is_queue_empty():
+        return -1
+    return self.empty_slots_queue[self.front]
+
+# TODO: Should have a rearrange_queue which is executed when the end reaches
+#       a fairly large number to limit the memory usage of the array?!
+#       However, viper seems not to allow variable iterations loop. So maybe
+#       will be implemented in the future
+
+
+def take_validators_empty_slot() -> num:
+
+    if self.is_queue_empty():
+        return self.biggest_validators_index
+    return self.dequeue()
+
+def release_validator_slot(index: num):
+
+    self.enqueue(index)
 
 def deposit(validation_code_addr: address, return_addr: address) -> num:
 
-    index = self.num_validators
+    # TODO: check for deposit to be equaled to a certain amount of ETH
+    index = self.take_validators_empty_slot()
     self.validators[index] = {
         deposit: msg.value,
         validation_code_addr: validation_code_addr,
         return_addr: return_addr
     }
-    self.num_validators += 1
+    if index == self.biggest_validators_index:
+        self.biggest_validators_index += 1
     return index
 
 def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
@@ -36,11 +87,13 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
             validation_code_addr: None,
             return_addr: None
         }
+        self.release_validator_slot(validator_index)
     return result
 
 def sample(block_number: num, shard_id: num, sig_index: num) -> num:
 
-    return self.num_validators
+    return self.biggest_validators_index
+
 """
 
 def sign(msg_hash, privkey):
@@ -66,6 +119,16 @@ k1_valcode_addr = c.tx(t.k1, '', 0, serpent.compile(mk_validation_code(t.a1)))
 
 x = c.contract(validation_manager_code, language='viper')
 
+# test withdraw to fail when no validator record
+assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+# test deposit working fine
 assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr)
-assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr)
+assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+# test deposit using empty slots
+assert 0 == x.deposit(k1_valcode_addr, k1_valcode_addr)
+assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
+# test deposit working fine in the edge condition
+assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr)
+# test withdraw to fail when the signature is not corret
+assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
