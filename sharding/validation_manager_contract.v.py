@@ -12,6 +12,8 @@ validators: public({
     return_addr: address,
 }[num])
 
+temp_array: num256[num256]
+
 num_validators: public(num)
 
 # indexs of empty slots caused by the function `withdraw`
@@ -79,9 +81,17 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
         self.num_validators -= 1
     return result
 
-def sample(block_number: num, shard_id: num, sig_index: num) -> num:
+def sample(block_number: num, shard_id: num, sig_index: num) -> address:
 
-    return self.num_validators
+    # TODO: need to handle the situation when there are empty slots
+    cycle = floor(decimal(block_number / 2500))
+    cycle_seed = blockhash(cycle * 2500)
+    seed = blockhash(block_number)
+    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(sig_index)))),
+                                 as_num256(100))
+    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
+                                 as_num256(self.num_validators))
+    return self.validators[as_num128(validator_index)].validation_code_addr
 
 """
 
@@ -121,3 +131,8 @@ assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr)
 # test withdraw to fail when the signature is not corret
 assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
+
+c.mine(1, coinbase=t.a0)
+
+result = x.sample(0, 2, 3)
+print(result)
