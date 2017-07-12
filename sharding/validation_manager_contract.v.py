@@ -12,56 +12,45 @@ validators: public({
     return_addr: address,
 }[num])
 
-biggest_validators_index: public(num)
+num_validators: public(num)
 
 # indexs of empty slots caused by the function `withdraw`
-empty_slots_queue: num[num]
+empty_slots_stack: num[num]
 
-# the front index of the queue in empty_slots_queue
-front: num
+# the end index of the stack in empty_slots_stack
+top: num
 
-# the end index of the queue in empty_slots_queue
-end: num
+def is_stack_empty() -> bool:
 
+    return (self.top == 0)
 
-def is_queue_empty() -> bool:
+def stack_push(index: num):
 
-    return (self.front == self.end)
+    self.empty_slots_stack[self.top] = index
+    self.top += 1
 
-def enqueue(index: num):
+def stack_pop() -> num:
 
-    self.empty_slots_queue[self.end] = index
-    self.end += 1
-
-def dequeue() -> num:
-
-    if self.is_queue_empty():
+    if self.is_stack_empty():
         return -1
-    temp = self.empty_slots_queue[self.front]
-    self.front += 1
-    return temp
+    self.top -= 1
+    return self.empty_slots_stack[self.top]
 
 def peek() -> num:
 
-    if self.is_queue_empty():
+    if self.is_stack_empty():
         return -1
-    return self.empty_slots_queue[self.front]
-
-# TODO: Should have a rearrange_queue which is executed when the end reaches
-#       a fairly large number to limit the memory usage of the array?!
-#       However, viper seems not to allow variable iterations loop. So maybe
-#       will be implemented in the future
-
+    return self.empty_slots_stack[self.top]
 
 def take_validators_empty_slot() -> num:
 
-    if self.is_queue_empty():
-        return self.biggest_validators_index
-    return self.dequeue()
+    if self.is_stack_empty():
+        return self.num_validators
+    return self.stack_pop()
 
 def release_validator_slot(index: num):
 
-    self.enqueue(index)
+    self.stack_push(index)
 
 def deposit(validation_code_addr: address, return_addr: address) -> num:
 
@@ -72,8 +61,7 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
         validation_code_addr: validation_code_addr,
         return_addr: return_addr
     }
-    if index == self.biggest_validators_index:
-        self.biggest_validators_index += 1
+    self.num_validators += 1
     return index
 
 def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
@@ -88,11 +76,12 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
             return_addr: None
         }
         self.release_validator_slot(validator_index)
+        self.num_validators -= 1
     return result
 
 def sample(block_number: num, shard_id: num, sig_index: num) -> num:
 
-    return self.biggest_validators_index
+    return self.num_validators
 
 """
 
