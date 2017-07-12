@@ -12,8 +12,6 @@ validators: public({
     return_addr: address,
 }[num])
 
-temp_array: num256[num256]
-
 num_validators: public(num)
 
 # indexs of empty slots caused by the function `withdraw`
@@ -101,8 +99,6 @@ def sign(msg_hash, privkey):
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
     return signature
 
-withdraw_msg_hash = utils.sha3("withdraw")
-
 def mk_validation_code(address):
     validation_code = """
 ~calldatacopy(0, 0, 128)
@@ -117,6 +113,8 @@ k0_valcode_addr = c.tx(t.k0, '', 0, serpent.compile(mk_validation_code(t.a0)))
 k1_valcode_addr = c.tx(t.k1, '', 0, serpent.compile(mk_validation_code(t.a1)))
 
 x = c.contract(validation_manager_code, language='viper')
+
+withdraw_msg_hash = utils.sha3("withdraw")
 
 # test withdraw to fail when no validator record
 assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
