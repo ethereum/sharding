@@ -89,15 +89,25 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
 def sample(block_number: num, shard_id: num, sig_index: num) -> address:
 
+    zero_addr = 0x0000000000000000000000000000000000000000
+
     # TODO: need to handle the situation when there are empty slots
     cycle = floor(decimal(block_number / 2500))
     cycle_seed = blockhash(cycle * 2500)
     seed = blockhash(block_number)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(sig_index)))),
                                  as_num256(100))
-    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
-                                 as_num256(self.get_validators_max_index()))
-    return self.validators[as_num128(validator_index)].validation_code_addr
+    if self.num_validators != 0:
+        # TODO: here we assume this fixed number of rounds is enough to sample
+        #       out a validator
+        for i in range(1024):
+            validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset), as_bytes32(i)))),
+                                         as_num256(self.get_validators_max_index()))
+            addr = self.validators[as_num128(validator_index)].validation_code_addr
+            if addr != zero_addr:
+                return addr
+
+    return zero_addr
 
 """
 
@@ -131,7 +141,7 @@ assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr)
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr)
 assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
 # test deposit using empty slots
-assert 0 == x.deposit(k1_valcode_addr, k1_valcode_addr)
+assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr)
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 # test deposit working fine in the edge condition
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr)
@@ -140,5 +150,8 @@ assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 
 c.mine(1, coinbase=t.a0)
 
-result = x.sample(0, 2, 3)
-print(result)
+# test sample
+assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+assert x.sample(0, 1, 2) == hex(utils.big_endian_to_int(k1_valcode_addr))
+assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
+assert x.sample(0, 1, 2) == "0x0000000000000000000000000000000000000000"
