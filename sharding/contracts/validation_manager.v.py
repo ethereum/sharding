@@ -19,12 +19,20 @@ top: num
 # the exact deposit size which you have to deposit to become a validator
 deposit_size: wei_value
 
+# any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
+shuffling_cycle: num
+
+# gas limit of the signature validation code
+sig_gas_limit: num
+
 def __init__():
 
     self.num_validators = 0
     self.top = 0
     # 10 ** 20 wei = 100 ETH
     self.deposit_size = 100000000000000000000
+    self.shuffling_cycle = 2500
+    self.sig_gas_limit = 200000
 
 def is_stack_empty() -> bool:
 
@@ -81,7 +89,7 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
 def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
     msg_hash = sha3("withdraw")
-    result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=200000, outsize=32), 0) == as_bytes32(1))
+    result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1))
     if result:
         send(self.validators[validator_index].return_addr, self.validators[validator_index].deposit)
         self.validators[validator_index] = {
@@ -97,8 +105,8 @@ def sample(block_number: num, shard_id: num, sig_index: num) -> address:
 
     zero_addr = 0x0000000000000000000000000000000000000000
 
-    cycle = floor(decimal(block_number / 2500))
-    cycle_seed = blockhash(cycle * 2500)
+    cycle = floor(decimal(block_number / self.shuffling_cycle))
+    cycle_seed = blockhash(cycle * self.shuffling_cycle)
     seed = blockhash(block_number)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(sig_index)))),
                                  as_num256(100))
