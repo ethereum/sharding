@@ -42,6 +42,14 @@ def peek() -> num:
         return -1
     return self.empty_slots_stack[self.top]
 
+def stack_size() -> num:
+
+    return self.top
+
+def get_validators_max_index() -> num:
+
+    return self.num_validators + self.stack_size()
+
 def take_validators_empty_slot() -> num:
 
     if self.is_stack_empty():
@@ -88,7 +96,7 @@ def sample(block_number: num, shard_id: num, sig_index: num) -> address:
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(sig_index)))),
                                  as_num256(100))
     validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
-                                 as_num256(self.num_validators))
+                                 as_num256(self.get_validators_max_index()))
     return self.validators[as_num128(validator_index)].validation_code_addr
 
 """
