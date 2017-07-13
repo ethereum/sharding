@@ -180,7 +180,6 @@ def test_simple_sharding_script():
     prev_state = cs_signer.chain.get_shard_head_state()
     collator.apply_collation(cs_signer.chain, prev_state, child_shard_collation, blk.header.hash)
 
-    logger.info('---------------------------------------------------------')
     logger.info('[STEP 7] The collator of `child_shard`(shard 1) creates a collation and broadcasts it')
     tx1 = cs_collator.generate_shard_tx(tester.k3, tester.a4, 2)
     tx2 = cs_collator.generate_shard_tx(tester.k4, tester.a5, 3)
@@ -197,7 +196,7 @@ def test_simple_sharding_script():
         tester.a3)
     print_collation(collation)
 
-    logger.info('[STEP 8] The signer of `child_shard` receives the collation and verifies it')
+    logger.info('[STEP 8-1] The signer of `child_shard` receives the collation and verifies it')
     # The signer validates the collation
     # Assume the signed received the collation
     prev_state = cs_signer.chain.get_prev_state(collation.header.parent_block_hash)
@@ -215,7 +214,7 @@ def test_simple_sharding_script():
         children_header=[])
     assert is_valid
 
-    logger.info('[STEP 8] The signer of `child_shard` signs the collation')
+    logger.info('[STEP 8-2] The signer of `child_shard` signs the collation')
     signed, collation.header = collator.sign_collation_header(cs_signer.chain, collation.header, '')
     print_collation(collation)
     assert signed

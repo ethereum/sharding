@@ -63,9 +63,7 @@ class CollationHeader(rlp.Serializable):
                  receipt_root=trie.BLANK_ROOT,
                  children=[],
                  state_branch_node=utils.sha3rlp([]),
-                 signatures=[],
-                 mixhash='',
-                 nonce=''):
+                 signatures=[]):
         fields = {k: v for k, v in locals().items() if k != 'self'}
         if len(fields['coinbase']) == 40:
             fields['coinbase'] = decode_hex(fields['coinbase'])
@@ -88,20 +86,15 @@ class CollationHeader(rlp.Serializable):
         return encode_hex(self.hash)
 
     @property
-    def mining_hash(self):
-        return utils.sha3(rlp.encode(self, CollationHeader.exclude(['mixhash', 'nonce', 'signatures'])))
-
-    @property
     def signing_hash(self):
-        return utils.sha3(rlp.encode(self, CollationHeader.exclude(['extra_data'])))
+        return utils.sha3(rlp.encode(self, CollationHeader.exclude(['signatures'])))
 
     def to_dict(self):
         """Serialize the header to a readable dictionary."""
         d = {}
 
-        for field in ('state_branch_node', 'parent_block_hash'):
-            d[field] = encode_hex(getattr(self, field))
-        for field in ('prev_state_root', 'tx_list_root', 'post_state_root',
+        for field in ('state_branch_node', 'parent_block_hash',
+                      'prev_state_root', 'tx_list_root', 'post_state_root',
                       'receipt_root', 'coinbase'):
             d[field] = encode_hex(getattr(self, field))
 

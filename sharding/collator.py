@@ -106,11 +106,13 @@ def verify_collation_header(
 
 
 def sign_collation_header(chain, collation_header, local_validation_code_addr):
+    """Check if local node is signer. If true, sign it
+    """
+    # TODO: Optimize the times of calling call_sample_function
+    is_signed = False
     try:
-        valid_signature_count = 0
         for index, sig in enumerate(collation_header.signatures):
             if len(sig) == 0:
-
                 validation_code_addr = contract_utils.call_sample_function(
                     chain,
                     block_number=collation_header.rng_source_block_number,
@@ -120,17 +122,11 @@ def sign_collation_header(chain, collation_header, local_validation_code_addr):
                     # the sig is empty
                     # TODO: set collation_header.signatures[index] = local_sign
                     collation_header.signatures[index] = b'\x11'
-                    valid_signature_count += 1
+                    is_signed = True
                     break
-            else:
-                raise ValueError('signature is invalid')
-        if float(valid_signature_count) / chain.config['SIGNATURE_COUNT'] < 3.0 / 4:
-            # Note in Python2, / is integer division
-            return None, collation_header
-        else:
-            return True, collation_header
+        return is_signed, collation_header
     except Exception as e:
-        return False, collation_header
+        return is_signed, collation_header
 
 
 def verify_collation(
@@ -211,7 +207,6 @@ def is_valid_account(account):
 def get_geometric_progression_sum(a1, ratio, n):
     """Get geometric progression sum for checking shardId
     """
-    print('a1:{}, ratio:{}, n:{}'.format(a1, ratio, n))
     if n == 0:
         return a1
     elif ratio == 1:
