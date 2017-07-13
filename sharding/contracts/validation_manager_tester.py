@@ -2,7 +2,7 @@ from ethereum import utils
 from ethereum.tools import tester as t
 import serpent
 
-validation_manager_code = open('validation_manager.v.py', 'r').read()
+validator_manager_code = open('validation_manager.v.py', 'r').read()
 
 def sign(msg_hash, privkey):
 
@@ -27,7 +27,7 @@ c = t.Chain()
 k0_valcode_addr = c.tx(t.k0, '', 0, serpent.compile(mk_validation_code(t.a0)))
 k1_valcode_addr = c.tx(t.k1, '', 0, serpent.compile(mk_validation_code(t.a1)))
 
-x = c.contract(validation_manager_code, language='viper')
+x = c.contract(validator_manager_code, language='viper')
 
 c.mine(1, coinbase=t.a0)
 c.head_state.gas_limit = 10 ** 10
