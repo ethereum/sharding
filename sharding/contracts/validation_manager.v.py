@@ -14,7 +14,7 @@ num_validators: public(num)
 empty_slots_stack: num[num]
 
 # the top index of the stack in empty_slots_stack
-top: num
+top: public(num)
 
 # the exact deposit size which you have to deposit to become a validator
 deposit_size: wei_value
@@ -50,34 +50,18 @@ def stack_pop() -> num:
     self.top -= 1
     return self.empty_slots_stack[self.top]
 
-def peek() -> num:
-
-    if self.is_stack_empty():
-        return -1
-    return self.empty_slots_stack[self.top]
-
-def stack_size() -> num:
-
-    return self.top
-
 def get_validators_max_index() -> num:
 
-    return self.num_validators + self.stack_size()
-
-def take_validators_empty_slot() -> num:
-
-    if self.is_stack_empty():
-        return self.num_validators
-    return self.stack_pop()
-
-def release_validator_slot(index: num):
-
-    self.stack_push(index)
+    return self.num_validators + self.get_top()
 
 def deposit(validation_code_addr: address, return_addr: address) -> num:
 
     assert msg.value == self.deposit_size
-    index = self.take_validators_empty_slot()
+    # find the empty slot index in validators set
+    if not self.is_stack_empty():
+        index = self.stack_pop()
+    else:
+        index = self.num_validators
     self.validators[index] = {
         deposit: msg.value,
         validation_code_addr: validation_code_addr,
@@ -97,7 +81,7 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
             validation_code_addr: None,
             return_addr: None
         }
-        self.release_validator_slot(validator_index)
+        self.stack_push(validator_index)
         self.num_validators -= 1
     return result
 
