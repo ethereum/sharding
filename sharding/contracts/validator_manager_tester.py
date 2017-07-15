@@ -2,7 +2,7 @@ from ethereum import utils
 from ethereum.tools import tester as t
 import serpent
 
-validator_manager_code = open('validation_manager.v.py', 'r').read()
+validator_manager_code = open('validator_manager.v.py', 'r').read()
 
 def sign(msg_hash, privkey):
 
