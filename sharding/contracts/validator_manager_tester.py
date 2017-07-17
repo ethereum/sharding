@@ -5,10 +5,10 @@ import serpent
 validator_manager_code = open('validator_manager.v.py', 'r').read()
 
 def sign(msg_hash, privkey):
-
     v, r, s = utils.ecsign(msg_hash, privkey)
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
     return signature
+
 
 def mk_validation_code(address):
     validation_code = """

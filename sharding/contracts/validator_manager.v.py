@@ -26,7 +26,6 @@ shuffling_cycle: num
 sig_gas_limit: num
 
 def __init__():
-
     self.num_validators = 0
     self.top = 0
     # 10 ** 20 wei = 100 ETH
@@ -34,28 +33,28 @@ def __init__():
     self.shuffling_cycle = 2500
     self.sig_gas_limit = 200000
 
-def is_stack_empty() -> bool:
 
+def is_stack_empty() -> bool:
     return (self.top == 0)
 
-def stack_push(index: num):
 
+def stack_push(index: num):
     self.empty_slots_stack[self.top] = index
     self.top += 1
 
-def stack_pop() -> num:
 
+def stack_pop() -> num:
     if self.is_stack_empty():
         return -1
     self.top -= 1
     return self.empty_slots_stack[self.top]
 
-def get_validators_max_index() -> num:
 
+def get_validators_max_index() -> num:
     return self.num_validators + self.get_top()
 
-def deposit(validation_code_addr: address, return_addr: address) -> num:
 
+def deposit(validation_code_addr: address, return_addr: address) -> num:
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
     if not self.is_stack_empty():
@@ -70,8 +69,8 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     self.num_validators += 1
     return index
 
-def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
+def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     msg_hash = sha3("withdraw")
     result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1))
     if result:
@@ -85,8 +84,8 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
         self.num_validators -= 1
     return result
 
-def sample(block_number: num, shard_id: num, sig_index: num) -> address:
 
+def sample(block_number: num, shard_id: num, sig_index: num) -> address:
     zero_addr = 0x0000000000000000000000000000000000000000
 
     cycle = floor(decimal(block_number / self.shuffling_cycle))
