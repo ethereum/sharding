@@ -1,7 +1,8 @@
 # [TODO]
-def call_sample_function(chain, block_number, shardId, sigIndex):
+def call_sample_function(chain, block_number, shard_id, sig_index):
     """Call the sample function and return signer address
     """
+        
     return ''
 
 
