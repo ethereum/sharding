@@ -12,11 +12,15 @@ import viper
 STARTGAS = 10 ** 8
 GASPRICE = 0
 
-
-_valmgr_sender_privkey = t.k0
 _valmgr_ct = None
 _valmgr_code = None
 _valmgr_addr = None
+
+
+class MessageFailed(Exception):
+
+    pass
+
 
 class TransactionFailed(Exception):
 
@@ -62,15 +66,15 @@ def deploy_contract(state, sender_privkey, bytecode):
     return output # addr
 
 
-def get_valmgr_addr(state):
-    global _valmgr_sender_privkey, _valmgr_addr
+def deploy_valmgr_contract(state, sender_privkey):
+    global _valmgr_addr
+    # FIXME: should valmgr contract only exist once?
     if _valmgr_addr is not None:
         return _valmgr_addr
-    # deploy valmgr contract
     try:
         return deploy_contract(
             state,
-            _valmgr_sender_privkey,
+            sender_privkey,
             viper.compiler.compile(get_valmgr_code())
         )
     except TransactionFailed:
@@ -82,6 +86,8 @@ def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS)
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
     # result == None if apply_message fails?!
     result = apply_message(state, msg)
+    if not result:
+        raise MessageFailed("Msg failed")
     return result
 
 
@@ -93,36 +99,36 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
     tx = tx.sign(sender)
     # refer to the tester.tx
     success, output = apply_transaction(state, tx)
-    # TODO: need to append the tx to the chain.block
+    # TODO: still need to return the tx to broadcast it
     if not success:
         raise TransactionFailed("Tx failed")
     return output, tx
 
 
-def call_deposit_function(state, validator_manager_addr, validation_code_addr, return_addr, sender, value):
+def call_deposit(state, validator_manager_addr, sender_privkey, value, validation_code_addr, return_addr):
     ct = get_valmgr_ct()
     result, tx = call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
-        sender, validator_manager_addr, value
+        sender_privkey, validator_manager_addr, value
     )
     return utils.big_endian_to_int(result), tx
 
 
-def call_withdraw_function(state, validator_manager_addr, validator_index, signature, sender):
+def call_withdraw(state, validator_manager_addr, sender_privkey, validator_index, signature):
     ct = get_valmgr_ct()
     result, tx = call_tx(
         state, ct, 'withdraw', [validator_index, signature],
-        sender, validator_manager_addr, 0
+        sender_privkey, validator_manager_addr, 0
     )
-    return utils.big_endian_to_int(result), tx
+    return bool(utils.big_endian_to_int(result)), tx
 
 
-def call_sample_function(state, validator_manager_addr, block_number, shard_id, sig_index):
-    addr = utils.privtoaddr(utils.sha3("test"))
+def call_sample(state, validator_manager_addr, block_number, shard_id, sig_index):
     ct = get_valmgr_ct()
+    dummy_addr = b'\xff' * 20
     return call_msg(
         state, ct, 'sample', [block_number, shard_id, sig_index],
-        addr, validator_manager_addr
+        dummy_addr, validator_manager_addr
     )
 
 
@@ -132,20 +138,25 @@ def sign(msg_hash, privkey):
     return signature
 
 
-deposit_size = 10 ** 20
-c = t.Chain()
-c.mine(1, coinbase=t.a0)
-c.head_state.gas_limit = 10 ** 10
-c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
-c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
+def test():
+    deposit_size = 10 ** 20
+    valmgr_sender_privkey = t.k0
+    c = t.Chain()
+    c.mine(1, coinbase=t.a0)
+    c.head_state.gas_limit = 10 ** 10
+    c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
+    c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
 
-validator_manager_addr = get_valmgr_addr(c.head_state)
-k0_valcode_addr = deploy_contract(c.head_state, t.k0, serpent.compile(mk_validation_code(t.a0)))
-a = call_deposit_function(c.head_state, validator_manager_addr, k0_valcode_addr, t.a2, t.k0, deposit_size)
-print(a)
-a = call_sample_function(c.head_state, validator_manager_addr, 0, 1, 2)
-print(a)
-print(call_withdraw_function(c.head_state, validator_manager_addr, 0, sign(utils.sha3("withdraw"), t.k0), t.k0))
-a = call_sample_function(c.head_state, validator_manager_addr, 0, 1, 2)
-print(a)
+    validator_manager_addr = deploy_valmgr_contract(c.head_state, valmgr_sender_privkey)
+    k0_valcode_addr = deploy_contract(c.head_state, t.k0, serpent.compile(mk_validation_code(t.a0)))
+    a = call_deposit(c.head_state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
+    print(a)
+    a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
+    print(a)
+    print(call_withdraw(c.head_state, validator_manager_addr, t.k0, 0, sign(utils.sha3("withdraw"), t.k0)))
+    a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
+    print(a)
 
+
+if __name__ == '__main__':
+    test()
