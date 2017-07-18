@@ -1,45 +1,85 @@
+import os
+
 from ethereum.tools import tester as t
 from ethereum import abi, utils, vm
 from ethereum.messages import apply_transaction, apply_message
 from ethereum.transactions import Transaction
+import serpent
 import viper
 
-from sharding.tools import tester
+#from sharding.tools import tester
 
 STARTGAS = 10 ** 8
 GASPRICE = 0
 
-validator_manager_code = open('contracts/validator_manager.v.py').read()
-c = t.Chain()
-x = c.contract(validator_manager_code, language='viper')
-validator_manager_addr = x.address
 
-c.mine(1, coinbase=t.a0)
-deposit_size = 10 ** 20
-c.head_state.gas_limit = 10 ** 10
-c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
-c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
-
+_valmgr_sender_privkey = t.k0
 _valmgr_ct = None
 _valmgr_code = None
+_valmgr_addr = None
 
 class TransactionFailed(Exception):
 
     pass
 
 
+def mk_validation_code(address):
+    validation_code = """
+~calldatacopy(0, 0, 128)
+~call(3000, 1, 0, 0, 128, 0, 32)
+return(~mload(0) == {})
+    """.format(utils.checksum_encode(address))
+    return validation_code
+
+
+def get_valmgr_code():
+    global _valmgr_code
+    if not _valmgr_code:
+        mydir = os.path.dirname(__file__)
+        valmgr_path = os.path.join(mydir, 'contracts/validator_manager.v.py')
+        _valmgr_code = open(valmgr_path).read()
+    return _valmgr_code
+
+
 def get_valmgr_ct():
-    global _valmgr_ct, validator_manager_code
+    global _valmgr_ct, _valmgr_code
     if not _valmgr_ct:
         _valmgr_ct = abi.ContractTranslator(
-            viper.compiler.mk_full_signature(validator_manager_code)
+            viper.compiler.mk_full_signature(get_valmgr_code())
         )
     return _valmgr_ct
 
 
-def call_msg(state, ct, func, args, sender, to, value=0, startgas=STARTGAS):
+def deploy_contract(state, sender_privkey, bytecode):
+    tx = Transaction(
+            state.get_nonce(utils.privtoaddr(sender_privkey)),
+            GASPRICE, STARTGAS, to=b'', value=0,
+            data=bytecode
+    ).sign(sender_privkey)
+    success, output = apply_transaction(state, tx)
+    if not success:
+        raise TransactionFailed("Failed to deploy the contract")
+    return output # addr
+
+
+def get_valmgr_addr(state):
+    global _valmgr_sender_privkey, _valmgr_addr
+    if _valmgr_addr is not None:
+        return _valmgr_addr
+    # deploy valmgr contract
+    try:
+        return deploy_contract(
+            state,
+            _valmgr_sender_privkey,
+            viper.compiler.compile(get_valmgr_code())
+        )
+    except TransactionFailed:
+        raise TransactionFailed("Failed to deploy the validator manager")
+
+
+def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
-    msg = vm.Message(sender, to, value, startgas, abidata)
+    msg = vm.Message(sender_addr, to, value, startgas, abidata)
     # result == None if apply_message fails?!
     result = apply_message(state, msg)
     return result
@@ -61,18 +101,20 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
 
 def call_deposit_function(state, validator_manager_addr, validation_code_addr, return_addr, sender, value):
     ct = get_valmgr_ct()
-    return call_tx(
+    result, tx = call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
         sender, validator_manager_addr, value
     )
+    return utils.big_endian_to_int(result), tx
 
 
 def call_withdraw_function(state, validator_manager_addr, validator_index, signature, sender):
     ct = get_valmgr_ct()
-    return call_tx(
-        state, ct, 'withdraw', [validation_code_addr, return_addr],
-        sender, validator_manager_addr, value
+    result, tx = call_tx(
+        state, ct, 'withdraw', [validator_index, signature],
+        sender, validator_manager_addr, 0
     )
+    return utils.big_endian_to_int(result), tx
 
 
 def call_sample_function(state, validator_manager_addr, block_number, shard_id, sig_index):
@@ -90,11 +132,20 @@ def sign(msg_hash, privkey):
     return signature
 
 
-ct = get_valmgr_ct()
+deposit_size = 10 ** 20
+c = t.Chain()
+c.mine(1, coinbase=t.a0)
+c.head_state.gas_limit = 10 ** 10
+c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
+c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
 
-a = call_deposit_function(c.head_state, validator_manager_addr, validator_manager_addr, validator_manager_addr, t.k0, deposit_size)
+validator_manager_addr = get_valmgr_addr(c.head_state)
+k0_valcode_addr = deploy_contract(c.head_state, t.k0, serpent.compile(mk_validation_code(t.a0)))
+a = call_deposit_function(c.head_state, validator_manager_addr, k0_valcode_addr, t.a2, t.k0, deposit_size)
 print(a)
 a = call_sample_function(c.head_state, validator_manager_addr, 0, 1, 2)
 print(a)
 print(call_withdraw_function(c.head_state, validator_manager_addr, 0, sign(utils.sha3("withdraw"), t.k0), t.k0))
+a = call_sample_function(c.head_state, validator_manager_addr, 0, 1, 2)
+print(a)
 
