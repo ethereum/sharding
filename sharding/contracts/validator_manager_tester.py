@@ -51,6 +51,12 @@ assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, send
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 # test deposit working fine in the edge condition
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
+# test that deposit should fail when valcode_addr is deposited before
+try:
+    x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
+    assert False
+except t.TransactionFailed:
+    pass
 # test withdraw to fail when the signature is not corret
 assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 

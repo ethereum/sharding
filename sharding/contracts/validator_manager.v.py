@@ -25,6 +25,9 @@ shuffling_cycle: num
 # gas limit of the signature validation code
 sig_gas_limit: num
 
+# is a valcode addr deposited now?
+is_valcode_deposited: bool[address]
+
 def __init__():
     self.num_validators = 0
     self.top = 0
@@ -55,6 +58,7 @@ def get_validators_max_index() -> num:
 
 
 def deposit(validation_code_addr: address, return_addr: address) -> num:
+    assert not self.is_valcode_deposited[validation_code_addr]
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
     if not self.is_stack_empty():
@@ -67,6 +71,7 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
         return_addr: return_addr
     }
     self.num_validators += 1
+    self.is_valcode_deposited[validation_code_addr] = True
     return index
 
 
@@ -75,6 +80,7 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1))
     if result:
         send(self.validators[validator_index].return_addr, self.validators[validator_index].deposit)
+        self.is_valcode_deposited[self.validators[validator_index].validation_code_addr] = False
         self.validators[validator_index] = {
             deposit: 0,
             validation_code_addr: None,
