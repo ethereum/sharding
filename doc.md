@@ -117,4 +117,5 @@ This allows for a quick and dirty form of medium-security proof of stake shardin
 
 * **Phase 2, option a**: require collation headers to be added in as uncles instead of as transactions
 * **Phase 2, option b**: require collation headers to be added in an array, where item `i` in the array must be either a collation header of shard `i` or the empty string, and where the extra data must be the hash of this array (soft fork)
-* **Phase 3**: 
+* **Phase 3 (two-way pegging)**: add to the `USED_RECEIPT_STORE_ADDRESS` contract a function that allows receipts to be created in shards. Add to the main chain's `VALIDATOR_MANAGER_ADDRESS` a function for submitting Merkle proofs of unspent receipts that have confirmed (ie. they point to some hash `h` such that some hash `h2` exists such that `getAncestor(h2) = h` and `getAncestorDistance(h2) < 10000 * PERIOD_LENGTH * 1.33`), which has similar behavior to the `USED_RECEIPT_STORE_ADDRESS` contract in the shards.
+* **Phase 4 (tight coupling)**: blocks are no longer valid if they point to invalid or unavailable collations. Add data availability proofs.

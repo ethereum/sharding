@@ -136,5 +136,6 @@
 <ul>
 <li><strong>Phase 2, option a</strong>: require collation headers to be added in as uncles instead of as transactions</li>
 <li><strong>Phase 2, option b</strong>: require collation headers to be added in an array, where item <code>i</code> in the array must be either a collation header of shard <code>i</code> or the empty string, and where the extra data must be the hash of this array (soft fork)</li>
-<li><strong>Phase 3</strong>: </li>
+<li><strong>Phase 3 (two-way pegging)</strong>: add to the <code>USED_RECEIPT_STORE_ADDRESS</code> contract a function that allows receipts to be created in shards. Add to the main chain's <code>VALIDATOR_MANAGER_ADDRESS</code> a function for submitting Merkle proofs of unspent receipts that have confirmed (ie. they point to some hash <code>h</code> such that some hash <code>h2</code> exists such that <code>getAncestor(h2) = h</code> and <code>getAncestorDistance(h2) &lt; 10000 * PERIOD_LENGTH * 1.33</code>), which has similar behavior to the <code>USED_RECEIPT_STORE_ADDRESS</code> contract in the shards.</li>
+<li><strong>Phase 4 (tight coupling)</strong>: blocks are no longer valid if they point to invalid or unavailable collations. Add data availability proofs.</li>
 </ul>
