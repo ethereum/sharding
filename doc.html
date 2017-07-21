@@ -4,13 +4,13 @@
 
 <ul>
 <li><code>deposit(address validationCodeAddr, address returnAddr) returns uint256</code>: adds a validator to the validator set, with the validator's size being the <code>msg.value</code> (ie. amount of ETH deposited) in the function call. Returns the validator index. <code>validationCodeAddr</code> stores the address of the validation code; the function fails if this address's code has not been purity-verified.</li>
-<li><code>withdraw(uint256 validatorIndex, bytes sig) returns bool</code>: verifies that the signature is correct (ie. a call with 200000 gas, <code>validationCodeAddr</code> as destination, 0 value and <code>sha3("withdraw") + sig</code> as data returns 1).</li>
+<li><code>withdraw(uint256 validatorIndex, bytes sig) returns bool</code>: verifies that the signature is correct (ie. a call with 200000 gas, <code>validationCodeAddr</code> as destination, 0 value and <code>sha3("withdraw") + sig</code> as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.</li>
 <li><code>sample(uint256 shardId) returns uint256</code>: uses a recent block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit.</li>
 <li><code>addHeader(bytes header) returns bool</code>: attempts to process a collation header, returns True on success, reverts on failure.</li>
 <li><code>getHead(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
 <li><code>getAncestor(bytes32 hash)</code>: returns the 10000th ancestor of this hash.</li>
 <li><code>getAncestorDistance(bytes32 hash)</code>: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.</li>
-<li><code>getCollationGasLimit()</code>: returns the gas limit that collations can currently have (by default make this function always answer 10 million)</li>
+<li><code>getCollationGasLimit()</code>: returns the gas limit that collations can currently have (by default make this function always answer 10 million).</li>
 <li><code>txToShard(address to, uint256 shardId, bytes data) returns uint256</code>: records a request to deposit <code>msg.value</code> ETH to address <code>to</code> in shard <code>shardId</code> during a future collation. Saves a receipt ID for this request, also saving <code>msg.value</code>, <code>to</code>, <code>shardId</code>, <code>data</code> and <code>msg.sender</code>.</li>
 </ul>
 
@@ -123,13 +123,14 @@
 
 <ul>
 <li>Every time a new <code>SHUFFLING_CYCLE</code> starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)</li>
+<li>The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable blocks, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.</li>
 <li>If a validator is currently eligible to validate in some shard <code>i</code>, they download the full collation association with any collation header that is included into block headers for shard <code>i</code>.</li>
 <li>When on the current global main chain a new period starts, the validator calls <code>sample(i)</code> to determine if they are eligible to create a collation; if they are, then they do so.</li>
 </ul>
 
 <h3>Rationale</h3>
 
-<p>This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves exponential scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. The intention would be to replace it in the next hardfork with a design that adds in erasure coded data availability proofs, fraud proofs, and the formal requirement for block proposers and validators to reject collations that are not valid at the transactional level, even if they have the requisite number of signatures.  Additionally, this model does not support movement of ETH between shards; it is the intention that a future version of the design will.</p>
+<p>This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.</p>
 
 <h3>Subsequent phases</h3>
 
