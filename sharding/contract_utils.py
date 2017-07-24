@@ -156,21 +156,21 @@ def test():
     valmgr_sender_privkey = t.k0
     c = t.Chain()
     c.mine(1, coinbase=t.a0)
-    c.head_state.gas_limit = 10 ** 10
-    c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
-    c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
+    state = c.head_state
+    state.gas_limit = 10 ** 10
+    state.set_balance(address=t.a0, value=deposit_size * 10)
+    state.set_balance(address=t.a1, value=deposit_size * 10)
 
-    validator_manager_addr = deploy_valmgr_contract(c.head_state, valmgr_sender_privkey)
-    k0_valcode_addr = deploy_contract(c.head_state, t.k0, serpent.compile(mk_validation_code(t.a0)))
-    a = call_deposit(c.head_state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
+    validator_manager_addr = deploy_valmgr_contract(state, valmgr_sender_privkey)
+    k0_valcode_addr = deploy_contract(state, t.k0, serpent.compile(mk_validation_code(t.a0)))
+    a = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
     print(a)
-    a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
+    a = call_sample(state.ephemeral_clone(), validator_manager_addr, 0, 1, 2)
     print(a)
-    print(call_withdraw(c.head_state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0)))
-    a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
+    print(call_withdraw(state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0)))
+    a = call_sample(state.ephemeral_clone(), validator_manager_addr, 0, 1, 2)
     print(a)
-    print(call_validation_code(c.head_state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
-
+    print(call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
 
 if __name__ == '__main__':
     test()
