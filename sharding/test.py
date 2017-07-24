@@ -84,7 +84,6 @@ def deploy_valmgr_contract(state, sender_privkey):
 def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
-    # result == None if apply_message fails?!
     result = apply_message(state, msg)
     if not result:
         raise MessageFailed("Msg failed")
@@ -132,6 +131,17 @@ def call_sample(state, validator_manager_addr, block_number, shard_id, sig_index
     )
 
 
+def call_validation_code(state, validation_code_addr, msg_hash, signature):
+    dummy_addr = b'\xff' * 20
+    data = msg_hash + signature
+    msg = vm.Message(dummy_addr, validation_code_addr, 0, 200000, data)
+    # result == None if apply_message fails?!
+    result = apply_message(state, msg)
+    if not result:
+        raise MessageFailed()
+    return bool(utils.big_endian_to_int(result))
+
+
 def sign(msg_hash, privkey):
     v, r, s = utils.ecsign(msg_hash, privkey)
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
@@ -140,6 +150,7 @@ def sign(msg_hash, privkey):
 
 def test():
     deposit_size = 10 ** 20
+    withdraw_hash = utils.sha3("withdraw")
     valmgr_sender_privkey = t.k0
     c = t.Chain()
     c.mine(1, coinbase=t.a0)
@@ -153,9 +164,10 @@ def test():
     print(a)
     a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
     print(a)
-    print(call_withdraw(c.head_state, validator_manager_addr, t.k0, 0, sign(utils.sha3("withdraw"), t.k0)))
+    print(call_withdraw(c.head_state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0)))
     a = call_sample(c.head_state, validator_manager_addr, 0, 1, 2)
     print(a)
+    print(call_validation_code(c.head_state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
 
 
 if __name__ == '__main__':
