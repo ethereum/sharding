@@ -9,12 +9,12 @@ from sharding.collation import Collation, CollationHeader
 log = get_logger('sharding.shard_state_transition')
 
 
-def mk_collation_from_prevstate(chain, state=None, timestamp=None, coinbase='\x35' * 20):
+def mk_collation_from_prevstate(shard_chain, state=None, timestamp=None, coinbase='\x35' * 20):
     """Make collation from previous state (refer to mk_blk_from_prevstate)
     """
-    state = state or chain.shard_state
+    state = state or shard_chain.state
     collation = Collation(CollationHeader(), [])
-    collation.header.shardId = chain.shardId
+    collation.header.shardId = shard_chain.shardId
     collation.header.prev_state_root = state.trie.root_hash
     collation.header.coinbase = coinbase
     return collation
