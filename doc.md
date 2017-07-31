@@ -30,6 +30,7 @@ We first define a "collation header" as an RLP list with the following values:
     [
         shardId: uint256,
         expected_period_number: uint256,
+        period_start_prevhash: bytes32,
         parent_collation_hash: uint256,
         tx_list_root: bytes32,
         coinbase: address,
@@ -42,6 +43,7 @@ Where:
 
 -   `shardId` is the shard ID of the shard
 -   `expected_period_number` is the period number in which this collation expects to be included. A period is an interval of `PERIOD_LENGTH` blocks.
+-   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
 -   `parent_collation_hash` is the hash of the parent collation
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation
 -   `post_state_root` is the new state root of the shard after this aollation
