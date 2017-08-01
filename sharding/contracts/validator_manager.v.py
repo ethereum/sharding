@@ -28,14 +28,22 @@ sig_gas_limit: num
 # is a valcode addr deposited now?
 is_valcode_deposited: bool[address]
 
+period_length: num
+
+shard_count: num
+
+collator_reward: decimal
+
 def __init__():
     self.num_validators = 0
     self.top = 0
     # 10 ** 20 wei = 100 ETH
     self.deposit_size = 100000000000000000000
     self.shuffling_cycle = 2500
-    self.sig_gas_limit = 200000
-
+    self.sig_gas_limit = 400000
+    self.period_length = 5
+    self.shard_count = 100
+    self.collator_reward = 0.002
 
 def is_stack_empty() -> bool:
     return (self.top == 0)
@@ -91,13 +99,13 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     return result
 
 
-def sample(block_number: num, shard_id: num, sig_index: num) -> address:
+def sample(shard_id: num) -> address:
     zero_addr = 0x0000000000000000000000000000000000000000
 
-    cycle = floor(decimal(block_number / self.shuffling_cycle))
+    cycle = floor(decimal(block.number / self.shuffling_cycle))
     cycle_seed = blockhash(cycle * self.shuffling_cycle)
-    seed = blockhash(block_number)
-    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(sig_index)))),
+    seed = blockhash(block.number  - (block.number % self.period_length))
+    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                  as_num256(100))
     if self.num_validators != 0:
         # TODO: here we assume this fixed number of rounds is enough to sample
@@ -110,3 +118,5 @@ def sample(block_number: num, shard_id: num, sig_index: num) -> address:
                 return addr
 
     return zero_addr
+
+

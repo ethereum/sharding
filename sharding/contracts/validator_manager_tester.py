@@ -62,6 +62,6 @@ assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 
 # test sample
 assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
-assert x.sample(0, 1, 2) == hex(utils.big_endian_to_int(k1_valcode_addr))
+assert x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr))
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
-assert x.sample(0, 1, 2) == "0x0000000000000000000000000000000000000000"
+assert x.sample(0) == "0x0000000000000000000000000000000000000000"

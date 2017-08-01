@@ -138,11 +138,11 @@ def call_withdraw(state, validator_manager_addr, sender_privkey, validator_index
     )
 
 
-def call_sample(state, validator_manager_addr, block_number, shard_id, sig_index):
+def call_sample(state, validator_manager_addr, shard_id):
     ct = get_valmgr_ct()
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, ct, 'sample', [block_number, shard_id, sig_index],
+        state, ct, 'sample', [shard_id],
         dummy_addr, validator_manager_addr
     )
 
@@ -223,14 +223,13 @@ def test():
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
     tx = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
     print(deploy_tx(state, tx))
-    a = call_sample(state, validator_manager_addr, 0, 1, 2)
+    a = call_sample(state, validator_manager_addr, 0)
     print(a)
     tx = call_withdraw(state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0))
     print(deploy_tx(state, tx))
-    a = call_sample(state, validator_manager_addr, 0, 1, 2)
+    a = call_sample(state, validator_manager_addr, 0)
     print(a)
     print(call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
-
 
 
 if __name__ == '__main__':
