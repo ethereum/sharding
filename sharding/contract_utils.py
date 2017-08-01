@@ -237,7 +237,7 @@ def test():
     state.set_balance(address=t.a1, value=deposit_size * 10)
 
     validator_manager_addr = deploy_valmgr_contract(state, valmgr_sender_privkey)
-    k0_valcode_addr = deploy_contract(state, t.k3, mk_validation_code(t.a3))
+    k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
     validation_bytecode_prefix = b"a\x009\x80a\x00\x0e`\x009a\x00GV`\x80`\x00`\x007` `\x00`\x80`\x00`\x00`\x01a\x0b\xb8\xf1Ps"
     validation_bytecode_postfix = b"`\x00Q\x14` R` ` \xf3[`\x00\xf3"
     a = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
