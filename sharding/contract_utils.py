@@ -4,15 +4,11 @@ from ethereum.tools import tester as t
 from ethereum import abi, utils, vm
 from ethereum.messages import apply_transaction, apply_message
 from ethereum.transactions import Transaction
-import serpent
 import viper
 import rlp
 
-#from sharding.tools import tester
-
 STARTGAS = 10 ** 8
 GASPRICE = 0
-TESTING = True
 
 _valmgr_ct = None
 _valmgr_code = None
@@ -30,15 +26,6 @@ class MessageFailed(Exception):
 class TransactionFailed(Exception):
 
     pass
-
-
-def mk_validation_code(address):
-    validation_code = """
-~calldatacopy(0, 0, 128)
-~call(3000, 1, 0, 0, 128, 0, 32)
-return(~mload(0) == {})
-    """.format(utils.checksum_encode(address))
-    return serpent.compile(validation_code)
 
 
 def get_valmgr_ct():
@@ -118,43 +105,10 @@ def create_valmgr_tx(gasprice=GASPRICE, startgas=STARTGAS):
     _valmgr_tx = tx
 
 
-def deploy_contract(state, sender_privkey, bytecode):
-    tx = Transaction(
-            state.get_nonce(utils.privtoaddr(sender_privkey)),
-            GASPRICE, STARTGAS, to=b'', value=0,
-            data=bytecode
-    ).sign(sender_privkey)
-    if TESTING:
-        cloned_state = state
-    else:
-        cloned_state = state.ephemeral_clone()
-    success, output = apply_transaction(cloned_state, tx)
-    if not success:
-        raise TransactionFailed("Failed to deploy the contract")
-    return output # addr
-
-
-def deploy_valmgr_contract(state, sender_privkey):
-    global _valmgr_addr
-    # FIXME: should valmgr contract only exist once?
-    try:
-        addr = deploy_contract(
-            state,
-            sender_privkey,
-            get_valmgr_bytecode()
-        )
-        create_valmgr_tx()
-        print(get_valmgr_addr())
-        return addr
-    except TransactionFailed:
-        raise TransactionFailed("Failed to deploy the validator manager")
-
-
 def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
-    cloned_state = state.ephemeral_clone()
-    result = apply_message(cloned_state, msg)
+    result = apply_message(state.ephemeral_clone(), msg)
     if result is None:
         raise MessageFailed("Msg failed")
     return result
@@ -164,36 +118,24 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
     # Transaction(nonce, gasprice, startgas, to, value, data, v=0, r=0, s=0)
     tx = Transaction(state.get_nonce(utils.privtoaddr(sender)), gasprice, startgas, to, value,
             ct.encode_function_call(func, args)
-         )
-    tx = tx.sign(sender)
-    # refer to the tester.tx
-    if TESTING:
-        cloned_state = state
-    else:
-        cloned_state = state.ephemeral_clone()
-    success, output = apply_transaction(cloned_state, tx)
-    # TODO: still need to return the tx to broadcast it
-    if not success:
-        raise TransactionFailed("Tx failed")
-    return output, tx
+         ).sign(sender)
+    return tx
 
 
 def call_deposit(state, validator_manager_addr, sender_privkey, value, validation_code_addr, return_addr):
     ct = get_valmgr_ct()
-    result, tx = call_tx(
+    return call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
         sender_privkey, validator_manager_addr, value
     )
-    return utils.big_endian_to_int(result), tx
 
 
 def call_withdraw(state, validator_manager_addr, sender_privkey, validator_index, signature):
     ct = get_valmgr_ct()
-    result, tx = call_tx(
+    return call_tx(
         state, ct, 'withdraw', [validator_index, signature],
         sender_privkey, validator_manager_addr, 0
     )
-    return bool(utils.big_endian_to_int(result)), tx
 
 
 def call_sample(state, validator_manager_addr, block_number, shard_id, sig_index):
@@ -212,11 +154,52 @@ def call_validation_code(state, validation_code_addr, msg_hash, signature):
     dummy_addr = b'\xff' * 20
     data = msg_hash + signature
     msg = vm.Message(dummy_addr, validation_code_addr, 0, 200000, data)
-    cloned_state = state.ephemeral_clone()
-    result = apply_message(cloned_state, msg)
+    result = apply_message(state.ephemeral_clone(), msg)
     if result is None:
         raise MessageFailed()
     return bool(utils.big_endian_to_int(result))
+
+
+# Testing Part
+def deploy_tx(state, tx):
+    success, output = apply_transaction(state, tx)
+    if not success:
+        raise TransactionFailed("Failed to deploy tx")
+    return output
+
+
+def deploy_contract(state, sender_privkey, bytecode):
+    tx = Transaction(
+            state.get_nonce(utils.privtoaddr(sender_privkey)),
+            GASPRICE, STARTGAS, to=b'', value=0,
+            data=bytecode
+    ).sign(sender_privkey)
+    return deploy_tx(state, tx)
+
+
+def deploy_valmgr_contract(state):
+    addr = get_valmgr_addr()
+    if not state.account_exists(addr):
+        deploy_tx(state, _valmgr_tx)
+    return addr
+
+
+def mk_validation_code(address):
+    '''
+    validation_code = """
+~calldatacopy(0, 0, 128)
+~call(3000, 1, 0, 0, 128, 0, 32)
+return(~mload(0) == {})
+    """.format(utils.checksum_encode(address))
+    return serpent.compile(validation_code)
+    '''
+    # The precompiled bytecode of the validation code which
+    # verifies EC signatures
+    validation_code_bytecode = b"a\x009\x80a\x00\x0e`\x009a\x00GV`\x80`\x00`\x007` "
+    validation_code_bytecode += b"`\x00`\x80`\x00`\x00`\x01a\x0b\xb8\xf1Ps"
+    validation_code_bytecode += address
+    validation_code_bytecode += b"`\x00Q\x14` R` ` \xf3[`\x00\xf3"
+    return validation_code_bytecode
 
 
 def sign(msg_hash, privkey):
@@ -236,18 +219,19 @@ def test():
     state.set_balance(address=t.a0, value=deposit_size * 10)
     state.set_balance(address=t.a1, value=deposit_size * 10)
 
-    validator_manager_addr = deploy_valmgr_contract(state, valmgr_sender_privkey)
+    validator_manager_addr = deploy_valmgr_contract(state)
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
-    validation_bytecode_prefix = b"a\x009\x80a\x00\x0e`\x009a\x00GV`\x80`\x00`\x007` `\x00`\x80`\x00`\x00`\x01a\x0b\xb8\xf1Ps"
-    validation_bytecode_postfix = b"`\x00Q\x14` R` ` \xf3[`\x00\xf3"
-    a = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
-    print(a)
+    tx = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
+    print(deploy_tx(state, tx))
     a = call_sample(state, validator_manager_addr, 0, 1, 2)
     print(a)
-    print(call_withdraw(state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0)))
+    tx = call_withdraw(state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0))
+    print(deploy_tx(state, tx))
     a = call_sample(state, validator_manager_addr, 0, 1, 2)
     print(a)
     print(call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
+
+
 
 if __name__ == '__main__':
     test()
