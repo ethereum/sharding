@@ -16,6 +16,7 @@ TESTING = True
 
 _valmgr_ct = None
 _valmgr_code = None
+_valmgr_bytecode = None
 _valmgr_addr = None
 _valmgr_sender_addr = None
 _valmgr_tx = None
@@ -40,6 +41,15 @@ return(~mload(0) == {})
     return serpent.compile(validation_code)
 
 
+def get_valmgr_ct():
+    global _valmgr_ct, _valmgr_code
+    if not _valmgr_ct:
+        _valmgr_ct = abi.ContractTranslator(
+            viper.compiler.mk_full_signature(get_valmgr_code())
+        )
+    return _valmgr_ct
+
+
 def get_valmgr_code():
     global _valmgr_code
     if not _valmgr_code:
@@ -49,13 +59,32 @@ def get_valmgr_code():
     return _valmgr_code
 
 
-def get_valmgr_ct():
-    global _valmgr_ct, _valmgr_code
-    if not _valmgr_ct:
-        _valmgr_ct = abi.ContractTranslator(
-            viper.compiler.mk_full_signature(get_valmgr_code())
-        )
-    return _valmgr_ct
+def get_valmgr_bytecode():
+    global _valmgr_bytecode
+    if not _valmgr_bytecode:
+        _valmgr_bytecode = viper.compiler.compile(get_valmgr_code())
+    return _valmgr_bytecode
+
+
+def get_valmgr_addr():
+    global _valmgr_addr
+    if not _valmgr_addr:
+        create_valmgr_tx()
+    return _valmgr_addr
+
+
+def get_valmgr_sender_addr():
+    global _valmgr_sender_addr
+    if not _valmgr_sender_addr:
+        create_valmgr_tx()
+    return _valmgr_sender_addr
+
+
+def get_valmgr_tx():
+    global _valmgr_tx
+    if not _valmgr_tx:
+        create_valmgr_tx()
+    return _valmgr_tx
 
 
 def get_tx_rawhash(tx, network_id = None):
@@ -74,7 +103,7 @@ def get_tx_rawhash(tx, network_id = None):
 
 def create_valmgr_tx(gasprice=GASPRICE, startgas=STARTGAS):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
-    bytecode = viper.compiler.compile(get_valmgr_code())
+    bytecode = get_valmgr_bytecode()
     tx = Transaction(0 , gasprice, startgas, to=b'', value = 0, data=bytecode)
     tx.v = 28
     tx.r = 88211215265987573091860955075888007489896784216713220703632101173354667862905
@@ -89,18 +118,16 @@ def create_valmgr_tx(gasprice=GASPRICE, startgas=STARTGAS):
     _valmgr_tx = tx
 
 
-def get_valmgr_sender_addr():
-    global _valmgr_sender_addr
-    if _valmgr_sender_addr is None:
-        pass
-
 def deploy_contract(state, sender_privkey, bytecode):
     tx = Transaction(
             state.get_nonce(utils.privtoaddr(sender_privkey)),
             GASPRICE, STARTGAS, to=b'', value=0,
             data=bytecode
     ).sign(sender_privkey)
-    cloned_state = state
+    if TESTING:
+        cloned_state = state
+    else:
+        cloned_state = state.ephemeral_clone()
     success, output = apply_transaction(cloned_state, tx)
     if not success:
         raise TransactionFailed("Failed to deploy the contract")
@@ -110,17 +137,14 @@ def deploy_contract(state, sender_privkey, bytecode):
 def deploy_valmgr_contract(state, sender_privkey):
     global _valmgr_addr
     # FIXME: should valmgr contract only exist once?
-    if _valmgr_addr is not None:
-        return _valmgr_addr
     try:
         addr = deploy_contract(
             state,
             sender_privkey,
-            viper.compiler.compile(get_valmgr_code())
+            get_valmgr_bytecode()
         )
         create_valmgr_tx()
-        print("valmgr_contract_addr: ", addr)
-        print("valmgr_addr_manual  : ", _valmgr_addr)
+        print(get_valmgr_addr())
         return addr
     except TransactionFailed:
         raise TransactionFailed("Failed to deploy the validator manager")
@@ -213,12 +237,9 @@ def test():
     state.set_balance(address=t.a1, value=deposit_size * 10)
 
     validator_manager_addr = deploy_valmgr_contract(state, valmgr_sender_privkey)
-    print(t.a3)
-    print(state.get_nonce(t.a3))
-    k0_valcode_addr_manual = utils.mk_contract_address(t.a3, state.get_nonce(t.a3))
     k0_valcode_addr = deploy_contract(state, t.k3, mk_validation_code(t.a3))
-    print("k0\t : ", utils.big_endian_to_int(k0_valcode_addr))
-    print("k1\t : ", utils.big_endian_to_int(k0_valcode_addr_manual))
+    validation_bytecode_prefix = b"a\x009\x80a\x00\x0e`\x009a\x00GV`\x80`\x00`\x007` `\x00`\x80`\x00`\x00`\x01a\x0b\xb8\xf1Ps"
+    validation_bytecode_postfix = b"`\x00Q\x14` R` ` \xf3[`\x00\xf3"
     a = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
     print(a)
     a = call_sample(state, validator_manager_addr, 0, 1, 2)
