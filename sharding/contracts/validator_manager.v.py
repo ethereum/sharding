@@ -14,13 +14,13 @@ num_validators: public(num)
 empty_slots_stack: num[num]
 
 # the top index of the stack in empty_slots_stack
-top: public(num)
+empty_slots_stack_top: num
 
 # the exact deposit size which you have to deposit to become a validator
 deposit_size: wei_value
 
 # any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
-shuffling_cycle: num
+shuffling_cycle_length: num
 
 # gas limit of the signature validation code
 sig_gas_limit: num
@@ -36,35 +36,36 @@ collator_reward: decimal
 
 def __init__():
     self.num_validators = 0
-    self.top = 0
+    self.empty_slots_stack_top = 0
     # 10 ** 20 wei = 100 ETH
     self.deposit_size = 100000000000000000000
-    self.shuffling_cycle = 2500
+    self.shuffling_cycle_length = 2500
     self.sig_gas_limit = 400000
     self.period_length = 5
     self.shard_count = 100
     self.collator_reward = 0.002
 
 def is_stack_empty() -> bool:
-    return (self.top == 0)
+    return (self.empty_slots_stack_top == 0)
 
 
 def stack_push(index: num):
-    self.empty_slots_stack[self.top] = index
-    self.top += 1
+    self.empty_slots_stack[self.empty_slots_stack_top] = index
+    self.empty_slots_stack_top += 1
 
 
 def stack_pop() -> num:
     if self.is_stack_empty():
         return -1
-    self.top -= 1
-    return self.empty_slots_stack[self.top]
+    self.empty_slots_stack_top -= 1
+    return self.empty_slots_stack[self.empty_slots_stack_top]
 
 
 def get_validators_max_index() -> num:
-    return self.num_validators + self.get_top()
+    return self.num_validators + self.empty_slots_stack_top
 
 
+@payable
 def deposit(validation_code_addr: address, return_addr: address) -> num:
     assert not self.is_valcode_deposited[validation_code_addr]
     assert msg.value == self.deposit_size
@@ -102,8 +103,8 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 def sample(shard_id: num) -> address:
     zero_addr = 0x0000000000000000000000000000000000000000
 
-    cycle = floor(decimal(block.number / self.shuffling_cycle))
-    cycle_seed = blockhash(cycle * self.shuffling_cycle)
+    cycle = floor(decimal(block.number / self.shuffling_cycle_length))
+    cycle_seed = blockhash(cycle * self.shuffling_cycle_length)
     seed = blockhash(block.number  - (block.number % self.period_length))
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                  as_num256(100))
