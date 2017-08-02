@@ -8,6 +8,13 @@ validators: public({
     return_addr: address,
 }[num])
 
+collation_headers: public({
+    shard_id: num,
+    hash: bytes32,
+    parent_hash: bytes32,
+    score: num,
+}[num][bytes32])
+
 num_validators: public(num)
 
 # indexs of empty slots caused by the function `withdraw`
@@ -33,6 +40,8 @@ period_length: num
 shard_count: num
 
 collator_reward: decimal
+
+
 
 def __init__():
     self.num_validators = 0
@@ -120,4 +129,32 @@ def sample(shard_id: num) -> address:
 
     return zero_addr
 
+
+# Attempts to process a collation header, returns True on success, reverts on failure.
+def add_header(header: bytes <= 1000) -> bool:
+
+    return True
+
+
+# Returns the header hash that is the head of a given shard as perceived by
+# the manager contract.
+def get_head(shard_id: num) -> bytes32:
+    pass
+
+
+# Returns the 10000th ancestor of this hash.
+def get_ancestor(hash: bytes32) -> bytes32:
+    pass
+
+
+# Returns the difference between the block number of this hash and the block
+# number of the 10000th ancestor of this hash.
+def get_ancestor_distance(hash: bytes32) -> bytes32:
+    pass
+
+
+# Returns the gas limit that collations can currently have (by default make
+# this function always answer 10 million).
+def get_collation_gas_limit() -> num:
+    pass
 
