@@ -27,10 +27,10 @@ c = t.Chain()
 k0_valcode_addr = c.tx(t.k0, '', 0, serpent.compile(mk_validation_code(t.a0)))
 k1_valcode_addr = c.tx(t.k1, '', 0, serpent.compile(mk_validation_code(t.a1)))
 
-x = c.contract(validator_manager_code, language='viper')
-
 c.mine(1, coinbase=t.a0)
-c.head_state.gas_limit = 10 ** 10
+# print(c.head_state.gas_limit)
+c.head_state.gas_limit = 10 ** 12
+x = c.contract(validator_manager_code, language='viper', startgas=10**9)
 c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
 c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
 
@@ -65,3 +65,32 @@ assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
 assert x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr))
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 assert x.sample(0) == "0x0000000000000000000000000000000000000000"
+
+def get_testing_header():
+    shard_id = 0
+    expected_period_number = 0
+    period_start_prevhash = b"period  " * 4
+    parent_collation_hash = utils.sha3(utils.encode_int32(shard_id) + b"GENESIS")
+    tx_list_root = b"tx_list " * 4
+    collation_coinbase = t.a0
+    post_state_root = b"post_sta" * 4
+    receipt_root = b"receipt " * 4
+    sig = b"123"
+    a = utils.encode_int32(shard_id) # shard_id
+    a += utils.encode_int32(expected_period_number) # expected_period_number
+    a += period_start_prevhash
+    a += parent_collation_hash
+    a += tx_list_root
+    a += collation_coinbase
+    a += post_state_root
+    a += receipt_root
+    a += sig
+    return a
+
+a = get_testing_header()
+
+print(utils.sha3(utils.encode_int32(0) + b'GENESIS'))
+# post_state_root: bytes32
+# receipt_root: bytes32
+# sig: bytes
+print(x.add_header(a))

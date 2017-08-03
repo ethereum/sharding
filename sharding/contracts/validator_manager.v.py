@@ -13,7 +13,9 @@ collation_headers: public({
     hash: bytes32,
     parent_hash: bytes32,
     score: num,
-}[num][bytes32])
+}[bytes32][num])
+
+shard_head: bytes32[num]
 
 num_validators: public(num)
 
@@ -53,6 +55,16 @@ def __init__():
     self.period_length = 5
     self.shard_count = 100
     self.collator_reward = 0.002
+    for i in range(100):
+        genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
+        self.collation_headers[i][genesis_header_hash] = {
+            shard_id: i,
+            hash: genesis_header_hash,
+            parent_hash: genesis_header_hash,
+            score: 0
+        }
+        self.shard_head[i] = genesis_header_hash
+
 
 def is_stack_empty() -> bool:
     return (self.empty_slots_stack_top == 0)
@@ -131,15 +143,69 @@ def sample(shard_id: num) -> address:
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
-def add_header(header: bytes <= 1000) -> bool:
+def add_header(header: bytes <= 1000) -> bytes32:
+    # shardId: uint256,
+    # expected_period_number: uint256,
+    # period_start_prevhash: bytes32,
+    # parent_collation_hash: bytes32,
+    # tx_list_root: bytes32,
+    # coinbase: address,
+    # post_state_root: bytes32,
+    # receipt_root: bytes32,
+    # sig: bytes
 
-    return True
+    # TODO: deserialize the header using RLPlist
+    shard_id = as_num128(extract32(slice(header, start=0, len=32), 0))
+    expected_period_number = as_num128(extract32(slice(header, start=32, len=32), 0))
+    period_start_prevhash = extract32(slice(header, start=64, len=32), 0)
+    parent_collation_hash = extract32(slice(header, start=96, len=32), 0)
+    tx_list_root = extract32(slice(header, start=128, len=32), 0)
+    # FIXME: leave the coinbase alone now
+    collation_coinbase = slice(header, start=160, len=20)
+    post_state_root = extract32(slice(header, start=180, len=32), 0)
+    receipt_root = extract32(slice(header, start=212, len=32), 0)
+    len_sig = len(header) - 32 * 5 - 20 - 32 * 2
+    sig = slice(header, start=244, len=len_sig)
+
+    #    collation_headers: public({
+    #        shard_id: num,
+    #        hash: bytes32,
+    #        parent_hash: bytes32,
+    #        score: num,
+    #    }[num][bytes32])
+    # Check if the header is valid
+    assert shard_id >= 0
+    assert expected_period_number == floor(decimal(block.number / self.period_length))
+    # Check if the parent hash exists
+    assert self.collation_headers[shard_id][parent_collation_hash].hash != as_bytes32(0)
+    # TODO: Check the signature with validation_code_addr
+    
+
+    # Add the header
+    _hash = sha3(header)
+    _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
+    self.collation_headers[shard_id][parent_collation_hash] = {
+        shard_id: shard_id,
+        # FIXME: We should use the result of rlpencode and hash as the header hash?
+        hash: _hash,
+        parent_hash: parent_collation_hash,
+        score: _score
+    }
+
+    # Determine the head
+    if _score > self.collation_headers[shard_id][self.shard_head[shard_id]].score:
+        self.shard_head[shard_id] = _hash
+
+    # TODO: Emit log
+
+
+    return sha3(concat(as_bytes32(0), "GENESIS"))
 
 
 # Returns the header hash that is the head of a given shard as perceived by
 # the manager contract.
 def get_head(shard_id: num) -> bytes32:
-    pass
+    return self.shard_head[shard_id]
 
 
 # Returns the 10000th ancestor of this hash.
@@ -156,5 +222,5 @@ def get_ancestor_distance(hash: bytes32) -> bytes32:
 # Returns the gas limit that collations can currently have (by default make
 # this function always answer 10 million).
 def get_collation_gas_limit() -> num:
-    pass
+    return 10000000
 
