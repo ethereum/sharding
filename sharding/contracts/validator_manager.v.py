@@ -45,6 +45,8 @@ collator_reward: decimal
 
 add_header_log_topic: bytes32
 
+sighasher_addr: address
+
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
@@ -56,6 +58,7 @@ def __init__():
     self.shard_count = 100
     self.collator_reward = 0.002
     self.add_header_log_topic = sha3("add_header()")
+    self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
     # Initialize all genesis header for all shards
     for i in range(100):
         genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
@@ -157,19 +160,18 @@ def add_header(header: bytes <= 4096) -> bool:
     # sig: bytes
 
     # TODO: deserialize the header using RLPList
-    # values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
-    shard_id = as_num128(extract32(slice(header, start=0, len=32), 0))
-    expected_period_number = as_num128(extract32(slice(header, start=32, len=32), 0))
-    period_start_prevhash = extract32(slice(header, start=64, len=32), 0)
-    parent_collation_hash = extract32(slice(header, start=96, len=32), 0)
-    tx_list_root = extract32(slice(header, start=128, len=32), 0)
-    # FIXME: leave the coinbase alone now
-    collation_coinbase = slice(header, start=160, len=20)
-    post_state_root = extract32(slice(header, start=180, len=32), 0)
-    receipt_root = extract32(slice(header, start=212, len=32), 0)
-    len_data = 32 * 5 + 20 + 32 * 2
-    len_sig = len(header) - len_data
-    sig = slice(header, start=len_data, len=len_sig)
+    values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
+    shard_id = values[0]
+    expected_period_number = values[1]
+    period_start_prevhash = values[2]
+    parent_collation_hash = values[3]
+    tx_list_root = values[4]
+    collation_coinbase = values[5]
+    post_state_root = values[6]
+    receipt_root = values[7]
+    sig = values[8]
+
+    sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
 
     # Check if the header is valid
     assert shard_id >= 0
@@ -177,9 +179,8 @@ def add_header(header: bytes <= 4096) -> bool:
     # Check if the parent hash exists
     assert self.collation_headers[shard_id][parent_collation_hash].hash != as_bytes32(0)
     # Check the signature with validation_code_addr
-    data_hash = sha3(slice(header, start=0, len=len_data))
     collator_valcode_addr = self.sample(shard_id)
-    assert extract32(raw_call(collator_valcode_addr, concat(data_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
+    assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
     # Add the header
     entire_header_hash = sha3(header)
@@ -196,7 +197,7 @@ def add_header(header: bytes <= 4096) -> bool:
     if _score > self.collation_headers[shard_id][self.shard_head[shard_id]].score:
         self.shard_head[shard_id] = entire_header_hash
 
-    # TODO: Emit log
+    # Emit log
     raw_log([self.add_header_log_topic], header)
 
     return True
