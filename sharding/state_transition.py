@@ -3,20 +3,22 @@ from ethereum.messages import apply_transaction
 from ethereum.exceptions import InsufficientBalance, BlockGasLimitReached, \
     InsufficientStartGas, InvalidNonce, UnsignedTransaction
 from ethereum.slogging import get_logger
+from ethereum.utils import encode_hex
 
 from sharding.collation import Collation, CollationHeader
 
 log = get_logger('sharding.shard_state_transition')
 
 
-def mk_collation_from_prevstate(shard_chain, state=None, timestamp=None, coinbase='\x35' * 20):
+def mk_collation_from_prevstate(shard_chain, state, coinbase):
     """Make collation from previous state (refer to mk_blk_from_prevstate)
     """
-    state = state or shard_chain.state
-    collation = Collation(CollationHeader(), [])
+    # state = state or shard_chain.state
+    collation = Collation(CollationHeader())
     collation.header.shardId = shard_chain.shardId
     collation.header.prev_state_root = state.trie.root_hash
     collation.header.coinbase = coinbase
+    collation.transactions = []
     return collation
 
 
@@ -48,41 +50,14 @@ def update_collation_env_variables(state, collation):
     state.block_coinbase = collation.header.coinbase
 
 
-def initialize(state, collation=None):
-    """Collation initialization state transition (refer to ethereum.pow.consensus.initialize)
-    """
-    state.txindex = 0
-    state.gas_used = 0
-    state.bloom = 0
-    state.receipts = []
-
-    # TODO: set to what?
-    # state.timestamp
-    # state.gas_limit
-    # state.block_number = collation.header.number
-    # state.recent_uncles[state.block_number] = [x.hash for x in block.uncles]
-    # state.block_difficulty = collation.header.difficulty
-
-    if collation is not None:
-        update_collation_env_variables(state, collation)
-
-    if state.is_DAO(at_fork_height=True):
-        for acct in state.config['CHILD_DAO_LIST']:
-            state.transfer_value(acct, state.config['DAO_WITHDRAWER'], state.get_balance(acct))
-
-    # config = state.config
-    # if state.is_METROPOLIS(at_fork_height=True):
-    #     state.set_code(utils.normalize_address(
-    #         config["METROPOLIS_STATEROOT_STORE"]), config["METROPOLIS_GETTER_CODE"])
-    #     state.set_code(utils.normalize_address(
-    #         config["METROPOLIS_BLOCKHASH_STORE"]), config["METROPOLIS_GETTER_CODE"])
-
-
 def set_execution_results(state, collation):
-    """Set state root, receipt root, etc (ethereum.pow.common.set_execution_results)
+    """Set state root, receipt root, etc
+    (ethereum.pow.common.set_execution_results)
     """
     collation.header.receipts_root = mk_receipt_sha(state.receipts)
     collation.header.tx_list_root = mk_transaction_sha(collation.transactions)
+
+    # Notice: commit state before assigning
     state.commit()
     collation.header.post_state_root = state.trie.root_hash
 
@@ -91,3 +66,37 @@ def set_execution_results(state, collation):
     # block.header.bloom = state.bloom
 
     log.info('Collation pre-sealed, %d gas used' % state.gas_used)
+
+
+def validate_transaction_tree(collation):
+    """Validate that the transaction list root is correct
+    """
+    if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
+        raise ValueError("Transaction root mismatch: header %s computed %s, %d transactions" %
+                         (encode_hex(collation.header.tx_list_root), encode_hex(mk_transaction_sha(collation.transactions)),
+                          len(collation.transactions)))
+    return True
+
+
+def verify_execution_results(state, collation):
+    """Verify the results by Merkle Proof
+    """
+    state.commit()
+    if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
+        raise ValueError('Transaction root mismatch: header %s computed %s' %
+                         (encode_hex(collation.header.tx_list_root), encode_hex(mk_transaction_sha(collation.transactions))))
+    if collation.header.post_state_root != state.trie.root_hash:
+        raise ValueError('State root mismatch: header %s computed %s' %
+                         (encode_hex(collation.header.post_state_root), encode_hex(state.trie.root_hash)))
+    if collation.header.receipts_root != mk_receipt_sha(state.receipts):
+        raise ValueError('Receipt root mismatch: header %s computed %s, computed %d, %d receipts' %
+                         (encode_hex(collation.header.receipts_root), encode_hex(mk_receipt_sha(state.receipts)),
+                          state.gas_used, len(state.receipts)))
+
+    return True
+
+
+def finalize(state, coinbase):
+    """Apply rewards and commit."""
+    delta = int(state.config['COLLATOR_REWARD'])
+    state.delta_balance(coinbase, delta)

@@ -16,11 +16,12 @@ class CollationHeader(rlp.Serializable):
     [
     shardId: uint256,
     expected_period_number: uint256,
-    parent_collation_hash: uint256,
+    period_start_prevhash: bytes32,
+    parent_collation_hash: bytes32,
     tx_list_root: bytes32,
     coinbase: address,
     post_state_root: bytes32,
-    receipt_root: bytes32,
+    receipts_root: bytes32,
     sig: bytes
     ]
     """
@@ -28,22 +29,24 @@ class CollationHeader(rlp.Serializable):
     fields = [
         ('shardId', big_endian_int),
         ('expected_period_number', big_endian_int),
+        ('period_start_prevhash', hash32),
         ('parent_collation_hash', hash32),
         ('tx_list_root', trie_root),
         ('coinbase', address),
         ('post_state_root', trie_root),
-        ('receipt_root', trie_root),
+        ('receipts_root', trie_root),
         ('sig', binary)
     ]
 
     def __init__(self,
                  shardId=0,
                  expected_period_number=0,
+                 period_start_prevhash=utils.sha3rlp([]),
                  parent_collation_hash=utils.sha3rlp([]),
                  tx_list_root=trie.BLANK_ROOT,
                  coinbase=sharding_config['GENESIS_COINBASE'],
                  post_state_root=trie.BLANK_ROOT,
-                 receipt_root=trie.BLANK_ROOT,
+                 receipts_root=trie.BLANK_ROOT,
                  sig=''):
         fields = {k: v for k, v in locals().items() if k != 'self'}
         if len(fields['coinbase']) == 40:
@@ -74,8 +77,9 @@ class CollationHeader(rlp.Serializable):
         """Serialize the header to a readable dictionary."""
         d = {}
 
-        for field in ('parent_collation_hash', 'tx_list_root', 'coinbase',
-                      'post_state_root', 'receipt_root', 'sig'):
+        for field in ('period_start_prevhash', 'parent_collation_hash',
+                      'tx_list_root', 'coinbase',
+                      'post_state_root', 'receipts_root', 'sig'):
             d[field] = encode_hex(getattr(self, field))
 
         for field in ('shardId', 'expected_period_number'):

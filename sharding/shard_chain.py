@@ -2,6 +2,7 @@ import time
 import json
 import rlp
 import logging
+from collections import defaultdict
 from rlp.utils import encode_hex
 
 from ethereum import utils
@@ -15,7 +16,7 @@ from sharding.collation import CollationHeader, Collation
 from sharding.collator import apply_collation
 from sharding.state_transition import update_collation_env_variables
 
-log = get_logger('eth.chain')
+log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
 
 
@@ -40,31 +41,42 @@ def initialize_genesis_keys(state, genesis):
 
 
 class ShardChain(object):
-    def __init__(self, env=None,
+    def __init__(self, shardId, env=None,
                  new_head_cb=None, reset_genesis=False, localtime=None,
-                 shardId=0, **kwargs):
+                 initial_state=None, **kwargs):
         self.env = env or Env()
         self.shardId = shardId
+
+        self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[block_hash]
+        self.head_collation_of_block = {}   # M2: block_hash -> head_collation
 
         # Initialize the state
         head_hash_key = 'shard_' + str(shardId) + '_head_hash'
         if head_hash_key in self.db:  # new head tag
             self.state = self.mk_poststate_of_collation_hash(self.db.get(head_hash_key))
-            print(
+            log.info(
                 'Initializing shard chain from saved head, #%d (%s)' %
                 (self.state.prev_headers[0].number, encode_hex(self.state.prev_headers[0].hash)))
             self.head_hash = self.state.prev_headers[0].hash
         else:
             # no head_hash in db -> empty shard chain
-            self.state = State(env=self.env)
-            self.head_hash = self.env.config['GENESIS_PREVHASH']
-            self.db.put(head_hash_key, self.head_hash)
-            self.db.put(self.head_hash, 'GENESIS')
+            if initial_state is not None and isinstance(initial_state, State):
+                # Normally, initial_state is for testing
+                assert env is None
+                self.state = initial_state
+                self.env = self.state.env
+                log.info('Initializing chain from provided state')
+            else:
+                self.state = State(env=self.env)
 
+            self.head_hash = self.env.config['GENESIS_PREVHASH']
+            self.db.put(self.head_hash, 'GENESIS')
+            self.db.put(head_hash_key, self.head_hash)
+
+            # initial score
             key = b'score:' + self.head_hash
             self.db.put(key, str(0))
             self.db.commit()
-
             reset_genesis = True
 
         assert self.env.db == self.state.db
@@ -78,6 +90,8 @@ class ShardChain(object):
         self.time_queue = []
         self.parent_queue = {}
         self.localtime = time.time() if localtime is None else localtime
+
+        log.info('self.state: {}'.format(encode_hex(self.state.trie.root_hash)))
 
     @property
     def db(self):
@@ -101,19 +115,17 @@ class ShardChain(object):
             print(str(e))
             return None
 
-    def add_collation(self, collation):
+    def add_collation(self, collation, period_start_prevblock, handle_orphan_collation):
         """Add collation to db and update score
-
-        In the version, the head state reorg is triggered by MainChain
         """
         if self.is_first_collation(collation):
             # Apply collation after received block
-            # try:
-            #     apply_collation(State(env=self.env), collation)
-            # except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
-            #     log.info('Collation (%s) with parent %s invalid, reason: %s' %
-            #              (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), e))
-            #     return False
+            try:
+                apply_collation(self.state, collation, period_start_prevblock)
+            except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
+                log.info('Collation (%s) with parent %s invalid, reason: %s' %
+                         (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))
+                return False
             collation_score = self.get_score(collation)  # side effect: put 'score:' cache in db
             log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
         elif collation.header.parent_collation_hash in self.env.db:
@@ -121,14 +133,13 @@ class ShardChain(object):
                      parent_collation_hash=encode_hex(collation.header.parent_collation_hash))
 
             # Apply collation after received block
-            # temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
-            # try:
-            #     apply_collation(temp_state, collation)
-            # except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
-            #     log.info('Collation %s with parent %s invalid, reason: %s' %
-            #              (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), e))
-            #     return False
-
+            temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
+            try:
+                apply_collation(temp_state, collation, period_start_prevblock)
+            except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
+                log.info('Collation %s with parent %s invalid, reason: %s' %
+                         (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))
+                return False
             collation_score = self.get_score(collation)
             log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
         # Collation has no parent yet
@@ -140,6 +151,10 @@ class ShardChain(object):
             return False
 
         self.db.put(collation.header.hash, rlp.encode(collation))
+
+        # TODO: Delete old junk data
+        # deletes, changed
+
         self.db.commit()
         log.info(
             'Added collation (%s) with %d txs' %
@@ -150,11 +165,12 @@ class ShardChain(object):
         if self.new_head_cb and self.is_first_collation(collation):
             self.new_head_cb(collation)
 
-        # Handle the collations that are this current collation's children
-        if collation.header.hash in self.parent_queue:
-            for _collation in self.parent_queue[collation.header.hash]:
-                self.add_collation(_collation)
-            del self.parent_queue[collation.header.hash]
+        # TODO: It seems weird to use callback function to access member of MainChain
+        try:
+            handle_orphan_collation(collation)
+        except Exception as e:
+            log.info('handle_orphan_collation exception: %s' % str(e))
+            return False
 
         return True
 
@@ -172,7 +188,6 @@ class ShardChain(object):
         state = State(env=self.env)
         state.trie.root_hash = collation.header.post_state_root
 
-        # TODO: block state -> collation state?
         update_collation_env_variables(state, collation)
         state.gas_used = 0
         state.txindex = len(collation.transactions)
@@ -223,6 +238,7 @@ class ShardChain(object):
 
         score = int(self.db.get(key))
         log.debug('int(self.db.get(key)):{}'.format(int(self.db.get(key))))
+
         for h in fills:
             key = b'score:' + h
             score += 1
@@ -234,3 +250,24 @@ class ShardChain(object):
         """Check if the collation has no parent_collation_hash
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
+
+    # TODO: test
+    def get_head_collation(self, blockhash):
+        """Get head collation
+        """
+        collation = None
+
+        if blockhash in self.head_collation_of_block:
+            collhash = self.head_collation_of_block[blockhash]
+        else:
+            log.info('head_collation_of_block[%s] is not found' % encode_hex(blockhash))
+            return None
+
+        try:
+            collation = self.get_collation(collhash)
+        except KeyError as e:
+            log.info(
+                'Collation (%s) with blockhash %s invalid, reason: %s' %
+                (encode_hex(collhash), encode_hex(blockhash), str(e)))
+            return None
+        return collation
