@@ -11,7 +11,8 @@ log = get_logger('sharding.shard_state_transition')
 
 
 def mk_collation_from_prevstate(shard_chain, state, coinbase):
-    """Make collation from previous state (refer to mk_blk_from_prevstate)
+    """Make collation from previous state
+    (refer to ethereum.common.mk_block_from_prevstate)
     """
     # state = state or shard_chain.state
     collation = Collation(CollationHeader())
@@ -24,6 +25,7 @@ def mk_collation_from_prevstate(shard_chain, state, coinbase):
 
 def add_transactions(state, collation, txqueue, min_gasprice=0):
     """Add transactions to a collation
+    (refer to ethereum.common.add_transactions)
     """
     if not txqueue:
         return
@@ -45,7 +47,8 @@ def add_transactions(state, collation, txqueue, min_gasprice=0):
 
 
 def update_collation_env_variables(state, collation):
-    """Update collation variables into the state (refer to update_blk_env_variables)
+    """Update collation variables into the state
+    (refer to ethereum.common.update_block_env_variables)
     """
     state.block_coinbase = collation.header.coinbase
 
@@ -70,6 +73,7 @@ def set_execution_results(state, collation):
 
 def validate_transaction_tree(collation):
     """Validate that the transaction list root is correct
+    (refer to ethereum.common.validate_transaction_tree)
     """
     if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
         raise ValueError("Transaction root mismatch: header %s computed %s, %d transactions" %
@@ -80,6 +84,7 @@ def validate_transaction_tree(collation):
 
 def verify_execution_results(state, collation):
     """Verify the results by Merkle Proof
+    (refer to ethereum.common.verify_execution_results)
     """
     state.commit()
     if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
@@ -97,6 +102,8 @@ def verify_execution_results(state, collation):
 
 
 def finalize(state, coinbase):
-    """Apply rewards and commit."""
+    """Apply rewards and commit
+    (refer to ethereum.pow.consensus.finalize)
+    """
     delta = int(state.config['COLLATOR_REWARD'])
     state.delta_balance(coinbase, delta)

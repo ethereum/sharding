@@ -33,7 +33,7 @@ class MainChain(Chain):
         self.shard_id_list = set()
 
     def init_shard(self, shardId):
-        """Initial a new ShardChain and add it to MainChain
+        """Initialize a new ShardChain and add it to MainChain
         """
         if not self.has_shard(shardId):
             self.shard_id_list.add(shardId)
@@ -43,7 +43,7 @@ class MainChain(Chain):
             return False
 
     def add_shard(self, shard):
-        """Add a exsit ShardChain to MainChain
+        """Add an existing ShardChain to MainChain
         """
         if not self.has_shard(shard.shardId):
             self.shards[shard.shardId] = shard

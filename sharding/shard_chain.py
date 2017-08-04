@@ -97,6 +97,7 @@ class ShardChain(object):
     def db(self):
         return self.env.db
 
+    # TODO: use head_collation_of_block to update head collation
     @property
     def head(self):
         """head collation
@@ -175,7 +176,7 @@ class ShardChain(object):
         return True
 
     def mk_poststate_of_collation_hash(self, collation_hash):
-        """Returns the post-state of the collation
+        """Return the post-state of the collation
         """
         if collation_hash not in self.db:
             raise Exception("Collation hash %s not found" % encode_hex(collation_hash))
@@ -198,14 +199,14 @@ class ShardChain(object):
         return state
 
     def get_parent(self, collation):
-        """Gets the parent collation of a given collation
+        """Get the parent collation of a given collation
         """
         if self.is_first_collation(collation):
             return None
         return self.get_collation(collation.header.parent_collation_hash)
 
     def get_collation(self, collation_hash):
-        """Gets the collation with a given collation hash
+        """Get the collation with a given collation hash
         """
         try:
             collation_rlp = self.db.get(collation_hash)
@@ -247,7 +248,7 @@ class ShardChain(object):
         return score
 
     def is_first_collation(self, collation):
-        """Check if the collation has no parent_collation_hash
+        """Check if the given collation is the first collation of this shard
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
 
