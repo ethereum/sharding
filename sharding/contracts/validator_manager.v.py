@@ -172,22 +172,23 @@ def add_header(header: bytes <= 4096) -> bool:
     sig = values[8]
 
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
+    entire_header_hash = sha3(header)
 
     # Check if the header is valid
     assert shard_id >= 0
     assert expected_period_number == floor(decimal(block.number / self.period_length))
-    # Check if the parent hash exists
+    # Check if this header exists
+    assert self.collation_headers[shard_id][entire_header_hash].hash == as_bytes32(0)
+    # Check if the parent exists
     assert self.collation_headers[shard_id][parent_collation_hash].hash != as_bytes32(0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
     # Add the header
-    entire_header_hash = sha3(header)
     _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
-    self.collation_headers[shard_id][parent_collation_hash] = {
+    self.collation_headers[shard_id][entire_header_hash] = {
         shard_id: shard_id,
-        # FIXME: We should use the hash of the result of rlp_encode(header) as the header hash
         hash: entire_header_hash,
         parent_hash: parent_collation_hash,
         score: _score

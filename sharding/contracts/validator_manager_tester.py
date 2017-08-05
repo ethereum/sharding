@@ -1,9 +1,12 @@
 from ethereum import utils
+from ethereum.slogging import LogRecorder, configure_logging, set_level
 from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 import rlp
+from rlp.sedes import binary, List
 import serpent
 
+config_string = ":info,:debug"
 '''
 from ethereum.slogging import LogRecorder, configure_logging, set_level
 config_string = ':info,eth.vm.log:trace,eth.vm.op:trace,eth.vm.stack:trace,eth.vm.exit:trace,eth.pb.msg:trace,eth.pb.tx:debug'
@@ -53,84 +56,110 @@ c.head_state.set_balance(address=sighasher_tx.sender, value=deposit_size * 10)
 c.direct_tx(viper_rlp_decoder_tx)
 c.direct_tx(sighasher_tx)
 
-# test deposit to fail when msg.value != deposit_size
+# test deposit: fails when msg.value != deposit_size
 try:
     x.deposit(k0_valcode_addr, k0_valcode_addr)
     assert False
 except t.TransactionFailed:
     pass
-# test withdraw to fail when no validator record
+# test withdraw: fails when no validator record
 assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
-# test deposit working fine
+# test deposit: works fine
 assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
 assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
-# test deposit using empty slots
+# test deposit: make use of empty slots
 assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
-# test deposit working fine in the edge condition
+# test deposit: working fine in the edge condition
 assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
-# test that deposit should fail when valcode_addr is deposited before
+# test deposit: fails when valcode_addr is deposited before
 try:
     x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
     assert False
 except t.TransactionFailed:
     pass
-# test withdraw to fail when the signature is not corret
+# test withdraw: fails when the signature is not corret
 assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 
-# test sample
+# test sample: correctly sample the only one validator
 assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
 assert x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr))
+# test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
 assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 assert x.sample(0) == "0x0000000000000000000000000000000000000000"
 assert 1 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 
-def get_testing_header():
-    shard_id = 0
+def get_colhdr(shard_id, parent_collation_hash):
     expected_period_number = 0
     period_start_prevhash = b"period  " * 4
-    parent_collation_hash = utils.sha3(utils.encode_int32(shard_id) + b"GENESIS")
     tx_list_root = b"tx_list " * 4
     collation_coinbase = t.a0
     post_state_root = b"post_sta" * 4
     receipt_root = b"receipt " * 4
     sighash = utils.sha3(
         rlp.encode([
-            shard_id,
-            expected_period_number,
-            period_start_prevhash,
-            parent_collation_hash,
-            tx_list_root,
-            collation_coinbase,
-            post_state_root,
-            receipt_root
+            shard_id, expected_period_number, period_start_prevhash,
+            parent_collation_hash, tx_list_root, collation_coinbase,
+            post_state_root, receipt_root
         ])
     )
     sig = sign(sighash, t.k0)
     return rlp.encode([
-            shard_id,
-            expected_period_number,
-            period_start_prevhash,
-            parent_collation_hash,
-            tx_list_root,
-            collation_coinbase,
-            post_state_root,
-            receipt_root,
-            sig
+        shard_id, expected_period_number, period_start_prevhash,
+        parent_collation_hash, tx_list_root, collation_coinbase,
+        post_state_root, receipt_root, sig
     ])
 
 
 header_logs = []
+add_header_topic = utils.big_endian_to_int(utils.sha3("add_header()"))
 def header_event_watcher(log):
-    print("In header_event_watcher: =======")
-    print(log)
-    global header_logs
-    header_logs.append(log)
-    print("End                      =======")
+    global header_logs, add_header_topic
+    # print the last log and store the recent received one
+    if log.topics[0] == add_header_topic:
+        # print(log.data)
+        header_logs.append(log.data)
+        if len(header_logs) > 1:
+            last_log = header_logs.pop(0)
+            # []
+            # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
+            # use sedes to prevent integer 0 from being decoded as b''
+            sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
+            values = rlp.decode(last_log, sedes)
+            print("add_header: shard_id={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], utils.sha3(last_log), values[3]))
 
-c.chain.state.log_listeners.append(header_event_watcher)
 
-a = get_testing_header()
-print(x.add_header(a))
-print(header_logs)
+c.head_state.log_listeners.append(header_event_watcher)
+
+# configure_logging(config_string=config_string)
+shard_id = 0
+shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shard_id) + b"GENESIS")
+
+# test add_header: works normally with parent_collation_hash == GENESIS
+h0 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+h0_hash = utils.sha3(h0)
+assert x.add_header(h0)
+# test add_header: fails when the header is added before
+try:
+    h0 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+    result = x.add_header(h0)
+    assert False
+except t.TransactionFailed:
+    pass
+# test add_header: fails when the parent_collation_hash is not added before
+try:
+    h1 = get_colhdr(shard_id, utils.sha3("123"))
+    result = x.add_header(h1)
+    assert False
+except t.TransactionFailed:
+    pass
+# test  add_header: the log is generated normally
+try:
+    h1 = get_colhdr(shard_id, h0_hash)
+    h1_hash = utils.sha3(h1)
+    assert x.add_header(h1)
+    latest_log_hash = utils.sha3(header_logs[-1])
+    assert h1_hash == latest_log_hash
+except (IndexError, t.TransactionFailed):
+    assert False
