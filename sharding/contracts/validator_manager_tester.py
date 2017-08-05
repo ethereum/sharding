@@ -90,11 +90,10 @@ assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 assert x.sample(0) == "0x0000000000000000000000000000000000000000"
 assert 1 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 
-def get_colhdr(shard_id, parent_collation_hash):
+def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
     expected_period_number = 0
     period_start_prevhash = b"period  " * 4
     tx_list_root = b"tx_list " * 4
-    collation_coinbase = t.a0
     post_state_root = b"post_sta" * 4
     receipt_root = b"receipt " * 4
     sighash = utils.sha3(
@@ -136,30 +135,46 @@ c.head_state.log_listeners.append(header_event_watcher)
 shard_id = 0
 shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shard_id) + b"GENESIS")
 
+# test get_head: returns genesis_colhdr_hash when there is no new header
+assert x.get_head() == shard0_genesis_colhdr_hash
 # test add_header: works normally with parent_collation_hash == GENESIS
-h0 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
-h0_hash = utils.sha3(h0)
-assert x.add_header(h0)
+h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+h1_hash = utils.sha3(h1)
+assert x.add_header(h1)
 # test add_header: fails when the header is added before
 try:
-    h0 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
-    result = x.add_header(h0)
+    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+    result = x.add_header(h1)
     assert False
 except t.TransactionFailed:
     pass
 # test add_header: fails when the parent_collation_hash is not added before
 try:
-    h1 = get_colhdr(shard_id, utils.sha3("123"))
-    result = x.add_header(h1)
+    h2 = get_colhdr(shard_id, utils.sha3("123"))
+    result = x.add_header(h2)
     assert False
 except t.TransactionFailed:
     pass
-# test  add_header: the log is generated normally
+# test add_header: the log is generated normally
 try:
-    h1 = get_colhdr(shard_id, h0_hash)
-    h1_hash = utils.sha3(h1)
-    assert x.add_header(h1)
+    h2 = get_colhdr(shard_id, h1_hash)
+    h2_hash = utils.sha3(h2)
+    assert x.add_header(h2)
     latest_log_hash = utils.sha3(header_logs[-1])
-    assert h1_hash == latest_log_hash
+    assert h2_hash == latest_log_hash
 except (IndexError, t.TransactionFailed):
     assert False
+# test get_head: get the correct head when a new header is added
+assert x.get_head(0) == h2_hash
+# test get_head: get the correct head when a fork happened
+h1_prime = get_colhdr(shard_id, shard0_genesis_colhdr_hash, collation_coinbase=t.a1)
+h1_prime_hash = utils.sha3(h1_prime)
+assert x.add_header(h1_prime)
+h2_prime = get_colhdr(shard_id, h1_prime_hash, collation_coinbase=t.a1)
+h2_prime_hash = utils.sha3(h2_prime)
+assert x.add_header(h2_prime)
+assert x.get_head(0) == h2_hash
+h3_prime = get_colhdr(shard_id, h2_prime_hash, collation_coinbase=t.a1)
+h3_prime_hash = utils.sha3(h3_prime)
+assert x.add_header(h3_prime)
+assert x.get_head(0) == h3_prime_hash
