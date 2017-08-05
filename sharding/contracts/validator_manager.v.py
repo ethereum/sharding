@@ -11,7 +11,7 @@ validators: public({
 collation_headers: public({
     shard_id: num,
     hash: bytes32,
-    parent_hash: bytes32,
+    parent_collation_hash: bytes32,
     score: num,
 }[bytes32])
 
@@ -66,7 +66,7 @@ def __init__():
         self.collation_headers[genesis_header_hash] = {
             shard_id: i,
             hash: genesis_header_hash,
-            parent_hash: genesis_header_hash,
+            parent_collation_hash: genesis_header_hash,
             score: 0
         }
         self.shard_head[i] = genesis_header_hash
@@ -180,7 +180,7 @@ def add_header(header: bytes <= 4096) -> bool:
     self.collation_headers[entire_header_hash] = {
         shard_id: shard_id,
         hash: entire_header_hash,
-        parent_hash: parent_collation_hash,
+        parent_collation_hash: parent_collation_hash,
         score: _score
     }
 
@@ -210,7 +210,7 @@ def get_ancestor(hash: bytes32) -> bytes32:
     # get the 10000th ancestor
     for i in range(10000):
         assert current_colhdr_hash != genesis_colhdr_hash
-        current_colhdr_hash = self.collation_headers[current_colhdr_hash].parent_hash
+        current_colhdr_hash = self.collation_headers[current_colhdr_hash].parent_collation_hash
     return current_colhdr_hash
 
 # Returns the difference between the block number of this hash and the block
