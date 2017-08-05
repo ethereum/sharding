@@ -98,7 +98,7 @@ assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
 assert x.sample(0) == "0x0000000000000000000000000000000000000000"
 assert 1 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 
-def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
+def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
     expected_period_number = 0
     period_start_prevhash = b"period  " * 4
     tx_list_root = b"tx_list " * 4
@@ -106,14 +106,14 @@ def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
     receipt_root = b"receipt " * 4
     sighash = utils.sha3(
         rlp.encode([
-            shard_id, expected_period_number, period_start_prevhash,
+            shardId, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
             post_state_root, receipt_root
         ])
     )
     sig = sign(sighash, t.k0)
     return rlp.encode([
-        shard_id, expected_period_number, period_start_prevhash,
+        shardId, expected_period_number, period_start_prevhash,
         parent_collation_hash, tx_list_root, collation_coinbase,
         post_state_root, receipt_root, sig
     ])
@@ -134,37 +134,37 @@ def header_event_watcher(log):
             # use sedes to prevent integer 0 from being decoded as b''
             sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
             values = rlp.decode(last_log, sedes)
-            print("add_header: shard_id={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], utils.sha3(last_log), values[3]))
+            print("add_header: shardId={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], utils.sha3(last_log), values[3]))
 
 c.head_state.log_listeners.append(header_event_watcher)
 
 # configure_logging(config_string=config_string)
-shard_id = 0
-shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shard_id) + b"GENESIS")
+shardId = 0
+shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shardId) + b"GENESIS")
 
 # test get_head: returns genesis_colhdr_hash when there is no new header
 assert x.get_head() == shard0_genesis_colhdr_hash
 # test add_header: works normally with parent_collation_hash == GENESIS
-h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+h1 = get_colhdr(shardId, shard0_genesis_colhdr_hash)
 h1_hash = utils.sha3(h1)
 assert x.add_header(h1)
 # test add_header: fails when the header is added before
 try:
-    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+    h1 = get_colhdr(shardId, shard0_genesis_colhdr_hash)
     result = x.add_header(h1)
     assert False
 except t.TransactionFailed:
     pass
 # test add_header: fails when the parent_collation_hash is not added before
 try:
-    h2 = get_colhdr(shard_id, utils.sha3("123"))
+    h2 = get_colhdr(shardId, utils.sha3("123"))
     result = x.add_header(h2)
     assert False
 except t.TransactionFailed:
     pass
 # test add_header: the log is generated normally
 try:
-    h2 = get_colhdr(shard_id, h1_hash)
+    h2 = get_colhdr(shardId, h1_hash)
     h2_hash = utils.sha3(h2)
     assert x.add_header(h2)
     latest_log_hash = utils.sha3(header_logs[-1])
@@ -174,14 +174,14 @@ except (IndexError, t.TransactionFailed):
 # test get_head: get the correct head when a new header is added
 assert x.get_head(0) == h2_hash
 # test get_head: get the correct head when a fork happened
-h1_prime = get_colhdr(shard_id, shard0_genesis_colhdr_hash, collation_coinbase=t.a1)
+h1_prime = get_colhdr(shardId, shard0_genesis_colhdr_hash, collation_coinbase=t.a1)
 h1_prime_hash = utils.sha3(h1_prime)
 assert x.add_header(h1_prime)
-h2_prime = get_colhdr(shard_id, h1_prime_hash, collation_coinbase=t.a1)
+h2_prime = get_colhdr(shardId, h1_prime_hash, collation_coinbase=t.a1)
 h2_prime_hash = utils.sha3(h2_prime)
 assert x.add_header(h2_prime)
 assert x.get_head(0) == h2_hash
-h3_prime = get_colhdr(shard_id, h2_prime_hash, collation_coinbase=t.a1)
+h3_prime = get_colhdr(shardId, h2_prime_hash, collation_coinbase=t.a1)
 h3_prime_hash = utils.sha3(h3_prime)
 assert x.add_header(h3_prime)
 assert x.get_head(0) == h3_prime_hash
@@ -203,7 +203,7 @@ kth_ancestor = 10000
 current_colhdr_hash = h3_prime_hash
 # add (kth_ancestor - current_height) headers to get the genesis as the ancestor
 for i in range(kth_ancestor - current_height):
-    current_colhdr = get_colhdr(shard_id, current_colhdr_hash, collation_coinbase=t.a1)
+    current_colhdr = get_colhdr(shardId, current_colhdr_hash, collation_coinbase=t.a1)
     assert x.add_header(current_colhdr)
     current_colhdr_hash = utils.sha3(current_colhdr)
 assert x.get_ancestor(current_colhdr_hash) == shard0_genesis_colhdr_hash
