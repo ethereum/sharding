@@ -13,7 +13,7 @@ collation_headers: public({
     hash: bytes32,
     parent_hash: bytes32,
     score: num,
-}[bytes32][num])
+}[bytes32])
 
 shard_head: bytes32[num]
 
@@ -62,7 +62,7 @@ def __init__():
     # Initialize all genesis header for all shards
     for i in range(100):
         genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
-        self.collation_headers[i][genesis_header_hash] = {
+        self.collation_headers[genesis_header_hash] = {
             shard_id: i,
             hash: genesis_header_hash,
             parent_hash: genesis_header_hash,
@@ -159,7 +159,6 @@ def add_header(header: bytes <= 4096) -> bool:
     # receipt_root: bytes32,
     # sig: bytes
 
-    # TODO: deserialize the header using RLPList
     values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
     shard_id = values[0]
     expected_period_number = values[1]
@@ -177,17 +176,17 @@ def add_header(header: bytes <= 4096) -> bool:
     # Check if the header is valid
     assert shard_id >= 0
     assert expected_period_number == floor(decimal(block.number / self.period_length))
-    # Check if this header exists
-    assert self.collation_headers[shard_id][entire_header_hash].hash == as_bytes32(0)
+    # Check if this header already exists
+    assert self.collation_headers[entire_header_hash].hash == as_bytes32(0)
     # Check if the parent exists
-    assert self.collation_headers[shard_id][parent_collation_hash].hash != as_bytes32(0)
+    assert self.collation_headers[parent_collation_hash].hash != as_bytes32(0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
     # Add the header
-    _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
-    self.collation_headers[shard_id][entire_header_hash] = {
+    _score = self.collation_headers[parent_collation_hash].score + 1
+    self.collation_headers[entire_header_hash] = {
         shard_id: shard_id,
         hash: entire_header_hash,
         parent_hash: parent_collation_hash,
@@ -195,7 +194,7 @@ def add_header(header: bytes <= 4096) -> bool:
     }
 
     # Determine the head
-    if _score > self.collation_headers[shard_id][self.shard_head[shard_id]].score:
+    if _score > self.collation_headers[self.shard_head[shard_id]].score:
         self.shard_head[shard_id] = entire_header_hash
 
     # Emit log
