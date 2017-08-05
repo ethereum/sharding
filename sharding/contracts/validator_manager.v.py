@@ -60,6 +60,7 @@ def __init__():
     self.add_header_log_topic = sha3("add_header()")
     self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
     # Initialize all genesis header for all shards
+    # XXX !!!WARNING!!!: the 100 below must be equaled to `self.shard_count`
     for i in range(100):
         genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
         self.collation_headers[genesis_header_hash] = {
