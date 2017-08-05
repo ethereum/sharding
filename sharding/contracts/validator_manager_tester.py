@@ -4,7 +4,6 @@ from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 import rlp
 from rlp.sedes import binary, List
-import serpent
 
 config_string = ":info,:debug"
 '''
@@ -30,12 +29,21 @@ def sign(msg_hash, privkey):
 
 
 def mk_validation_code(address):
+    '''
     validation_code = """
 ~calldatacopy(0, 0, 128)
 ~call(3000, 1, 0, 0, 128, 0, 32)
 return(~mload(0) == {})
     """.format(utils.checksum_encode(address))
-    return validation_code
+    return serpent.compile(validation_code)
+    '''
+    # The precompiled bytecode of the validation code which
+    # verifies EC signatures
+    validation_code_bytecode = b"a\x009\x80a\x00\x0e`\x009a\x00GV`\x80`\x00`\x007` "
+    validation_code_bytecode += b"`\x00`\x80`\x00`\x00`\x01a\x0b\xb8\xf1Ps"
+    validation_code_bytecode += address
+    validation_code_bytecode += b"`\x00Q\x14` R` ` \xf3[`\x00\xf3"
+    return validation_code_bytecode
 
 # Must pay 100 ETH to become a validator
 deposit_size = 10 ** 20
@@ -43,8 +51,8 @@ withdraw_msg_hash = utils.sha3("withdraw")
 
 c = t.Chain()
 
-k0_valcode_addr = c.tx(t.k0, '', 0, serpent.compile(mk_validation_code(t.a0)))
-k1_valcode_addr = c.tx(t.k1, '', 0, serpent.compile(mk_validation_code(t.a1)))
+k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
+k1_valcode_addr = c.tx(t.k1, '', 0, mk_validation_code(t.a1))
 
 c.mine(1, coinbase=t.a0)
 c.head_state.gas_limit = 10 ** 12
@@ -127,7 +135,6 @@ def header_event_watcher(log):
             sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
             values = rlp.decode(last_log, sedes)
             print("add_header: shard_id={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], utils.sha3(last_log), values[3]))
-
 
 c.head_state.log_listeners.append(header_event_watcher)
 
