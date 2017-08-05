@@ -34,11 +34,12 @@
 <pre><code>[
     shardId: uint256,
     expected_period_number: uint256,
-    parent_collation_hash: uint256,
+    period_start_prevhash: bytes32,
+    parent_collation_hash: bytes32,
     tx_list_root: bytes32,
     coinbase: address,
     post_state_root: bytes32,
-    receipt_root: bytes32,
+    receipts_root: bytes32,
     sig: bytes
 ]
 </code></pre>
@@ -48,10 +49,11 @@
 <ul>
 <li><code>shardId</code> is the shard ID of the shard</li>
 <li><code>expected_period_number</code> is the period number in which this collation expects to be included. A period is an interval of <code>PERIOD_LENGTH</code> blocks.</li>
+<li><code>period_start_prevhash</code> is the block hash of block <code>PERIOD_LENGTH * expected_period_number - 1</code> (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.</li>
 <li><code>parent_collation_hash</code> is the hash of the parent collation</li>
 <li><code>tx_list_root</code> is the root hash of the trie holding the transactions included in this collation</li>
 <li><code>post_state_root</code> is the new state root of the shard after this aollation</li>
-<li><code>receipt_root</code> is the root hash of the receipt trie</li>
+<li><code>receipts_root</code> is the root hash of the receipt trie</li>
 <li><code>sig</code> is a signature</li>
 </ul>
 
@@ -66,7 +68,7 @@
 <li>The <code>sig</code> is a valid signature. That is, if we calculate <code>validation_code_addr = sample(shardId)</code>, then call <code>validation_code_addr</code> with the calldata being <code>sha3(shortened_header) ++ sig</code> (where <code>shortened_header</code> is the RLP encoded form of the collation header <em>without</em> the sig), the result of the call should be 1</li>
 </ul>
 
-<p>A <strong>collation</strong> is valid if (i) its collation header is valid, (ii) executing the collation on top of the <code>parent_collation_hash</code>'s <code>post_state_root</code> results in the given <code>post_state_root</code> and <code>receipt_root</code>, and (iii) the total gas used is less than or equal to the output of calling <code>getCollationGasLimit()</code> on the main shard.</p>
+<p>A <strong>collation</strong> is valid if (i) its collation header is valid, (ii) executing the collation on top of the <code>parent_collation_hash</code>'s <code>post_state_root</code> results in the given <code>post_state_root</code> and <code>receipts_root</code>, and (iii) the total gas used is less than or equal to the output of calling <code>getCollationGasLimit()</code> on the main shard.</p>
 
 <h3>Collation state transition function</h3>
 
@@ -123,7 +125,7 @@
 
 <ul>
 <li>Every time a new <code>SHUFFLING_CYCLE</code> starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)</li>
-<li>The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable blocks, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.</li>
+<li>The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable collations, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.</li>
 <li>If a validator is currently eligible to validate in some shard <code>i</code>, they download the full collation association with any collation header that is included into block headers for shard <code>i</code>.</li>
 <li>When on the current global main chain a new period starts, the validator calls <code>sample(i)</code> to determine if they are eligible to create a collation; if they are, then they do so.</li>
 </ul>
