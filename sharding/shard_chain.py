@@ -1,8 +1,9 @@
 import time
 import json
-import rlp
 import logging
 from collections import defaultdict
+
+import rlp
 from rlp.utils import encode_hex
 
 from ethereum import utils
@@ -91,8 +92,6 @@ class ShardChain(object):
         self.parent_queue = {}
         self.localtime = time.time() if localtime is None else localtime
 
-        log.info('self.state: {}'.format(encode_hex(self.state.trie.root_hash)))
-
     @property
     def db(self):
         return self.env.db
@@ -119,22 +118,15 @@ class ShardChain(object):
     def add_collation(self, collation, period_start_prevblock, handle_orphan_collation):
         """Add collation to db and update score
         """
-        if self.is_first_collation(collation):
-            # Apply collation after received block
-            try:
-                apply_collation(self.state, collation, period_start_prevblock)
-            except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
-                log.info('Collation (%s) with parent %s invalid, reason: %s' %
-                         (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))
-                return False
-            collation_score = self.get_score(collation)  # side effect: put 'score:' cache in db
-            log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
-        elif collation.header.parent_collation_hash in self.env.db:
-            log.info('Receiving collation not on head',
-                     parent_collation_hash=encode_hex(collation.header.parent_collation_hash))
-
-            # Apply collation after received block
-            temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
+        if collation.header.parent_collation_hash in self.env.db:
+            log.info(
+                'Receiving collation(%s) which its parent is in db: %s' %
+                (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
+            if self.is_first_collation(collation):
+                log.debug('It is the first collation of shard {}'.format(self.shardId))
+                temp_state = self.state.ephemeral_clone()
+            else:
+                temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
             try:
                 apply_collation(temp_state, collation, period_start_prevblock)
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
@@ -145,6 +137,9 @@ class ShardChain(object):
             log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
         # Collation has no parent yet
         else:
+            log.info(
+                'Receiving collation(%s) which its parent is NOT in db: %s' %
+                (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
             if collation.header.parent_collation_hash not in self.parent_queue:
                 self.parent_queue[collation.header.parent_collation_hash] = []
             self.parent_queue[collation.header.parent_collation_hash].append(collation)
@@ -170,7 +165,7 @@ class ShardChain(object):
         try:
             handle_orphan_collation(collation)
         except Exception as e:
-            log.info('handle_orphan_collation exception: %s' % str(e))
+            log.info('handle_orphan_collation exception: {}'.format(str(e)))
             return False
 
         return True
@@ -218,7 +213,7 @@ class ShardChain(object):
             else:
                 return rlp.decode(collation_rlp, Collation)
         except Exception as e:
-            log.debug("Failed to get collation", hash=collation_hash, error=e)
+            log.debug("Failed to get collation", hash=encode_hex(collation_hash), error=str(e))
             return None
 
     def get_score(self, collation):

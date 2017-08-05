@@ -159,7 +159,6 @@ class MainChain(Chain):
     def get_expected_period_number(self):
         """Get default expected period number to be the next period number
         """
-        print('self.state.block_number: {}'.format(self.state.block_number))
         return (self.state.block_number // self.env.config['PERIOD_LENGTH']) + 1
 
     def get_period_start_prevhash(self, expected_period_number):
@@ -231,9 +230,7 @@ class MainChain(Chain):
         """
         if collation.header.hash in self.shards[collation.shardId].parent_queue:
             for _collation in self.shards[collation.shardId].parent_queue[collation.header.hash]:
-                # TODO, get period_start_prevblock of _collation
                 _period_start_prevblock = self.get_block(collation.header.period_start_prevhash)
-
                 self.shards[collation.shardId].add_collation(_collation, _period_start_prevblock, self.handle_orphan_collation)
                 del self.shards[collation.shardId].parent_queue[collation.header.hash]
         self.update_head_collation_of_block(collation)

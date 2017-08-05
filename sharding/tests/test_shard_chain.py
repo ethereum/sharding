@@ -28,6 +28,8 @@ def test_add_collation():
     t = tester.Chain(env='sharding')
     t.chain.init_shard(shardId)
     t.mine(5)
+    log.info('head_state: {}'.format(t.chain.shards[shardId].state.trie.root_hash))
+    log.info('block_number: {}'.format(t.chain.shards[shardId].state.block_number))
 
     # parent = empty
     collation1 = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None)
@@ -106,19 +108,18 @@ def test_transaction():
     txqueue.add_transaction(tx2)
 
     collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
-    log.info('collation: {}, transaction_count:{}'.format(collation.to_dict(), collation.transaction_count))
+    log.debug('collation: {}, transaction_count:{}'.format(collation.to_dict(), collation.transaction_count))
 
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
-    log.info('period_start_prevblock: {}'.format(encode_hex(period_start_prevblock.header.hash)))
-
+    log.debug('period_start_prevblock: {}'.format(encode_hex(period_start_prevblock.header.hash)))
     t.chain.shards[shardId].add_collation(collation, period_start_prevblock, t.chain.handle_orphan_collation)
-    log.info('state: {}'.format(encode_hex(t.chain.shards[shardId].state.trie.root_hash)))
+
+    state = t.chain.shards[shardId].mk_poststate_of_collation_hash(collation.header.hash)
 
     # Check to addesss received value
-    assert t.chain.shards[shardId].state.get_balance(tester.a4) == 1030000000000000000
-
+    assert state.get_balance(tester.a4) == 1030000000000000000
     # Check incentives
-    assert t.chain.shards[shardId].state.get_balance(tester.a1) == 1002000000000000000
+    assert state.get_balance(tester.a1) == 1002000000000000000
 
 
 def test_get_collation():
@@ -149,6 +150,7 @@ def test_get_parent():
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].is_first_collation(collation)
+
     # append to previous collation
     collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None, prev_collation_hash=collation.header.hash)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
