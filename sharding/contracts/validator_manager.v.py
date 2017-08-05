@@ -150,16 +150,6 @@ def sample(shard_id: num) -> address:
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
 def add_header(header: bytes <= 4096) -> bool:
-    # shardId: uint256,
-    # expected_period_number: uint256,
-    # period_start_prevhash: bytes32,
-    # parent_collation_hash: bytes32,
-    # tx_list_root: bytes32,
-    # coinbase: address,
-    # post_state_root: bytes32,
-    # receipt_root: bytes32,
-    # sig: bytes
-
     values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
     shard_id = values[0]
     expected_period_number = values[1]
@@ -212,12 +202,21 @@ def get_head(shard_id: num) -> bytes32:
 
 # Returns the 10000th ancestor of this hash.
 def get_ancestor(hash: bytes32) -> bytes32:
-    pass
-
+    colhdr = self.collation_headers[hash]
+    # assure that the colhdr exists
+    assert colhdr.hash != as_bytes32(0)
+    genesis_colhdr_hash = sha3(concat(as_bytes32(colhdr.shard_id), "GENESIS"))
+    current_colhdr_hash = colhdr.hash
+    # get the 10000th ancestor
+    for i in range(10000):
+        assert current_colhdr_hash != genesis_colhdr_hash
+        current_colhdr_hash = self.collation_headers[current_colhdr_hash].parent_hash
+    return current_colhdr_hash
 
 # Returns the difference between the block number of this hash and the block
 # number of the 10000th ancestor of this hash.
 def get_ancestor_distance(hash: bytes32) -> bytes32:
+    # TODO: to be implemented
     pass
 
 

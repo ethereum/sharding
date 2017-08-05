@@ -110,9 +110,9 @@ def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         post_state_root, receipt_root, sig
     ])
 
-
 header_logs = []
 add_header_topic = utils.big_endian_to_int(utils.sha3("add_header()"))
+
 def header_event_watcher(log):
     global header_logs, add_header_topic
     # print the last log and store the recent received one
@@ -178,3 +178,26 @@ h3_prime = get_colhdr(shard_id, h2_prime_hash, collation_coinbase=t.a1)
 h3_prime_hash = utils.sha3(h3_prime)
 assert x.add_header(h3_prime)
 assert x.get_head(0) == h3_prime_hash
+# test get_ancestor: h3_prime's height is too low so and it doesn't have a
+#                    10000th ancestor. So it should fail.
+try:
+    ancestor_10000th_hash = x.get_ancestor(h3_prime_hash)
+    assert False
+except t.TransactionFailed:
+    pass
+# test get_ancestor:
+# TODO: figure out a better test instead of adding headers one by one.
+#       This test takes few minutes. For now, you can adjust the `kth_ancestor`
+#       to a smaller number here, and the same number of iterations of the `for`
+#       loop in `get_ancestor` in the validator_manager contract.
+'''
+current_height = 3 # h3_prime
+kth_ancestor = 10000
+current_colhdr_hash = h3_prime_hash
+# add (kth_ancestor - current_height) headers to get the genesis as the ancestor
+for i in range(kth_ancestor - current_height):
+    current_colhdr = get_colhdr(shard_id, current_colhdr_hash, collation_coinbase=t.a1)
+    assert x.add_header(current_colhdr)
+    current_colhdr_hash = utils.sha3(current_colhdr)
+assert x.get_ancestor(current_colhdr_hash) == shard0_genesis_colhdr_hash
+'''
