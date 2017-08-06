@@ -56,7 +56,7 @@ def create_collation(
 
     # Set period_start_prevblock info
     expected_period_number = chain.get_expected_period_number()
-    period_start_prevhash = chain.get_period_start_prevhash(expected_period_number - 1)
+    period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
     assert period_start_prevhash is not None
     period_start_prevblock = chain.get_block(period_start_prevhash)
     # Call the initialize state transition function

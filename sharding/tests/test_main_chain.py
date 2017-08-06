@@ -51,13 +51,15 @@ def test_get_expected_period_number():
     shardId = 1
     t = tester.Chain(env='sharding')
     t.chain.init_shard(shardId)
-    t.mine(5)
 
+    t.mine(5)  # block number = 5
+    assert t.chain.get_expected_period_number() == 1
+
+    t.mine(4)  # block number = 9
     assert t.chain.get_expected_period_number() == 2
-    t.mine(4)
+
+    t.mine(1)  # block number = 10
     assert t.chain.get_expected_period_number() == 2
-    t.mine(1)
-    assert t.chain.get_expected_period_number() == 3
 
 
 def test_get_period_start_prevhash():

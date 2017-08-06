@@ -157,14 +157,13 @@ class MainChain(Chain):
         return True
 
     def get_expected_period_number(self):
-        """Get default expected period number to be the next period number
+        """Get default expected period number to be the period number of the next block
         """
-        return (self.state.block_number // self.env.config['PERIOD_LENGTH']) + 1
+        return (self.state.block_number + 1) // self.env.config['PERIOD_LENGTH']
 
     def get_period_start_prevhash(self, expected_period_number):
         """Get period_start_prevhash by expected_period_number
         """
-        period_start_prevhash = None
         block_number = self.env.config['PERIOD_LENGTH'] * expected_period_number - 1
         period_start_prevhash = self.get_blockhash_by_number(block_number)
         if period_start_prevhash is None:
