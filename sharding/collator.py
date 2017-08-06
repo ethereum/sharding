@@ -35,6 +35,7 @@ def create_collation(
         chain,
         shardId,
         parent_collation_hash,
+        expected_period_number,
         coinbase,
         key,
         txqueue=None):
@@ -43,6 +44,7 @@ def create_collation(
     chain: MainChain
     shardId: id of ShardChain
     parent_collation_hash: the hash of the parent collation
+    expected_period_number: the period number in which this collation expects to be included
     coinbase: coinbase
     key: key for sig
     txqueue: transaction queue
@@ -55,7 +57,6 @@ def create_collation(
     cs = get_consensus_strategy(temp_state.config)
 
     # Set period_start_prevblock info
-    expected_period_number = chain.get_expected_period_number()
     period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
     assert period_start_prevhash is not None
     period_start_prevblock = chain.get_block(period_start_prevhash)

@@ -204,15 +204,18 @@ class Chain(object):
                                   to, value, data).sign(sender)
         return transaction
 
-    def generate_collation(self, shardId, coinbase, key, txqueue=None, prev_collation_hash=None):
+    def generate_collation(self, shardId, coinbase, key, txqueue=None, prev_collation_hash=None, expected_period_number=None):
         """Generate collation
         """
         if prev_collation_hash is None:
             prev_collation_hash = self.chain.shards[shardId].head_hash
+        if expected_period_number is None:
+            expected_period_number = self.chain.get_expected_period_number()
         return create_collation(
             self.chain,
             shardId,
             prev_collation_hash,
+            expected_period_number,
             coinbase,
             key,
             txqueue=txqueue)

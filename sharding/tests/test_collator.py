@@ -23,12 +23,14 @@ def test_create_collation_empty_txqueue():
     t = chain(shardId)
 
     prev_collation_hash = t.chain.shards[shardId].head_hash
+    expected_period_number = t.chain.get_expected_period_number()
 
     txqueue = TransactionQueue()
     collation = collator.create_collation(
         t.chain,
         shardId,
         prev_collation_hash,
+        expected_period_number,
         coinbase=tester.a1,
         key=tester.k1,
         txqueue=txqueue)
@@ -44,6 +46,7 @@ def test_create_collation_with_txs():
     t = chain(shardId)
 
     prev_collation_hash = t.chain.shards[shardId].head_hash
+    expected_period_number = t.chain.get_expected_period_number()
 
     txqueue = TransactionQueue()
     tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
@@ -55,6 +58,7 @@ def test_create_collation_with_txs():
         t.chain,
         shardId,
         prev_collation_hash,
+        expected_period_number,
         coinbase=tester.a1,
         key=tester.k1,
         txqueue=txqueue)
