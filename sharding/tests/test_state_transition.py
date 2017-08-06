@@ -90,7 +90,7 @@ def test_validate_transaction_tree():
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
 
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     assert state_transition.validate_transaction_tree(collation)
 
     collation.header.tx_list_root = trie.BLANK_ROOT

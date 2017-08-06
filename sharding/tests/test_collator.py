@@ -22,7 +22,6 @@ def test_create_collation_empty_txqueue():
     shardId = 1
     t = chain(shardId)
 
-    coinbase = tester.a1
     prev_collation_hash = t.chain.shards[shardId].head_hash
 
     txqueue = TransactionQueue()
@@ -30,11 +29,12 @@ def test_create_collation_empty_txqueue():
         t.chain,
         shardId,
         prev_collation_hash,
-        coinbase=coinbase,
+        coinbase=tester.a1,
+        key=tester.k1,
         txqueue=txqueue)
 
     assert collation.transaction_count == 0
-    assert collation.header.coinbase == coinbase
+    assert collation.header.coinbase == tester.a1
 
 
 def test_create_collation_with_txs():
@@ -43,7 +43,6 @@ def test_create_collation_with_txs():
     shardId = 1
     t = chain(shardId)
 
-    coinbase = tester.a1
     prev_collation_hash = t.chain.shards[shardId].head_hash
 
     txqueue = TransactionQueue()
@@ -56,7 +55,8 @@ def test_create_collation_with_txs():
         t.chain,
         shardId,
         prev_collation_hash,
-        coinbase=coinbase,
+        coinbase=tester.a1,
+        key=tester.k1,
         txqueue=txqueue)
     assert collation.transaction_count == 2
 
@@ -75,7 +75,7 @@ def test_apply_collation():
 
     state = t.chain.shards[shardId].state
     prev_state_root = state.trie.root_hash
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
 
     collator.apply_collation(state, collation, period_start_prevblock)
@@ -98,7 +98,7 @@ def test_apply_collation_wrong_root():
     tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # post_state_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.post_state_root = trie.BLANK_ROOT
@@ -111,7 +111,7 @@ def test_apply_collation_wrong_root():
     tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # receipts_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.receipts_root = trie.BLANK_ROOT
@@ -124,7 +124,7 @@ def test_apply_collation_wrong_root():
     tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # receipts_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.tx_list_root = trie.BLANK_ROOT

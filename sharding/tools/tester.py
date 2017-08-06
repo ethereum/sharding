@@ -204,7 +204,7 @@ class Chain(object):
                                   to, value, data).sign(sender)
         return transaction
 
-    def generate_collation(self, shardId, coinbase, txqueue=None, prev_collation_hash=None):
+    def generate_collation(self, shardId, coinbase, key, txqueue=None, prev_collation_hash=None):
         """Generate collation
         """
         if prev_collation_hash is None:
@@ -214,6 +214,7 @@ class Chain(object):
             shardId,
             prev_collation_hash,
             coinbase,
+            key,
             txqueue=txqueue)
 
 

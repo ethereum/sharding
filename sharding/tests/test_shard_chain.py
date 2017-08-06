@@ -32,22 +32,22 @@ def test_add_collation():
     log.info('block_number: {}'.format(t.chain.shards[shardId].state.block_number))
 
     # parent = empty
-    collation1 = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None)
+    collation1 = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation1.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation1, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].get_score(collation1) == 1
     # parent = empty
-    collation2 = t.generate_collation(shardId=1, coinbase=tester.a2, txqueue=None)
+    collation2 = t.generate_collation(shardId=1, coinbase=tester.a2, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation2.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation2, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].get_score(collation2) == 1
     # parent = collation1
-    collation3 = t.generate_collation(shardId=1, coinbase=tester.a2, txqueue=None, prev_collation_hash=collation1.header.hash)
+    collation3 = t.generate_collation(shardId=1, coinbase=tester.a2, key=tester.k1, txqueue=None, prev_collation_hash=collation1.header.hash)
     period_start_prevblock = t.chain.get_block(collation3.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation3, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].get_score(collation3) == 2
     # parent = collation3
-    collation4 = t.generate_collation(shardId=1, coinbase=tester.a2, txqueue=None, prev_collation_hash=collation3.header.hash)
+    collation4 = t.generate_collation(shardId=1, coinbase=tester.a2, key=tester.k1, txqueue=None, prev_collation_hash=collation3.header.hash)
     period_start_prevblock = t.chain.get_block(collation4.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation4, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].get_score(collation4) == 3
@@ -62,17 +62,17 @@ def test_handle_orphan_collation():
     t1.chain.init_shard(shardId)
     t1.mine(5)
     # collation1
-    collation1 = t1.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None)
+    collation1 = t1.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t1.chain.get_block(collation1.header.period_start_prevhash)
     t1.chain.shards[shardId].add_collation(collation1, period_start_prevblock, t1.chain.handle_orphan_collation)
     assert t1.chain.shards[shardId].get_score(collation1) == 1
     # collation2
-    collation2 = t1.generate_collation(shardId=1, coinbase=tester.a2, txqueue=None, prev_collation_hash=collation1.header.hash)
+    collation2 = t1.generate_collation(shardId=1, coinbase=tester.a2, key=tester.k2, txqueue=None, prev_collation_hash=collation1.header.hash)
     period_start_prevblock = t1.chain.get_block(collation2.header.period_start_prevhash)
     t1.chain.shards[shardId].add_collation(collation2, period_start_prevblock, t1.chain.handle_orphan_collation)
     assert t1.chain.shards[shardId].get_score(collation2) == 2
     # collation3
-    collation3 = t1.generate_collation(shardId=1, coinbase=tester.a2, txqueue=None, prev_collation_hash=collation2.header.hash)
+    collation3 = t1.generate_collation(shardId=1, coinbase=tester.a2, key=tester.k2, txqueue=None, prev_collation_hash=collation2.header.hash)
     period_start_prevblock = t1.chain.get_block(collation3.header.period_start_prevhash)
     t1.chain.shards[shardId].add_collation(collation3, period_start_prevblock, t1.chain.handle_orphan_collation)
     assert t1.chain.shards[shardId].get_score(collation3) == 3
@@ -107,7 +107,7 @@ def test_transaction():
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
 
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=txqueue)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     log.debug('collation: {}, transaction_count:{}'.format(collation.to_dict(), collation.transaction_count))
 
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
@@ -131,7 +131,7 @@ def test_get_collation():
     t.chain.init_shard(shardId)
     t.mine(5)
 
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation, period_start_prevblock, t.chain.handle_orphan_collation)
 
@@ -146,13 +146,13 @@ def test_get_parent():
     t.chain.init_shard(shardId)
     t.mine(5)
 
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation, period_start_prevblock, t.chain.handle_orphan_collation)
     assert t.chain.shards[shardId].is_first_collation(collation)
 
     # append to previous collation
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, txqueue=None, prev_collation_hash=collation.header.hash)
+    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=None, prev_collation_hash=collation.header.hash)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     t.chain.shards[shardId].add_collation(collation, period_start_prevblock, t.chain.handle_orphan_collation)
     assert not t.chain.shards[shardId].is_first_collation(collation)

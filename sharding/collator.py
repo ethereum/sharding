@@ -1,6 +1,8 @@
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.messages import apply_transaction
+from ethereum import utils
+
 from sharding import state_transition
 
 log = get_logger('sharding.collator')
@@ -34,6 +36,7 @@ def create_collation(
         shardId,
         parent_collation_hash,
         coinbase,
+        key,
         txqueue=None):
     """Create a collation
 
@@ -41,6 +44,7 @@ def create_collation(
     shardId: id of ShardChain
     parent_collation_hash: the hash of the parent collation
     coinbase: coinbase
+    key: key for sig
     txqueue: transaction queue
     """
     log.info('Creating a collation')
@@ -71,7 +75,19 @@ def create_collation(
     collation.header.expected_period_number = expected_period_number
     collation.header.period_start_prevhash = period_start_prevhash
 
-    # TODO sign collation
+    try:
+        sig = sign(collation.signing_hash, key)
+        collation.header.sig = sig
+    except Exception as e:
+        log.info('Failed to sign collation, exception: {}'.format(str(e)))
 
     log.info('Created collation successfully')
     return collation
+
+
+def sign(msg_hash, privkey):
+    """Use privkey to ecdsa-sign the msg_hash
+    """
+    v, r, s = utils.ecsign(msg_hash, privkey)
+    signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
+    return signature
