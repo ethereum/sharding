@@ -1,0 +1,144 @@
+<h3>Preliminaries</h3>
+
+<p>We assume that at address <code>VALIDATOR_MANAGER_ADDRESS</code> (on the existing "main shard") there exists a contract that manages an active "validator set", and supports the following functions:</p>
+
+<ul>
+<li><code>deposit(address validationCodeAddr, address returnAddr) returns uint256</code>: adds a validator to the validator set, with the validator's size being the <code>msg.value</code> (ie. amount of ETH deposited) in the function call. Returns the validator index. <code>validationCodeAddr</code> stores the address of the validation code; the function fails if this address's code has not been purity-verified.</li>
+<li><code>withdraw(uint256 validatorIndex, bytes sig) returns bool</code>: verifies that the signature is correct (ie. a call with 200000 gas, <code>validationCodeAddr</code> as destination, 0 value and <code>sha3("withdraw") + sig</code> as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.</li>
+<li><code>sample(uint256 shardId) returns uint256</code>: uses a recent block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit.</li>
+<li><code>addHeader(bytes header) returns bool</code>: attempts to process a collation header, returns True on success, reverts on failure.</li>
+<li><code>getHead(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
+<li><code>getAncestor(bytes32 hash)</code>: returns the 10000th ancestor of this hash.</li>
+<li><code>getAncestorDistance(bytes32 hash)</code>: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.</li>
+<li><code>getCollationGasLimit()</code>: returns the gas limit that collations can currently have (by default make this function always answer 10 million).</li>
+<li><code>txToShard(address to, uint256 shardId, bytes data) returns uint256</code>: records a request to deposit <code>msg.value</code> ETH to address <code>to</code> in shard <code>shardId</code> during a future collation. Saves a receipt ID for this request, also saving <code>msg.value</code>, <code>to</code>, <code>shardId</code>, <code>data</code> and <code>msg.sender</code>.</li>
+</ul>
+
+<h3>Parameters</h3>
+
+<ul>
+<li><code>SERENITY_FORK_BLKNUM</code>: ????</li>
+<li><code>SHARD_COUNT</code>: 100</li>
+<li><code>VALIDATOR_MANAGER_ADDRESS</code>: ????</li>
+<li><code>USED_RECEIPT_STORE_ADDRESS</code>: ????</li>
+<li><code>SIG_GASLIMIT</code>: 40000</li>
+<li><code>COLLATOR_REWARD</code>: 0.002</li>
+<li><code>PERIOD_LENGTH</code>: 5 blocks</li>
+<li><code>SHUFFLING_CYCLE</code>: 2500 blocks</li>
+</ul>
+
+<h3>Specification</h3>
+
+<p>We first define a "collation header" as an RLP list with the following values:</p>
+
+<pre><code>[
+    shardId: uint256,
+    expected_period_number: uint256,
+    period_start_prevhash: bytes32,
+    parent_collation_hash: bytes32,
+    tx_list_root: bytes32,
+    coinbase: address,
+    post_state_root: bytes32,
+    receipts_root: bytes32,
+    sig: bytes
+]
+</code></pre>
+
+<p>Where:</p>
+
+<ul>
+<li><code>shardId</code> is the shard ID of the shard</li>
+<li><code>expected_period_number</code> is the period number in which this collation expects to be included. A period is an interval of <code>PERIOD_LENGTH</code> blocks.</li>
+<li><code>period_start_prevhash</code> is the block hash of block <code>PERIOD_LENGTH * expected_period_number - 1</code> (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.</li>
+<li><code>parent_collation_hash</code> is the hash of the parent collation</li>
+<li><code>tx_list_root</code> is the root hash of the trie holding the transactions included in this collation</li>
+<li><code>post_state_root</code> is the new state root of the shard after this aollation</li>
+<li><code>receipts_root</code> is the root hash of the receipt trie</li>
+<li><code>sig</code> is a signature</li>
+</ul>
+
+<p>For blocks where <code>block.number &gt;= SERENITY_FORK_BLKNUM</code>, the block header's extra data must contain a hash which points to an RLP list of <code>SHARD_COUNT</code> objects, where each object is either the empty string or a valid collation header for a shard.</p>
+
+<p>A <strong>collation header</strong> is valid if calling <code>addHeader(header)</code> returns true. The validator manager contract should do this if:</p>
+
+<ul>
+<li>The <code>shardId</code> is at least 0, and less than <code>SHARD_COUNT</code></li>
+<li>The <code>expected_period_number</code> equals <code>floor(block.number / PERIOD_LENGTH)</code></li>
+<li>A collation with the hash <code>parent_collation_hash</code> has already been accepted</li>
+<li>The <code>sig</code> is a valid signature. That is, if we calculate <code>validation_code_addr = sample(shardId)</code>, then call <code>validation_code_addr</code> with the calldata being <code>sha3(shortened_header) ++ sig</code> (where <code>shortened_header</code> is the RLP encoded form of the collation header <em>without</em> the sig), the result of the call should be 1</li>
+</ul>
+
+<p>A <strong>collation</strong> is valid if (i) its collation header is valid, (ii) executing the collation on top of the <code>parent_collation_hash</code>'s <code>post_state_root</code> results in the given <code>post_state_root</code> and <code>receipts_root</code>, and (iii) the total gas used is less than or equal to the output of calling <code>getCollationGasLimit()</code> on the main shard.</p>
+
+<h3>Collation state transition function</h3>
+
+<p>The state transition process for executing a collation is as follows:</p>
+
+<ul>
+<li>Execute each transaction in the tree pointed to by <code>tx_list_root</code> in order</li>
+<li>Assign a reward of <code>COLLATOR_REWARD</code> to the coinbase</li>
+</ul>
+
+<h3>Receipt-consuming transactions</h3>
+
+<p>A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let <code>(to, value, shardId, sender, data)</code> be the values that were saved by the <code>txToShard</code> call that created this receipt. For such a transaction to be valid:</p>
+
+<ul>
+<li>Such a receipt <em>must</em> have in fact been created by a <code>txToShard</code> call in the main chain.</li>
+<li>The <code>to</code> and <code>value</code> of the transaction <em>must</em> match the <code>to</code> and <code>value</code> of this receipt.</li>
+<li>The shard Id <em>must</em> match <code>shardId</code>.</li>
+<li>The contract at address <code>USED_RECEIPT_STORE_ADDRESS</code> <em>must NOT</em> have a record saved saying that the given receipt ID was already consumed.</li>
+</ul>
+
+<p>The transaction has an additional side effect of saving a record in <code>USED_RECEIPT_STORE_ADDRESS</code> saying that the given receipt ID has been consumed. Such a transaction effects a message whose:</p>
+
+<ul>
+<li><code>sender</code> is <code>USED_RECEIPT_STORE_ADDRESS</code></li>
+<li><code>to</code> is the <code>to</code> from the receipt</li>
+<li><code>value</code> is the <code>value</code> from the receipt, minus <code>gasprice * gaslimit</code></li>
+<li><code>data</code> is twelve zero bytes concatenated with the <code>sender</code> from the receipt concatenated with the <code>data</code> from the receipt</li>
+<li>Gas refunds go to the <code>to</code> address</li>
+</ul>
+
+<h3>Details of <code>sample</code></h3>
+
+<p>The <code>sample</code> function should be coded in such a way that any given validator randomly gets allocated to some number of shards every <code>SHUFFLING_CYCLE</code>, where the expected number of shards is proportional to the validator's balance. During that cycle, <code>sample(shardId)</code> can only return that validator if the <code>shardId</code> is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.</p>
+
+<p>Here is one possible implementation of <code>sample</code>, assuming for simplicity of illustration that all validators have the same deposit size:</p>
+
+<pre><code>def sample(shardId: num) -&gt; address:
+    cycle = floor(block.number / SHUFFLING_CYCLE)
+    cycle_seed = blockhash(cycle * SHUFFLING_CYCLE)
+    seed = blockhash(block.number - (block.number % PERIOD_LENGTH))
+    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shardId)))),
+                                 100)
+    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed), as_bytes32(shardId), as_bytes32(index_in_subset))),
+                                 as_num256(self.validator_set_size))
+    return self.validators[validator_index]
+</code></pre>
+
+<p>This picks out 100 validators for each shard during each cycle, and then during each block one out of those 100 validators is picked by choosing a distinct <code>index_in_subset</code> for each block.</p>
+
+<h3>Collation Header Production and Propagation</h3>
+
+<p>We generally expect collation headers to be produced and propagated as follows.</p>
+
+<ul>
+<li>Every time a new <code>SHUFFLING_CYCLE</code> starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)</li>
+<li>The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable collations, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.</li>
+<li>If a validator is currently eligible to validate in some shard <code>i</code>, they download the full collation association with any collation header that is included into block headers for shard <code>i</code>.</li>
+<li>When on the current global main chain a new period starts, the validator calls <code>sample(i)</code> to determine if they are eligible to create a collation; if they are, then they do so.</li>
+</ul>
+
+<h3>Rationale</h3>
+
+<p>This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.</p>
+
+<h3>Subsequent phases</h3>
+
+<ul>
+<li><strong>Phase 2, option a</strong>: require collation headers to be added in as uncles instead of as transactions</li>
+<li><strong>Phase 2, option b</strong>: require collation headers to be added in an array, where item <code>i</code> in the array must be either a collation header of shard <code>i</code> or the empty string, and where the extra data must be the hash of this array (soft fork)</li>
+<li><strong>Phase 3 (two-way pegging)</strong>: add to the <code>USED_RECEIPT_STORE_ADDRESS</code> contract a function that allows receipts to be created in shards. Add to the main chain's <code>VALIDATOR_MANAGER_ADDRESS</code> a function for submitting Merkle proofs of unspent receipts that have confirmed (ie. they point to some hash <code>h</code> such that some hash <code>h2</code> exists such that <code>getAncestor(h2) = h</code> and <code>getAncestorDistance(h2) &lt; 10000 * PERIOD_LENGTH * 1.33</code>), which has similar behavior to the <code>USED_RECEIPT_STORE_ADDRESS</code> contract in the shards.</li>
+<li><strong>Phase 4 (tight coupling)</strong>: blocks are no longer valid if they point to invalid or unavailable collations. Add data availability proofs.</li>
+</ul>
