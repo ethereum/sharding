@@ -1,12 +1,16 @@
+from ethereum.utils import encode_hex
 from sharding.collation import CollationHeader, Collation
 
 
 def test_collation_init():
-    fake_coinbase = '1111111111222222222233333333334444444444'
-    collation_header = CollationHeader(coinbase=fake_coinbase)
+    """Test Collation initialization
+    """
+    coinbase = '\x35' * 20
 
-    collation = Collation(collation_header, [])
+    collation_header = CollationHeader(coinbase=coinbase)
+
+    collation = Collation(collation_header)
     collation_header_dict = collation.header.to_dict()
 
     assert collation.transaction_count == 0
-    assert collation_header_dict['coinbase'] == fake_coinbase
+    assert collation_header_dict['coinbase'] == encode_hex(coinbase)

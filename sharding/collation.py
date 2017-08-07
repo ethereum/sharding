@@ -15,55 +15,39 @@ class CollationHeader(rlp.Serializable):
     """A collation header
     [
     shardId: uint256,
-    parent_block_number: uint256,
-    parent_block_hash: bytes32,
-    rng_source_block_number: uint256,
-    prev_state_root: bytes32,
+    expected_period_number: uint256,
+    period_start_prevhash: bytes32,
+    parent_collation_hash: bytes32,
     tx_list_root: bytes32,
     coinbase: address,
     post_state_root: bytes32,
-    receipt_root: bytes32,
-    children: [
-        child1_hash: bytes32,
-        ...
-        child[SHARD_CHILD_COUNT]hash: bytes32
-    ],
-    state_branch_node: bytes32,
-    signatures: [
-        sig1: bytes,
-        ...
-        sig[SIGNATURE_COUNT]: bytes
+    receipts_root: bytes32,
+    sig: bytes
     ]
     """
 
     fields = [
         ('shardId', big_endian_int),
-        ('parent_block_number', big_endian_int),
-        ('parent_block_hash', hash32),
-        ('rng_source_block_number', big_endian_int),
-        ('prev_state_root', trie_root),
+        ('expected_period_number', big_endian_int),
+        ('period_start_prevhash', hash32),
+        ('parent_collation_hash', hash32),
         ('tx_list_root', trie_root),
         ('coinbase', address),
         ('post_state_root', trie_root),
-        ('receipt_root', trie_root),
-        ('children', CountableList(hash32)),
-        ('state_branch_node', hash32),
-        ('signatures', CountableList(binary))
+        ('receipts_root', trie_root),
+        ('sig', binary)
     ]
 
     def __init__(self,
                  shardId=0,
-                 parent_block_number=0,
-                 parent_block_hash=utils.sha3rlp([]),
-                 rng_source_block_number=0,
-                 prev_state_root=trie.BLANK_ROOT,
+                 expected_period_number=0,
+                 period_start_prevhash=utils.sha3rlp([]),
+                 parent_collation_hash=utils.sha3rlp([]),
                  tx_list_root=trie.BLANK_ROOT,
                  coinbase=sharding_config['GENESIS_COINBASE'],
                  post_state_root=trie.BLANK_ROOT,
-                 receipt_root=trie.BLANK_ROOT,
-                 children=[],
-                 state_branch_node=utils.sha3rlp([]),
-                 signatures=[]):
+                 receipts_root=trie.BLANK_ROOT,
+                 sig=''):
         fields = {k: v for k, v in locals().items() if k != 'self'}
         if len(fields['coinbase']) == 40:
             fields['coinbase'] = decode_hex(fields['coinbase'])
@@ -87,23 +71,19 @@ class CollationHeader(rlp.Serializable):
 
     @property
     def signing_hash(self):
-        return utils.sha3(rlp.encode(self, CollationHeader.exclude(['signatures'])))
+        return utils.sha3(rlp.encode(self, CollationHeader.exclude(['sig'])))
 
     def to_dict(self):
         """Serialize the header to a readable dictionary."""
         d = {}
 
-        for field in ('state_branch_node', 'parent_block_hash',
-                      'prev_state_root', 'tx_list_root', 'post_state_root',
-                      'receipt_root', 'coinbase'):
+        for field in ('period_start_prevhash', 'parent_collation_hash',
+                      'tx_list_root', 'coinbase',
+                      'post_state_root', 'receipts_root', 'sig'):
             d[field] = encode_hex(getattr(self, field))
 
-        for field in ('shardId',
-                      'parent_block_number', 'rng_source_block_number'):
+        for field in ('shardId', 'expected_period_number'):
             d[field] = utils.to_string(getattr(self, field))
-
-        d['children'] = [encode_hex(child) for child in getattr(self, 'children')]
-        d['signatures'] = [encode_hex(sig) for sig in getattr(self, 'signatures')]
 
         assert len(d) == len(CollationHeader.fields)
         return d

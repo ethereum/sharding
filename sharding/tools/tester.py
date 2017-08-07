@@ -1,6 +1,6 @@
 import types
-import rlp
 
+from ethereum import utils
 from ethereum.utils import sha3, privtoaddr, int_to_addr, to_string, checksum_encode, int_to_big_endian, encode_hex
 from ethereum.genesis_helpers import mk_basic_state
 from ethereum.transactions import Transaction
@@ -11,12 +11,11 @@ from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate, set_execution_results
 from ethereum.meta import make_head_candidate
 from ethereum.abi import ContractTranslator
-from ethereum.tools._solidity import get_solidity
-from ethereum.slogging import get_logger
 
+from sharding.main_chain import MainChain
 from sharding.shard_chain import ShardChain
-
-logger = get_logger()
+from sharding.config import sharding_config
+from sharding.collator import create_collation
 
 # Initialize accounts
 accounts = []
@@ -32,22 +31,16 @@ a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 = accounts[:10]
 base_alloc = {}
 minimal_alloc = {}
 for a in accounts:
-    base_alloc[a] = {'balance': 10**18}
+    base_alloc[a] = {'balance': 1 * utils.denoms.ether}
 for i in range(1, 9):
     base_alloc[int_to_addr(i)] = {'balance': 1}
     minimal_alloc[int_to_addr(i)] = {'balance': 1}
-minimal_alloc[accounts[0]] = {'balance': 10**18}
+minimal_alloc[accounts[0]] = {'balance': 1 * utils.denoms.ether}
 
 # Initialize languages
 languages = {}
 
-try:
-    import serpent
-    languages['serpent'] = serpent
-except ImportError:
-    pass
-
-
+from ethereum.tools._solidity import get_solidity
 _solidity = get_solidity()
 if _solidity:
     languages['solidity'] = _solidity
@@ -66,12 +59,13 @@ class TransactionFailed(Exception):
 STARTGAS = 3141592
 GASPRICE = 1
 
+
+from ethereum.slogging import configure_logging
 config_string = ':info'
 # configure_logging(config_string=config_string)
 
 
 class ABIContract(object):  # pylint: disable=too-few-public-methods
-
     def __init__(self, _chain, _abi, address):
         self.address = address
 
@@ -121,17 +115,17 @@ def get_env(env):
         'tangerine': config_tangerine,
         'spurious': config_spurious,
         'metropolis': config_metropolis,
+        'sharding': sharding_config
     }
     return env if isinstance(env, Env) else Env(config=d[env])
 
 
 class Chain(object):
-    def __init__(self, alloc=None, env=None, shardId=0):
-        self.chain = ShardChain(
+    def __init__(self, alloc=None, env=None):
+        self.chain = MainChain(
             genesis=mk_basic_state(base_alloc if alloc is None else alloc,
                                    None,
                                    get_env(env)),
-            shardId=shardId,
             reset_genesis=True
         )
         self.cs = get_consensus_strategy(self.chain.env.config)
@@ -157,12 +151,6 @@ class Chain(object):
         self.last_sender = sender
         return o
 
-    def generate_shard_tx(self, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
-        sender_addr = privtoaddr(sender)
-        transaction = Transaction(self.head_state.get_nonce(sender_addr), gasprice, startgas,
-                                  to, value, data).sign(sender)
-        return transaction
-
     def contract(self, sourcecode, args=[], sender=k0, value=0, language='evm', startgas=STARTGAS, gasprice=GASPRICE):
         if language == 'evm':
             assert len(args) == 0
@@ -175,11 +163,7 @@ class Chain(object):
             addr = self.tx(sender=sender, to=b'', value=value, data=code, startgas=startgas, gasprice=gasprice)
             return ABIContract(self, ct, addr)
 
-    def mine(self, number_of_blocks=1, coinbase=a0, collation_header=None):
-        # [EDITED]
-        if collation_header is not None:
-            self.block.header.extra_data = rlp.encode(collation_header)
-
+    def mine(self, number_of_blocks=1, coinbase=a0):
         self.cs.finalize(self.head_state, self.block)
         set_execution_results(self.head_state, self.block)
         self.block = Miner(self.block).mine(rounds=100, start_nonce=0)
@@ -203,6 +187,39 @@ class Chain(object):
         self.block.transactions = self.block.transactions[:txcount]
         self.head_state.revert(state_snapshot)
 
+    def add_test_shard(self, shardId, alloc=None):
+        """Initial shard with fake accounts
+        """
+        assert not self.chain.has_shard(shardId)
+
+        initial_state = mk_basic_state(
+            base_alloc if alloc is None else alloc,
+            None, self.chain.env)
+        shard = ShardChain(shardId=shardId, initial_state=initial_state)
+        self.chain.add_shard(shard)
+
+    def generate_shard_tx(self, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
+        sender_addr = privtoaddr(sender)
+        transaction = Transaction(self.head_state.get_nonce(sender_addr), gasprice, startgas,
+                                  to, value, data).sign(sender)
+        return transaction
+
+    def generate_collation(self, shardId, coinbase, key, txqueue=None, prev_collation_hash=None, expected_period_number=None):
+        """Generate collation
+        """
+        if prev_collation_hash is None:
+            prev_collation_hash = self.chain.shards[shardId].head_hash
+        if expected_period_number is None:
+            expected_period_number = self.chain.get_expected_period_number()
+        return create_collation(
+            self.chain,
+            shardId,
+            prev_collation_hash,
+            expected_period_number,
+            coinbase,
+            key,
+            txqueue=txqueue)
+
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))
@@ -219,7 +236,7 @@ def mk_state_test_prefill(c):
         "currentGasLimit": int_to_0x_hex(c.head_state.gas_limit),
         "currentNumber": int_to_0x_hex(c.head_state.block_number),
         "currentTimestamp": int_to_0x_hex(c.head_state.timestamp),
-        "previousHash": "0x" + encode_hex(c.head_state.prev_headers[0].hash),
+        "previousHash": "0x"+encode_hex(c.head_state.prev_headers[0].hash),
     }
     pre = c.head_state.to_dict()
     return {"env": env, "pre": pre}
