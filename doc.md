@@ -31,11 +31,11 @@ We first define a "collation header" as an RLP list with the following values:
         shardId: uint256,
         expected_period_number: uint256,
         period_start_prevhash: bytes32,
-        parent_collation_hash: uint256,
+        parent_collation_hash: bytes32,
         tx_list_root: bytes32,
         coinbase: address,
         post_state_root: bytes32,
-        receipt_root: bytes32,
+        receipts_root: bytes32,
         sig: bytes
     ]
 
@@ -47,7 +47,7 @@ Where:
 -   `parent_collation_hash` is the hash of the parent collation
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation
 -   `post_state_root` is the new state root of the shard after this aollation
--   `receipt_root` is the root hash of the receipt trie
+-   `receipts_root` is the root hash of the receipt trie
 -   `sig` is a signature
 
 For blocks where `block.number >= SERENITY_FORK_BLKNUM`, the block header's extra data must contain a hash which points to an RLP list of `SHARD_COUNT` objects, where each object is either the empty string or a valid collation header for a shard.
@@ -59,7 +59,7 @@ A **collation header** is valid if calling `addHeader(header)` returns true. The
 -   A collation with the hash `parent_collation_hash` has already been accepted
 -   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = sample(shardId)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
 
-A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipt_root`, and (iii) the total gas used is less than or equal to the output of calling `getCollationGasLimit()` on the main shard.
+A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`, and (iii) the total gas used is less than or equal to the output of calling `getCollationGasLimit()` on the main shard.
 
 ### Collation state transition function
 
@@ -108,7 +108,7 @@ This picks out 100 validators for each shard during each cycle, and then during 
 We generally expect collation headers to be produced and propagated as follows.
 
 * Every time a new `SHUFFLING_CYCLE` starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)
-* The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable blocks, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.
+* The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable collations, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.
 * If a validator is currently eligible to validate in some shard `i`, they download the full collation association with any collation header that is included into block headers for shard `i`.
 * When on the current global main chain a new period starts, the validator calls `sample(i)` to determine if they are eligible to create a collation; if they are, then they do so.
 
