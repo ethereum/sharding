@@ -129,7 +129,6 @@ def header_event_watcher(log):
         header_logs.append(log.data)
         if len(header_logs) > 1:
             last_log = header_logs.pop(0)
-            # []
             # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
             # use sedes to prevent integer 0 from being decoded as b''
             sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
@@ -188,7 +187,7 @@ assert x.get_head(0) == h3_prime_hash
 # test get_ancestor: h3_prime's height is too low so and it doesn't have a
 #                    10000th ancestor. So it should fail.
 try:
-    ancestor_10000th_hash = x.get_ancestor(h3_prime_hash)
+    ancestor_10000th_hash = x.get_ancestor(shardId, h3_prime_hash)
     assert False
 except t.TransactionFailed:
     pass
@@ -206,5 +205,5 @@ for i in range(kth_ancestor - current_height):
     current_colhdr = get_colhdr(shardId, current_colhdr_hash, collation_coinbase=t.a1)
     assert x.add_header(current_colhdr)
     current_colhdr_hash = utils.sha3(current_colhdr)
-assert x.get_ancestor(current_colhdr_hash) == shard0_genesis_colhdr_hash
+assert x.get_ancestor(shardId, current_colhdr_hash) == shard0_genesis_colhdr_hash
 '''

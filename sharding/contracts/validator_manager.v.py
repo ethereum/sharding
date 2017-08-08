@@ -9,11 +9,9 @@ validators: public({
 }[num])
 
 collation_headers: public({
-    shardId: num,
-    hash: bytes32,
     parent_collation_hash: bytes32,
     score: num,
-}[bytes32])
+}[bytes32][num])
 
 shard_head: bytes32[num]
 
@@ -63,9 +61,7 @@ def __init__():
     # XXX !!!WARNING!!!: the 100 below must be equaled to `self.shard_count`
     for i in range(100):
         genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
-        self.collation_headers[genesis_header_hash] = {
-            shardId: i,
-            hash: genesis_header_hash,
+        self.collation_headers[i][genesis_header_hash] = {
             parent_collation_hash: genesis_header_hash,
             score: 0
         }
@@ -168,24 +164,22 @@ def add_header(header: bytes <= 4096) -> bool:
     assert shardId >= 0
     assert expected_period_number == floor(decimal(block.number / self.period_length))
     # Check if this header already exists
-    assert self.collation_headers[entire_header_hash].hash == as_bytes32(0)
+    assert self.collation_headers[shardId][entire_header_hash].parent_collation_hash == as_bytes32(0)
     # Check if the parent exists
-    assert self.collation_headers[parent_collation_hash].hash != as_bytes32(0)
+    assert self.collation_headers[shardId][parent_collation_hash].parent_collation_hash != as_bytes32(0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shardId)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
     # Add the header
-    _score = self.collation_headers[parent_collation_hash].score + 1
-    self.collation_headers[entire_header_hash] = {
-        shardId: shardId,
-        hash: entire_header_hash,
+    _score = self.collation_headers[shardId][parent_collation_hash].score + 1
+    self.collation_headers[shardId][entire_header_hash] = {
         parent_collation_hash: parent_collation_hash,
         score: _score
     }
 
     # Determine the head
-    if _score > self.collation_headers[self.shard_head[shardId]].score:
+    if _score > self.collation_headers[shardId][self.shard_head[shardId]].score:
         self.shard_head[shardId] = entire_header_hash
 
     # Emit log
@@ -201,17 +195,18 @@ def get_head(shardId: num) -> bytes32:
 
 
 # Returns the 10000th ancestor of this hash.
-def get_ancestor(hash: bytes32) -> bytes32:
-    colhdr = self.collation_headers[hash]
+def get_ancestor(shardId: num, hash: bytes32) -> bytes32:
+    colhdr = self.collation_headers[shardId][hash]
     # assure that the colhdr exists
-    assert colhdr.hash != as_bytes32(0)
-    genesis_colhdr_hash = sha3(concat(as_bytes32(colhdr.shardId), "GENESIS"))
-    current_colhdr_hash = colhdr.hash
+    assert colhdr.parent_collation_hash != as_bytes32(0)
+    genesis_colhdr_hash = sha3(concat(as_bytes32(shardId), "GENESIS"))
+    current_colhdr_hash = hash
     # get the 10000th ancestor
     for i in range(10000):
         assert current_colhdr_hash != genesis_colhdr_hash
-        current_colhdr_hash = self.collation_headers[current_colhdr_hash].parent_collation_hash
+        current_colhdr_hash = self.collation_headers[shardId][current_colhdr_hash].parent_collation_hash
     return current_colhdr_hash
+
 
 # Returns the difference between the block number of this hash and the block
 # number of the 10000th ancestor of this hash.
@@ -224,4 +219,3 @@ def get_ancestor_distance(hash: bytes32) -> bytes32:
 # this function always answer 10 million).
 def get_collation_gas_limit() -> num:
     return 10000000
-
