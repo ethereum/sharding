@@ -184,6 +184,7 @@ h3_prime = get_colhdr(shardId, h2_prime_hash, collation_coinbase=t.a1)
 h3_prime_hash = utils.sha3(h3_prime)
 assert x.add_header(h3_prime)
 assert x.get_head(0) == h3_prime_hash
+'''
 # test get_ancestor: h3_prime's height is too low so and it doesn't have a
 #                    10000th ancestor. So it should fail.
 try:
@@ -196,7 +197,6 @@ except t.TransactionFailed:
 #       This test takes few minutes. For now, you can adjust the `kth_ancestor`
 #       to a smaller number here, and the same number of iterations of the `for`
 #       loop in `get_ancestor` in the validator_manager contract.
-'''
 current_height = 3 # h3_prime
 kth_ancestor = 10000
 current_colhdr_hash = h3_prime_hash

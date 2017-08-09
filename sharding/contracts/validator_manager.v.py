@@ -195,17 +195,17 @@ def get_head(shardId: num) -> bytes32:
 
 
 # Returns the 10000th ancestor of this hash.
-def get_ancestor(shardId: num, hash: bytes32) -> bytes32:
-    colhdr = self.collation_headers[shardId][hash]
-    # assure that the colhdr exists
-    assert colhdr.parent_collation_hash != as_bytes32(0)
-    genesis_colhdr_hash = sha3(concat(as_bytes32(shardId), "GENESIS"))
-    current_colhdr_hash = hash
-    # get the 10000th ancestor
-    for i in range(10000):
-        assert current_colhdr_hash != genesis_colhdr_hash
-        current_colhdr_hash = self.collation_headers[shardId][current_colhdr_hash].parent_collation_hash
-    return current_colhdr_hash
+# def get_ancestor(shardId: num, hash: bytes32) -> bytes32:
+#     colhdr = self.collation_headers[shardId][hash]
+#     # assure that the colhdr exists
+#     assert colhdr.parent_collation_hash != as_bytes32(0)
+#     genesis_colhdr_hash = sha3(concat(as_bytes32(shardId), "GENESIS"))
+#     current_colhdr_hash = hash
+#     # get the 10000th ancestor
+#     for i in range(10000):
+#         assert current_colhdr_hash != genesis_colhdr_hash
+#         current_colhdr_hash = self.collation_headers[shardId][current_colhdr_hash].parent_collation_hash
+#     return current_colhdr_hash
 
 
 # Returns the difference between the block number of this hash and the block
