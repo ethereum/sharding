@@ -1,3 +1,5 @@
+from builtins import (bytes, str, open, super, range,
+                      zip, round, input, int, pow, object)
 import itertools
 import rlp
 from rlp.utils import encode_hex
