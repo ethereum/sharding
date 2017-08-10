@@ -7,6 +7,7 @@ from ethereum import utils
 from ethereum.slogging import get_logger
 from ethereum.common import mk_transaction_sha, mk_receipt_sha
 from ethereum import trie
+from ethereum.exceptions import InsufficientBalance
 
 from sharding.collation import Collation, CollationHeader
 from sharding import state_transition
@@ -21,8 +22,8 @@ shardId = 1
 @pytest.fixture(scope='function')
 def chain(shardId):
     t = tester.Chain(env='sharding')
-    t.add_test_shard(shardId)
     t.mine(5)
+    t.add_test_shard(shardId)
     return t
 
 
@@ -45,8 +46,8 @@ def test_add_transactions():
     """Test add_transactions(state, collation, txqueue, min_gasprice=0)
     """
     t = chain(shardId)
-    tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-    tx2 = t.generate_shard_tx(tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx2 = t.generate_shard_tx(shardId, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
     txqueue = TransactionQueue()
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
@@ -58,6 +59,12 @@ def test_add_transactions():
     state_transition.add_transactions(state, collation, txqueue)
     assert collation.transaction_count == 2
     assert state.get_balance(tester.a4) == 1 * utils.denoms.ether + int(0.03 * utils.denoms.ether)
+
+    # InsufficientBalance -> don't include this transaction
+    tx3 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(100000000000 * utils.denoms.ether))
+    txqueue.add_transaction(tx3)
+    state_transition.add_transactions(state, collation, txqueue)
+    assert collation.transaction_count == 2
 
 
 def test_update_collation_env_variables():
@@ -84,8 +91,8 @@ def test_validate_transaction_tree():
     """Test validate_transaction_tree(collation)
     """
     t = chain(shardId)
-    tx1 = t.generate_shard_tx(tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-    tx2 = t.generate_shard_tx(tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx2 = t.generate_shard_tx(shardId, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
     txqueue = TransactionQueue()
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)

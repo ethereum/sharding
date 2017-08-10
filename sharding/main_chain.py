@@ -4,7 +4,6 @@ import itertools
 import rlp
 from rlp.utils import encode_hex
 
-from ethereum import utils
 from ethereum.meta import apply_block
 from ethereum.exceptions import InvalidTransaction, VerificationFailed
 from ethereum.slogging import get_logger
@@ -14,12 +13,6 @@ from sharding.shard_chain import ShardChain
 
 
 log = get_logger('eth.chain')
-
-
-def safe_decode(x):
-    if x[:2] == '0x':
-        x = x[2:]
-    return utils.decode_hex(x)
 
 
 class MainChain(Chain):
@@ -193,13 +186,23 @@ class MainChain(Chain):
                     blockhash_list.extend(self.get_children(block))
         return True
 
-    # TODO: test
-    def reorganize_head_collation(self, block, collation):
-        """Reorganize head collation
-        block: head block
-        collation: given collation
-        """
+    # TODO: implement in pyethapp
+    # def handle_collation_header(self, collation_header):
+    #     """After add_block and got the collation_header
+    #     """
+    #     if self.has_shard(collation_header.shardId):
+    #         collation = self.shards[collation_header.shardId].get_collation(collation_header.hash)
+    #         if collation is None:
+    #             self.download_collaton(collation_header)
+    #         else:
+    #             self._reorganize_head_collation(collation)
+    #     else:
+    #         return
 
+    # TODO: test
+    def _reorganize_head_collation(self, block, collation):
+        """Reorganize head collation
+        """
         blockhash = block.header.hash
         collhash = collation.header.hash
         shardId = collation.header.shardId
@@ -224,14 +227,14 @@ class MainChain(Chain):
 
         self.shards[shardId].head_hash = self.shards[shardId].head_collation_of_block[blockhash]
 
-    def handle_orphan_collation(self, collation):
-        """Handle the orphan collation (previously ignored collation)
+    def handle_ignored_collation(self, collation):
+        """Handle the ignored collation (previously ignored collation)
 
         collation: the parent collation
         """
         if collation.header.hash in self.shards[collation.shardId].parent_queue:
             for _collation in self.shards[collation.shardId].parent_queue[collation.header.hash]:
                 _period_start_prevblock = self.get_block(collation.header.period_start_prevhash)
-                self.shards[collation.shardId].add_collation(_collation, _period_start_prevblock, self.handle_orphan_collation)
+                self.shards[collation.shardId].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation)
                 del self.shards[collation.shardId].parent_queue[collation.header.hash]
         self.update_head_collation_of_block(collation)

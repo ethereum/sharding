@@ -81,6 +81,7 @@ def create_collation(
         collation.header.sig = sig
     except Exception as e:
         log.info('Failed to sign collation, exception: {}'.format(str(e)))
+        raise e
 
     log.info('Created collation successfully')
     return collation
@@ -92,3 +93,26 @@ def sign(msg_hash, privkey):
     v, r, s = utils.ecsign(msg_hash, privkey)
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
     return signature
+
+
+def verify_collation_header(chain, header):
+    """Verify the collation
+
+    Validate the collation header before calling ShardChain.add_collation
+
+    chain: MainChain
+    header: the given collation header
+    """
+    if header.shardId < 0:
+        raise ValueError('Invalid shardId %d' % header.shardId)
+
+    period_start_prevhash = chain.get_period_start_prevhash(header.expected_period_number)
+    is_correct_period_start_prevhash = (
+        period_start_prevhash is not None and
+        header.period_start_prevhash == period_start_prevhash)
+    if not is_correct_period_start_prevhash:
+        raise ValueError('Incorrect period_start_prevhash')
+
+    # TODO call contract to verify header
+
+    return True

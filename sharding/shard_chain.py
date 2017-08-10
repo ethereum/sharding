@@ -6,7 +6,6 @@ from collections import defaultdict
 import rlp
 from rlp.utils import encode_hex
 
-from ethereum import utils
 from ethereum.exceptions import InvalidTransaction, VerificationFailed
 from ethereum.slogging import get_logger
 from ethereum.config import Env
@@ -19,12 +18,6 @@ from sharding.state_transition import update_collation_env_variables
 
 log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
-
-
-def safe_decode(x):
-    if x[:2] == '0x':
-        x = x[2:]
-    return utils.decode_hex(x)
 
 
 def initialize_genesis_keys(state, genesis):
@@ -115,7 +108,7 @@ class ShardChain(object):
             print(str(e))
             return None
 
-    def add_collation(self, collation, period_start_prevblock, handle_orphan_collation):
+    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation):
         """Add collation to db and update score
         """
         if collation.header.parent_collation_hash in self.env.db:
@@ -163,9 +156,9 @@ class ShardChain(object):
 
         # TODO: It seems weird to use callback function to access member of MainChain
         try:
-            handle_orphan_collation(collation)
+            handle_ignored_collation(collation)
         except Exception as e:
-            log.info('handle_orphan_collation exception: {}'.format(str(e)))
+            log.info('handle_ignored_collation exception: {}'.format(str(e)))
             return False
 
         return True

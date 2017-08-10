@@ -41,7 +41,7 @@ def add_transactions(state, collation, txqueue, min_gasprice=0):
             collation.transactions.append(tx)
         except (InsufficientBalance, BlockGasLimitReached, InsufficientStartGas,
                 InvalidNonce, UnsignedTransaction) as e:
-            print(str(e))
+            log.info(str(e))
             pass
     log.info('Added %d transactions' % (len(collation.transactions) - pre_txs))
 
@@ -87,9 +87,9 @@ def verify_execution_results(state, collation):
     (refer to ethereum.common.verify_execution_results)
     """
     state.commit()
-    if collation.header.tx_list_root != mk_transaction_sha(collation.transactions):
-        raise ValueError('Transaction root mismatch: header %s computed %s' %
-                         (encode_hex(collation.header.tx_list_root), encode_hex(mk_transaction_sha(collation.transactions))))
+
+    validate_transaction_tree(collation)
+
     if collation.header.post_state_root != state.trie.root_hash:
         raise ValueError('State root mismatch: header %s computed %s' %
                          (encode_hex(collation.header.post_state_root), encode_hex(state.trie.root_hash)))
