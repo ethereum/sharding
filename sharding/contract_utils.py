@@ -23,11 +23,6 @@ class MessageFailed(Exception):
     pass
 
 
-class TransactionFailed(Exception):
-
-    pass
-
-
 def get_valmgr_ct():
     global _valmgr_ct, _valmgr_code
     if not _valmgr_ct:
@@ -181,7 +176,7 @@ def mk_initiating_contracts(sender_privkey, sender_starting_nonce):
 def deploy_tx(state, tx):
     success, output = apply_transaction(state, tx)
     if not success:
-        raise TransactionFailed("Failed to deploy tx")
+        raise t.TransactionFailed("Failed to deploy tx")
     return output
 
 
@@ -194,11 +189,14 @@ def deploy_contract(state, sender_privkey, bytecode):
     return deploy_tx(state, tx)
 
 
-def deploy_valmgr_contract(state):
-    addr = get_valmgr_addr()
-    if not state.account_exists(addr):
-        deploy_tx(state, _valmgr_tx)
-    return addr
+def deploy_initializing_contracts(sender_privkey, state):
+    sender_addr = utils.privtoaddr(sender_privkey)
+    txs = mk_initiating_contracts(t.k0, state.get_nonce(sender_addr))
+    for tx in txs:
+        try:
+            deploy_tx(state, tx)
+        except t.TransactionFailed:
+            pass
 
 
 def mk_validation_code(address):
@@ -236,20 +234,16 @@ def test():
     state.set_balance(address=t.a0, value=deposit_size * 10)
     state.set_balance(address=t.a1, value=deposit_size * 10)
 
-    txs = mk_initiating_contracts(t.k0, state.get_nonce(t.a0))
-    for tx in txs:
-        deploy_tx(state, tx)
+    deploy_initializing_contracts(t.k0, state)
     validator_manager_addr = get_valmgr_addr()
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
     tx = call_deposit(state, validator_manager_addr, t.k0, deposit_size, k0_valcode_addr, t.a2)
-    print(deploy_tx(state, tx))
-    a = call_sample(state, validator_manager_addr, 0)
-    print(a)
+    deploy_tx(state, tx)
+    assert hex(utils.big_endian_to_int(k0_valcode_addr)) == hex(utils.big_endian_to_int(call_sample(state, validator_manager_addr, 0)))
     tx = call_withdraw(state, validator_manager_addr, t.k0, 0, sign(withdraw_hash, t.k0))
-    print(deploy_tx(state, tx))
-    a = call_sample(state, validator_manager_addr, 0)
-    print(a)
-    print(call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0)))
+    deploy_tx(state, tx)
+    assert 0 == utils.big_endian_to_int(call_sample(state, validator_manager_addr, 0))
+    assert call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0))
 
 
 if __name__ == '__main__':
