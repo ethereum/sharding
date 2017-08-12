@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 # requirements
@@ -40,10 +40,7 @@ setup(
     version=version,
     description='Ethereum Sharding POC utilities',
     url='https://github.com/ethereum/sharding',
-    packages=[
-        'sharding',
-    ],
-
+    packages=find_packages("."),
     package_data={},
     classifiers=[
         'Intended Audience :: Developers',
