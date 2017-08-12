@@ -1,11 +1,15 @@
+import pytest
+import rlp
+
 from ethereum import utils
 from ethereum.slogging import LogRecorder, configure_logging, set_level
 from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
-import rlp
-from rlp.sedes import binary, List
+from rlp.sedes import List, binary
 
-from sharding.validator_manager_utils import get_valmgr_code, mk_validation_code, sign, sighasher_tx, viper_rlp_decoder_tx
+from sharding.validator_manager_utils import (get_valmgr_code,
+                                              mk_validation_code, sighasher_tx,
+                                              sign, viper_rlp_decoder_tx)
 
 config_string = ":info,:debug"
 '''
@@ -37,11 +41,8 @@ def test_validator_manager():
     c.direct_tx(sighasher_tx)
 
     # test deposit: fails when msg.value != deposit_size
-    try:
+    with pytest.raises(t.TransactionFailed):
         x.deposit(k0_valcode_addr, k0_valcode_addr)
-        assert False
-    except t.TransactionFailed:
-        pass
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
     # test deposit: works fine
@@ -54,11 +55,8 @@ def test_validator_manager():
     # test deposit: working fine in the edge condition
     assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
     # test deposit: fails when valcode_addr is deposited before
-    try:
+    with pytest.raises(t.TransactionFailed):
         x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
-        assert False
-    except t.TransactionFailed:
-        pass
     # test withdraw: fails when the signature is not corret
     assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 
@@ -120,28 +118,19 @@ def test_validator_manager():
     h1_hash = utils.sha3(h1)
     assert x.add_header(h1)
     # test add_header: fails when the header is added before
-    try:
+    with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shardId, shard0_genesis_colhdr_hash)
         result = x.add_header(h1)
-        assert False
-    except t.TransactionFailed:
-        pass
     # test add_header: fails when the parent_collation_hash is not added before
-    try:
+    with pytest.raises(t.TransactionFailed):
         h2 = get_colhdr(shardId, utils.sha3("123"))
         result = x.add_header(h2)
-        assert False
-    except t.TransactionFailed:
-        pass
     # test add_header: the log is generated normally
-    try:
-        h2 = get_colhdr(shardId, h1_hash)
-        h2_hash = utils.sha3(h2)
-        assert x.add_header(h2)
-        latest_log_hash = utils.sha3(header_logs[-1])
-        assert h2_hash == latest_log_hash
-    except (IndexError, t.TransactionFailed):
-        assert False
+    h2 = get_colhdr(shardId, h1_hash)
+    h2_hash = utils.sha3(h2)
+    assert x.add_header(h2)
+    latest_log_hash = utils.sha3(header_logs[-1])
+    assert h2_hash == latest_log_hash
     # test get_head: get the correct head when a new header is added
     assert x.get_head(0) == h2_hash
     # test get_head: get the correct head when a fork happened
@@ -159,11 +148,8 @@ def test_validator_manager():
     '''
     # test get_ancestor: h3_prime's height is too low so and it doesn't have a
     #                    10000th ancestor. So it should fail.
-    try:
+    with pytest.raises(t.TransactionFailed):
         ancestor_10000th_hash = x.get_ancestor(shardId, h3_prime_hash)
-        assert False
-    except t.TransactionFailed:
-        pass
     # test get_ancestor:
     # TODO: figure out a better test instead of adding headers one by one.
     #       This test takes few minutes. For now, you can adjust the `kth_ancestor`

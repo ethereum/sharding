@@ -1,9 +1,19 @@
+import pytest
+
 from ethereum import utils
 from ethereum.messages import apply_transaction
 from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 
-from sharding.validator_manager_utils import call_deposit, call_sample, call_validation_code, call_withdraw, get_valmgr_addr, mk_initiating_contracts, mk_validation_code, sign, GASPRICE, STARTGAS
+from sharding.validator_manager_utils import (GASPRICE, STARTGAS, call_deposit,
+                                              call_sample,
+                                              call_validation_code,
+                                              call_withdraw, get_valmgr_addr,
+                                              mk_initiating_contracts,
+                                              mk_validation_code, sign)
+
+deposit_size = 10 ** 20
+withdraw_hash = utils.sha3("withdraw")
 
 # Testing Part
 def deploy_tx(state, tx):
@@ -31,18 +41,19 @@ def deploy_initializing_contracts(sender_privkey, state):
         except t.TransactionFailed:
             pass
 
-
-def test_contract_utils():
-    deposit_size = 10 ** 20
-    withdraw_hash = utils.sha3("withdraw")
-    valmgr_sender_privkey = t.k0
+@pytest.fixture
+def state():
+    """A modified head_state from ethereum.tester.Chain.head_state
+    """
     c = t.Chain()
     c.mine(1, coinbase=t.a0)
-    state = c.head_state
-    state.gas_limit = 10 ** 10
-    state.set_balance(address=t.a0, value=deposit_size * 10)
-    state.set_balance(address=t.a1, value=deposit_size * 10)
+    c.head_state.gas_limit = 10 ** 10
+    c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
+    c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
+    return c.head_state
 
+
+def test_contract_utils(state):
     deploy_initializing_contracts(t.k0, state)
     validator_manager_addr = get_valmgr_addr()
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))

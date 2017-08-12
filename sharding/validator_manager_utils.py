@@ -1,11 +1,12 @@
 import os
 
-from ethereum.tools import tester as t
+import rlp
+
 from ethereum import abi, utils, vm
-from ethereum.messages import apply_transaction, apply_message
+from ethereum.messages import apply_message, apply_transaction
+from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 import viper
-import rlp
 
 STARTGAS = 10 ** 8
 GASPRICE = 0
@@ -24,9 +25,7 @@ sighasher_tx = rlp.decode(utils.parse_as_bin("0xf9016d808506fc23ac0083026a508080
 sighasher_addr = sighasher_tx.creates
 
 class MessageFailed(Exception):
-
     pass
-
 
 def mk_validation_code(address):
     '''
@@ -50,7 +49,6 @@ def sign(msg_hash, privkey):
     v, r, s = utils.ecsign(msg_hash, privkey)
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
     return signature
-
 
 def get_valmgr_ct():
     global _valmgr_ct, _valmgr_code
