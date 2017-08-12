@@ -184,10 +184,10 @@ def call_get_head(state, shardId):
 
 
 '''
-def call_get_ancestor(state, header_hash):
+def call_get_ancestor(state, shardId, header_hash):
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor', [header_hash],
+        state, get_valmgr_ct(), 'get_ancestor', [shardId, header_hash],
         dummy_addr, get_valmgr_addr()
     )
 
