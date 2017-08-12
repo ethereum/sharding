@@ -113,9 +113,9 @@ def create_valmgr_tx(gasprice=GASPRICE, startgas=STARTGAS):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
     bytecode = get_valmgr_bytecode()
     tx = Transaction(0 , gasprice, startgas, to=b'', value = 0, data=bytecode)
-    tx.v = 28
-    tx.r = 88211215265987573091860955075888007489896784216713220703632101173354667862905
-    tx.s = 28950657277437913171015320570732318474400661424224137404770861665571343423479
+    tx.v = 27
+    tx.r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
+    tx.s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     tx_rawhash = get_tx_rawhash(tx)
     valmgr_sender_addr = utils.sha3(
         utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
