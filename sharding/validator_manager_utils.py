@@ -143,28 +143,69 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
     return tx
 
 
-def call_deposit(state, validator_manager_addr, sender_privkey, value, validation_code_addr, return_addr):
+def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
-        sender_privkey, validator_manager_addr, value
+        sender_privkey, get_valmgr_addr(), value
     )
 
 
-def call_withdraw(state, validator_manager_addr, sender_privkey, validator_index, signature):
+def call_withdraw(state, sender_privkey, value, validator_index, signature):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'withdraw', [validator_index, signature],
-        sender_privkey, validator_manager_addr, 0
+        sender_privkey, get_valmgr_addr(), value
     )
 
 
-def call_sample(state, validator_manager_addr, shard_id):
+def call_sample(state, shardId):
     ct = get_valmgr_ct()
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, ct, 'sample', [shard_id],
-        dummy_addr, validator_manager_addr
+        state, ct, 'sample', [shardId],
+        dummy_addr, get_valmgr_addr()
+    )
+
+
+def call_add_header(state, sender_privkey, value, header):
+    return call_tx(
+        state, get_valmgr_ct(), 'add_header', [header],
+        sender_privkey, get_valmgr_addr(), value
+    )
+
+
+def call_get_head(state, shardId):
+    dummy_addr = b'\xff' * 20
+    return call_msg(
+        state, get_valmgr_ct(), 'get_head', [shardId],
+        dummy_addr, get_valmgr_addr()
+    )
+
+
+'''
+def call_get_ancestor(state, header_hash):
+    dummy_addr = b'\xff' * 20
+    return call_msg(
+        state, get_valmgr_ct(), 'get_ancestor', [header_hash],
+        dummy_addr, get_valmgr_addr()
+    )
+
+
+def call_get_ancestor_distance(state, header_hash):
+    dummy_addr = b'\xff' * 20
+    return call_msg(
+        state, get_valmgr_ct(), 'get_ancestor_distance', [header_hash],
+        dummy_addr, get_valmgr_addr()
+    )
+'''
+
+
+def call_get_collation_gas_limit(state):
+    dummy_addr = b'\xff' * 20
+    return call_msg(
+        state, get_valmgr_ct(), 'get_collation_gas_limit', [],
+        dummy_addr, get_valmgr_addr()
     )
 
 

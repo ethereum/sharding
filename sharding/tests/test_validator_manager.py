@@ -7,7 +7,10 @@ from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 from rlp.sedes import List, binary
 
-from sharding.validator_manager_utils import (get_valmgr_code,
+from sharding.validator_manager_utils import (get_valmgr_addr,
+                                              get_valmgr_ct,
+                                              get_valmgr_code,
+                                              mk_initiating_contracts,
                                               mk_validation_code, sighasher_tx,
                                               sign, viper_rlp_decoder_tx)
 
@@ -32,13 +35,17 @@ def test_validator_manager():
 
     c.mine(1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
-    x = c.contract(validator_manager_code, language='viper', startgas=10**11)
     c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
     c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
-    c.head_state.set_balance(address=viper_rlp_decoder_tx.sender, value=deposit_size * 10)
-    c.head_state.set_balance(address=sighasher_tx.sender, value=deposit_size * 10)
-    c.direct_tx(viper_rlp_decoder_tx)
-    c.direct_tx(sighasher_tx)
+
+    # deploy valmgr and its prerequisite contracts and transactions
+    txs = mk_initiating_contracts(t.k0, c.head_state.get_nonce(t.a0))
+    for tx in txs:
+        try:
+            c.direct_tx(tx)
+        except t.TransactionFailed:
+            pass
+    x = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
 
     # test deposit: fails when msg.value != deposit_size
     with pytest.raises(t.TransactionFailed):
