@@ -38,13 +38,15 @@ version = '0.0.1'
 setup(
     name='sharding',
     version=version,
-    description='Ethereum Sharding POC utilities',
+    description='Ethereum Sharding PoC utilities',
     url='https://github.com/ethereum/sharding',
     packages=find_packages("."),
     package_data={},
     classifiers=[
         'Intended Audience :: Developers',
         'Natural Language :: English',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
     ],
