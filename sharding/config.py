@@ -19,7 +19,8 @@ sharding_config['HOMESTEAD_FORK_BLKNUM'] = 0
 sharding_config['METROPOLIS_FORK_BLKNUM'] = 0
 sharding_config['SERENITY_FORK_BLKNUM'] = 0
 sharding_config['SHARD_COUNT'] = 100
-sharding_config['VALIDATOR_MANAGER_ADDRESS'] = ''    # TODO
+# should be modified whenever the v, r, s in valmgr tx change
+sharding_config['VALIDATOR_MANAGER_ADDRESS'] = '0x7aD6d8A59E179e05f23A29CFecCBcf0A397a86E9'
 sharding_config['USED_RECEIPT_STORE_ADDRESS'] = ''   # TODO
 sharding_config['SIG_GASLIMIT'] = 40000
 sharding_config['COLLATOR_REWARD'] = 0.002 * utils.denoms.ether

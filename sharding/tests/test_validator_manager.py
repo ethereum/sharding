@@ -33,7 +33,8 @@ def test_validator_manager():
     k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
     k1_valcode_addr = c.tx(t.k1, '', 0, mk_validation_code(t.a1))
 
-    c.mine(1, coinbase=t.a0)
+    num_blocks = 11
+    c.mine(num_blocks - 1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
     c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
     c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
@@ -76,8 +77,9 @@ def test_validator_manager():
     assert 1 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
 
     def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
-        expected_period_number = 0
-        period_start_prevhash = b"period  " * 4
+        period_length = 5
+        expected_period_number = num_blocks // period_length
+        period_start_prevhash = c.chain.head.header.prevhash
         tx_list_root = b"tx_list " * 4
         post_state_root = b"post_sta" * 4
         receipt_root = b"receipt " * 4
@@ -114,7 +116,6 @@ def test_validator_manager():
 
     c.head_state.log_listeners.append(header_event_watcher)
 
-    # configure_logging(config_string=config_string)
     shardId = 0
     shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shardId) + b"GENESIS")
 
