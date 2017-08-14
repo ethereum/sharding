@@ -126,7 +126,7 @@ def sample(shardId: num) -> address:
     # originally, error occurs when block.number <= 4 because
     # `seed_block_number` becomes negative in these cases.
     # Now, just reject the cases when block.number <= 4
-    assert block.number >= 5
+    assert block.number >= self.period_length
     seed = blockhash(block.number - (block.number % self.period_length) - 1)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shardId)))),
                                  as_num256(100))
@@ -156,14 +156,14 @@ def add_header(header: bytes <= 4096) -> bool:
     receipt_root = values[7]
     sig = values[8]
 
-    sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
-    entire_header_hash = sha3(header)
-
     # Check if the header is valid
     assert shardId >= 0
+    assert block.number >= self.period_length
     assert expected_period_number == floor(decimal(block.number / self.period_length))
     assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
+
     # Check if this header already exists
+    entire_header_hash = sha3(header)
     assert not self.collation_headers[shardId][entire_header_hash].exists
     # Check whether the parent exists.
     # if (parent_collation_hash == 0), i.e., is the genesis,
@@ -172,6 +172,7 @@ def add_header(header: bytes <= 4096) -> bool:
         assert self.collation_headers[shardId][parent_collation_hash].exists
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shardId)
+    sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
     # Add the header
