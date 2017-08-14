@@ -10,7 +10,7 @@ from sharding.validator_manager_utils import (GASPRICE, STARTGAS, call_deposit,
                                               call_sample,
                                               call_validation_code,
                                               call_withdraw, call_add_header,
-                                              call_get_head,
+                                              call_get_shard_head,
                                               call_get_collation_gas_limit,
                                               get_valmgr_addr,
                                               mk_initiating_contracts,
@@ -80,7 +80,7 @@ def test_call_deposit_withdraw_sample(chain):
     assert call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0))
 
 
-def test_call_add_header_get_head(chain):
+def test_call_add_header_get_shard_head(chain):
     state = chain.head_state
     def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
@@ -106,7 +106,7 @@ def test_call_add_header_get_head(chain):
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
     colhdr = get_colhdr(0, shard0_genesis_colhdr_hash)
     colhdr_hash = utils.sha3(colhdr)
-    assert call_get_head(state, 0) == shard0_genesis_colhdr_hash
+    assert call_get_shard_head(state, 0) == shard0_genesis_colhdr_hash
     # register t.k0 as the validators
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
     tx = call_deposit(state, t.k0, deposit_size, k0_valcode_addr, t.a2)
@@ -115,5 +115,5 @@ def test_call_add_header_get_head(chain):
     # selected validator, using `sample`
     tx = call_add_header(state, t.k0, 0, colhdr)
     deploy_tx(state, tx)
-    assert colhdr_hash == call_get_head(state, 0)
+    assert colhdr_hash == call_get_shard_head(state, 0)
 

@@ -175,10 +175,10 @@ def call_add_header(state, sender_privkey, value, header):
     )
 
 
-def call_get_head(state, shardId):
+def call_get_shard_head(state, shardId):
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, get_valmgr_ct(), 'get_head', [shardId],
+        state, get_valmgr_ct(), 'get_shard_head', [shardId],
         dummy_addr, get_valmgr_addr()
     )
 

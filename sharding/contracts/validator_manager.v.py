@@ -14,7 +14,7 @@ collation_headers: public({
     exists: bool
 }[bytes32][num])
 
-shard_head: bytes32[num]
+shard_head: public(bytes32[num])
 
 num_validators: public(num)
 
@@ -191,12 +191,6 @@ def add_header(header: bytes <= 4096) -> bool:
     raw_log([self.add_header_log_topic], header)
 
     return True
-
-
-# Returns the header hash that is the head of a given shard as perceived by
-# the manager contract.
-def get_head(shardId: num) -> bytes32:
-    return self.shard_head[shardId]
 
 
 # Returns the 10000th ancestor of this hash.

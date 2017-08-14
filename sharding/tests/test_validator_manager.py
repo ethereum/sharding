@@ -120,8 +120,8 @@ def test_validator_manager():
     shardId = 0
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
 
-    # test get_head: returns genesis_colhdr_hash when there is no new header
-    assert x.get_head() == shard0_genesis_colhdr_hash
+    # test get_shard_head: returns genesis_colhdr_hash when there is no new header
+    assert x.get_shard_head() == shard0_genesis_colhdr_hash
     # test add_header: works normally with parent_collation_hash == GENESIS
     h1 = get_colhdr(shardId, shard0_genesis_colhdr_hash)
     h1_hash = utils.sha3(h1)
@@ -140,20 +140,20 @@ def test_validator_manager():
     assert x.add_header(h2)
     latest_log_hash = utils.sha3(header_logs[-1])
     assert h2_hash == latest_log_hash
-    # test get_head: get the correct head when a new header is added
-    assert x.get_head(0) == h2_hash
-    # test get_head: get the correct head when a fork happened
+    # test get_shard_head: get the correct head when a new header is added
+    assert x.get_shard_head(0) == h2_hash
+    # test get_shard_head: get the correct head when a fork happened
     h1_prime = get_colhdr(shardId, shard0_genesis_colhdr_hash, collation_coinbase=t.a1)
     h1_prime_hash = utils.sha3(h1_prime)
     assert x.add_header(h1_prime)
     h2_prime = get_colhdr(shardId, h1_prime_hash, collation_coinbase=t.a1)
     h2_prime_hash = utils.sha3(h2_prime)
     assert x.add_header(h2_prime)
-    assert x.get_head(0) == h2_hash
+    assert x.get_shard_head(0) == h2_hash
     h3_prime = get_colhdr(shardId, h2_prime_hash, collation_coinbase=t.a1)
     h3_prime_hash = utils.sha3(h3_prime)
     assert x.add_header(h3_prime)
-    assert x.get_head(0) == h3_prime_hash
+    assert x.get_shard_head(0) == h3_prime_hash
     '''
     # test get_ancestor: h3_prime's height is too low so and it doesn't have a
     #                    10000th ancestor. So it should fail.
