@@ -98,7 +98,7 @@ def test_call_add_header_get_head(state):
             parent_collation_hash, tx_list_root, collation_coinbase,
             post_state_root, receipt_root, sig
         ])
-    shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(0) + b"GENESIS")
+    shard0_genesis_colhdr_hash = utils.encode_int32(0)
     colhdr = get_colhdr(0, shard0_genesis_colhdr_hash)
     colhdr_hash = utils.sha3(colhdr)
     assert call_get_head(state, 0) == shard0_genesis_colhdr_hash

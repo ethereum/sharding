@@ -11,6 +11,7 @@ validators: public({
 collation_headers: public({
     parent_collation_hash: bytes32,
     score: num,
+    exists: bool
 }[bytes32][num])
 
 shard_head: bytes32[num]
@@ -57,15 +58,6 @@ def __init__():
     self.collator_reward = 0.002
     self.add_header_log_topic = sha3("add_header()")
     self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
-    # Initialize all genesis header for all shards
-    # XXX !!!WARNING!!!: the 100 below must be equaled to `self.shard_count`
-    for i in range(100):
-        genesis_header_hash = sha3(concat(as_bytes32(i), "GENESIS"))
-        self.collation_headers[i][genesis_header_hash] = {
-            parent_collation_hash: genesis_header_hash,
-            score: 0
-        }
-        self.shard_head[i] = genesis_header_hash
 
 
 def is_stack_empty() -> bool:
@@ -140,7 +132,7 @@ def sample(shardId: num) -> address:
     #       it fails when block.number = 5. `blockhash(num)` doesn't fail
     #       only if `num <= head_block.block_number - 1`
     #       That is, if `block.number == 1` now, `blockhash(0)` fails.
-    seed_block_number = block.number  - (block.number % self.period_length) - 2
+    seed_block_number = block.number - (block.number % self.period_length) - 2
     if seed_block_number < 0:
         seed_block_number = 0
     seed = blockhash(seed_block_number)
@@ -184,9 +176,12 @@ def add_header(header: bytes <= 4096) -> bool:
     #        `head_block.number` is `9` as well. But `blockhash(9)` fails.
     assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
     # Check if this header already exists
-    assert self.collation_headers[shardId][entire_header_hash].parent_collation_hash == as_bytes32(0)
-    # Check if the parent exists
-    assert self.collation_headers[shardId][parent_collation_hash].parent_collation_hash != as_bytes32(0)
+    assert not self.collation_headers[shardId][entire_header_hash].exists
+    # Check whether the parent exists.
+    # if (parent_collation_hash == 0), i.e., is the genesis,
+    # then there is no need to check.
+    if parent_collation_hash != as_bytes32(0):
+        assert self.collation_headers[shardId][parent_collation_hash].exists
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shardId)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
@@ -195,7 +190,8 @@ def add_header(header: bytes <= 4096) -> bool:
     _score = self.collation_headers[shardId][parent_collation_hash].score + 1
     self.collation_headers[shardId][entire_header_hash] = {
         parent_collation_hash: parent_collation_hash,
-        score: _score
+        score: _score,
+        exists: True
     }
 
     # Determine the head

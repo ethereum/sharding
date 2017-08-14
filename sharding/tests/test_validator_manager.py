@@ -117,7 +117,7 @@ def test_validator_manager():
     c.head_state.log_listeners.append(header_event_watcher)
 
     shardId = 0
-    shard0_genesis_colhdr_hash = utils.sha3(utils.encode_int32(shardId) + b"GENESIS")
+    shard0_genesis_colhdr_hash = utils.encode_int32(0)
 
     # test get_head: returns genesis_colhdr_hash when there is no new header
     assert x.get_head() == shard0_genesis_colhdr_hash
