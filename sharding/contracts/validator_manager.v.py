@@ -119,23 +119,15 @@ def sample(shardId: num) -> address:
     zero_addr = 0x0000000000000000000000000000000000000000
 
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
-    cycle_start_block_number = cycle * self.shuffling_cycle_length - 2
+    cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
     if cycle_start_block_number < 0:
         cycle_start_block_number = 0
     cycle_seed = blockhash(cycle_start_block_number)
-    # FIXME: originally, error occurs when block.number <= 4 because
-    #       `seed_block_number` becomes negative in these cases.
-    #       Now, just assign it zero if it is negative, but it makes
-    #       `seed_block_number` may be repeated when block.number is different
-    # FIXME: `-2` in the below is because originally
-    #       seed = blockhash(block.number  - (block.number % self.period_length))
-    #       it fails when block.number = 5. `blockhash(num)` doesn't fail
-    #       only if `num <= head_block.block_number - 1`
-    #       That is, if `block.number == 1` now, `blockhash(0)` fails.
-    seed_block_number = block.number - (block.number % self.period_length) - 2
-    if seed_block_number < 0:
-        seed_block_number = 0
-    seed = blockhash(seed_block_number)
+    # originally, error occurs when block.number <= 4 because
+    # `seed_block_number` becomes negative in these cases.
+    # Now, just reject the cases when block.number <= 4
+    assert block.number >= 5
+    seed = blockhash(block.number - (block.number % self.period_length) - 1)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shardId)))),
                                  as_num256(100))
     if self.num_validators != 0:
@@ -170,10 +162,6 @@ def add_header(header: bytes <= 4096) -> bool:
     # Check if the header is valid
     assert shardId >= 0
     assert expected_period_number == floor(decimal(block.number / self.period_length))
-    # FIXME: `blockhash(expected_period_number * self.period_length - 1)` fails
-    #        easily. For example when `block.number` = 10,
-    #        `expected_period_number * self.period_length - 1` == 9
-    #        `head_block.number` is `9` as well. But `blockhash(9)` fails.
     assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
     # Check if this header already exists
     assert not self.collation_headers[shardId][entire_header_hash].exists
@@ -242,3 +230,4 @@ def get_collation_gas_limit() -> num:
 # # also saving `msg.value`, `to`, `shardId`, data and `msg.sender`.
 # def tx_to_shard(to: address, shardId: num, data: bytes <= 1024) -> num:
 #     pass
+

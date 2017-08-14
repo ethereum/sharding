@@ -79,7 +79,8 @@ def test_validator_manager():
     def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
         expected_period_number = num_blocks // period_length
-        period_start_prevhash = c.chain.head.header.prevhash
+        b = c.chain.get_block_by_number(expected_period_number * period_length - 1)
+        period_start_prevhash = b.header.hash
         tx_list_root = b"tx_list " * 4
         post_state_root = b"post_sta" * 4
         receipt_root = b"receipt " * 4
@@ -173,3 +174,4 @@ def test_validator_manager():
         current_colhdr_hash = utils.sha3(current_colhdr)
     assert x.get_ancestor(shardId, current_colhdr_hash) == shard0_genesis_colhdr_hash
     '''
+

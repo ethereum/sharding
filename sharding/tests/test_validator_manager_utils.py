@@ -111,3 +111,4 @@ def test_call_add_header_get_head(state):
     tx = call_add_header(state, t.k0, 0, colhdr)
     deploy_tx(state, tx)
     assert colhdr_hash == call_get_head(state, 0)
+
