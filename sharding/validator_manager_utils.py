@@ -159,11 +159,11 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature):
     )
 
 
-def call_sample(state, shardId):
+def call_sample(state, shard_id):
     ct = get_valmgr_ct()
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, ct, 'sample', [shardId],
+        state, ct, 'sample', [shard_id],
         dummy_addr, get_valmgr_addr()
     )
 
@@ -175,19 +175,19 @@ def call_add_header(state, sender_privkey, value, header):
     )
 
 
-def call_get_shard_head(state, shardId):
+def call_get_shard_head(state, shard_id):
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, get_valmgr_ct(), 'get_shard_head', [shardId],
+        state, get_valmgr_ct(), 'get_shard_head', [shard_id],
         dummy_addr, get_valmgr_addr()
     )
 
 
 '''
-def call_get_ancestor(state, shardId, header_hash):
+def call_get_ancestor(state, shard_id, header_hash):
     dummy_addr = b'\xff' * 20
     return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor', [shardId, header_hash],
+        state, get_valmgr_ct(), 'get_ancestor', [shard_id, header_hash],
         dummy_addr, get_valmgr_addr()
     )
 

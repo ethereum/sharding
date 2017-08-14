@@ -82,7 +82,7 @@ def test_call_deposit_withdraw_sample(chain):
 
 def test_call_add_header_get_shard_head(chain):
     state = chain.head_state
-    def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
+    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
         expected_period_number = num_blocks // period_length
         b = chain.chain.get_block_by_number(expected_period_number * period_length - 1)
@@ -92,14 +92,14 @@ def test_call_add_header_get_shard_head(chain):
         receipt_root = b"receipt " * 4
         sighash = utils.sha3(
             rlp.encode([
-                shardId, expected_period_number, period_start_prevhash,
+                shard_id, expected_period_number, period_start_prevhash,
                 parent_collation_hash, tx_list_root, collation_coinbase,
                 post_state_root, receipt_root
             ])
         )
         sig = sign(sighash, t.k0)
         return rlp.encode([
-            shardId, expected_period_number, period_start_prevhash,
+            shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
             post_state_root, receipt_root, sig
         ])
