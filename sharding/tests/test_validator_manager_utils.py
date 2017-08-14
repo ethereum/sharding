@@ -52,21 +52,23 @@ def deploy_initializing_contracts(sender_privkey, state):
         except t.TransactionFailed:
             pass
 
+num_blocks = 6
 
 @pytest.fixture
-def state():
+def chain():
     """A modified head_state from ethereum.tester.Chain.head_state
     """
     c = t.Chain()
-    c.mine(1, coinbase=t.a0)
+    c.mine(num_blocks - 1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
     c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
     c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
     deploy_initializing_contracts(t.k0, c.head_state)
-    return c.head_state
+    return c
 
 
-def test_call_deposit_withdraw_sample(state):
+def test_call_deposit_withdraw_sample(chain):
+    state = chain.head_state
     k0_valcode_addr = deploy_contract(state, t.k0, mk_validation_code(t.a0))
     tx = call_deposit(state, t.k0, deposit_size, k0_valcode_addr, t.a2)
     deploy_tx(state, tx)
@@ -78,10 +80,13 @@ def test_call_deposit_withdraw_sample(state):
     assert call_validation_code(state, k0_valcode_addr, withdraw_hash, sign(withdraw_hash, t.k0))
 
 
-def test_call_add_header_get_head(state):
+def test_call_add_header_get_head(chain):
+    state = chain.head_state
     def get_colhdr(shardId, parent_collation_hash, collation_coinbase=t.a0):
-        expected_period_number = 0
-        period_start_prevhash = b"period  " * 4
+        period_length = 5
+        expected_period_number = num_blocks // period_length
+        b = chain.chain.get_block_by_number(expected_period_number * period_length - 1)
+        period_start_prevhash = b.header.hash
         tx_list_root = b"tx_list " * 4
         post_state_root = b"post_sta" * 4
         receipt_root = b"receipt " * 4
