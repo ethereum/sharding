@@ -35,17 +35,17 @@ def initialize_genesis_keys(state, genesis):
 
 
 class ShardChain(object):
-    def __init__(self, shardId, env=None,
+    def __init__(self, shard_id, env=None,
                  new_head_cb=None, reset_genesis=False, localtime=None,
                  initial_state=None, **kwargs):
         self.env = env or Env()
-        self.shardId = shardId
+        self.shard_id = shard_id
 
         self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[block_hash]
         self.head_collation_of_block = {}   # M2: block_hash -> head_collation
 
         # Initialize the state
-        head_hash_key = 'shard_' + str(shardId) + '_head_hash'
+        head_hash_key = 'shard_' + str(shard_id) + '_head_hash'
         if head_hash_key in self.db:  # new head tag
             self.state = self.mk_poststate_of_collation_hash(self.db.get(head_hash_key))
             log.info(
@@ -116,7 +116,7 @@ class ShardChain(object):
                 'Receiving collation(%s) which its parent is in db: %s' %
                 (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
             if self.is_first_collation(collation):
-                log.debug('It is the first collation of shard {}'.format(self.shardId))
+                log.debug('It is the first collation of shard {}'.format(self.shard_id))
                 temp_state = self.state.ephemeral_clone()
             else:
                 temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)

@@ -16,7 +16,7 @@ def mk_collation_from_prevstate(shard_chain, state, coinbase):
     """
     # state = state or shard_chain.state
     collation = Collation(CollationHeader())
-    collation.header.shardId = shard_chain.shardId
+    collation.header.shard_id = shard_chain.shard_id
     collation.header.prev_state_root = state.trie.root_hash
     collation.header.coinbase = coinbase
     collation.transactions = []

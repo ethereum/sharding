@@ -14,26 +14,26 @@ log.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope='function')
-def chain(shardId):
+def chain(shard_id):
     t = tester.Chain(env='sharding')
     t.mine(5)
-    t.add_test_shard(shardId)
+    t.add_test_shard(shard_id)
     return t
 
 
 def test_create_collation_empty_txqueue():
     """Test create_collation without transactions
     """
-    shardId = 1
-    t = chain(shardId)
+    shard_id = 1
+    t = chain(shard_id)
 
-    prev_collation_hash = t.chain.shards[shardId].head_hash
+    prev_collation_hash = t.chain.shards[shard_id].head_hash
     expected_period_number = t.chain.get_expected_period_number()
 
     txqueue = TransactionQueue()
     collation = collator.create_collation(
         t.chain,
-        shardId,
+        shard_id,
         prev_collation_hash,
         expected_period_number,
         coinbase=tester.a1,
@@ -47,7 +47,7 @@ def test_create_collation_empty_txqueue():
     with pytest.raises(TypeError):
         collation = collator.create_collation(
             t.chain,
-            shardId,
+            shard_id,
             prev_collation_hash,
             expected_period_number,
             coinbase=tester.a1,
@@ -58,21 +58,21 @@ def test_create_collation_empty_txqueue():
 def test_create_collation_with_txs():
     """Test create_collation with transactions
     """
-    shardId = 1
-    t = chain(shardId)
+    shard_id = 1
+    t = chain(shard_id)
 
-    prev_collation_hash = t.chain.shards[shardId].head_hash
+    prev_collation_hash = t.chain.shards[shard_id].head_hash
     expected_period_number = t.chain.get_expected_period_number()
 
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-    tx2 = t.generate_shard_tx(shardId, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx2 = t.generate_shard_tx(shard_id, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
 
     collation = collator.create_collation(
         t.chain,
-        shardId,
+        shard_id,
         prev_collation_hash,
         expected_period_number,
         coinbase=tester.a1,
@@ -84,41 +84,41 @@ def test_create_collation_with_txs():
 def test_apply_collation():
     """Apply collation to ShardChain
     """
-    shardId = 1
-    t = chain(shardId)
+    shard_id = 1
+    t = chain(shard_id)
 
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-    tx2 = t.generate_shard_tx(shardId, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx2 = t.generate_shard_tx(shard_id, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
 
-    state = t.chain.shards[shardId].state
+    state = t.chain.shards[shard_id].state
     prev_state_root = state.trie.root_hash
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
+    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
 
     collator.apply_collation(state, collation, period_start_prevblock)
 
     assert state.trie.root_hash != prev_state_root
     assert collation.header.post_state_root == state.trie.root_hash
-    assert collation.header.post_state_root == t.chain.shards[shardId].state.trie.root_hash
+    assert collation.header.post_state_root == t.chain.shards[shard_id].state.trie.root_hash
 
 
 def test_apply_collation_wrong_root():
     """Test apply_collation with wrong roots in header
     test verify_execution_results
     """
-    shardId = 1
-    t = chain(shardId)
+    shard_id = 1
+    t = chain(shard_id)
 
     # test 1 - arrange
-    state = t.chain.shards[shardId].state
+    state = t.chain.shards[shard_id].state
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # post_state_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
+    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.post_state_root = trie.BLANK_ROOT
@@ -126,12 +126,12 @@ def test_apply_collation_wrong_root():
         collator.apply_collation(state, collation, period_start_prevblock)
 
     # test 2 - arrange
-    state = t.chain.shards[shardId].state
+    state = t.chain.shards[shard_id].state
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # receipts_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
+    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.receipts_root = trie.BLANK_ROOT
@@ -139,12 +139,12 @@ def test_apply_collation_wrong_root():
         collator.apply_collation(state, collation, period_start_prevblock)
 
     # test 3 - arrange
-    state = t.chain.shards[shardId].state
+    state = t.chain.shards[shard_id].state
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     # receipts_root
-    collation = t.generate_collation(shardId=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
+    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     # Set wrong root
     collation.header.tx_list_root = trie.BLANK_ROOT
@@ -164,21 +164,21 @@ def test_sign():
 
 
 def test_verify_collation_header():
-    shardId = 1
-    t = chain(shardId)
+    shard_id = 1
+    t = chain(shard_id)
 
-    prev_collation_hash = t.chain.shards[shardId].head_hash
+    prev_collation_hash = t.chain.shards[shard_id].head_hash
     expected_period_number = t.chain.get_expected_period_number()
 
     txqueue = TransactionQueue()
-    tx1 = t.generate_shard_tx(shardId, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-    tx2 = t.generate_shard_tx(shardId, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
+    tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
+    tx2 = t.generate_shard_tx(shard_id, tester.k3, tester.a5, int(0.03 * utils.denoms.ether))
     txqueue.add_transaction(tx1)
     txqueue.add_transaction(tx2)
 
     collation = collator.create_collation(
         t.chain,
-        shardId,
+        shard_id,
         prev_collation_hash,
         expected_period_number,
         coinbase=tester.a1,
@@ -189,20 +189,20 @@ def test_verify_collation_header():
     # Bad collation header 1
     collation = collator.create_collation(
         t.chain,
-        shardId,
+        shard_id,
         prev_collation_hash,
         expected_period_number,
         coinbase=tester.a1,
         key=tester.k1,
         txqueue=txqueue)
-    collation.header.shardId = -1
+    collation.header.shard_id = -1
     with pytest.raises(ValueError):
         collator.verify_collation_header(t.chain, collation.header)
 
     # Bad collation header 2
     collation = collator.create_collation(
         t.chain,
-        shardId,
+        shard_id,
         prev_collation_hash,
         expected_period_number,
         coinbase=tester.a1,

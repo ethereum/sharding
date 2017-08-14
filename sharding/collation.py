@@ -14,7 +14,7 @@ class CollationHeader(rlp.Serializable):
 
     """A collation header
     [
-    shardId: uint256,
+    shard_id: uint256,
     expected_period_number: uint256,
     period_start_prevhash: bytes32,
     parent_collation_hash: bytes32,
@@ -27,7 +27,7 @@ class CollationHeader(rlp.Serializable):
     """
 
     fields = [
-        ('shardId', big_endian_int),
+        ('shard_id', big_endian_int),
         ('expected_period_number', big_endian_int),
         ('period_start_prevhash', hash32),
         ('parent_collation_hash', hash32),
@@ -39,7 +39,7 @@ class CollationHeader(rlp.Serializable):
     ]
 
     def __init__(self,
-                 shardId=0,
+                 shard_id=0,
                  expected_period_number=0,
                  period_start_prevhash=utils.sha3rlp([]),
                  parent_collation_hash=utils.sha3rlp([]),
@@ -82,7 +82,7 @@ class CollationHeader(rlp.Serializable):
                       'post_state_root', 'receipts_root', 'sig'):
             d[field] = encode_hex(getattr(self, field))
 
-        for field in ('shardId', 'expected_period_number'):
+        for field in ('shard_id', 'expected_period_number'):
             d[field] = utils.to_string(getattr(self, field))
 
         assert len(d) == len(CollationHeader.fields)

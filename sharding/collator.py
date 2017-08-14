@@ -33,7 +33,7 @@ def apply_collation(state, collation, period_start_prevblock):
 
 def create_collation(
         chain,
-        shardId,
+        shard_id,
         parent_collation_hash,
         expected_period_number,
         coinbase,
@@ -42,7 +42,7 @@ def create_collation(
     """Create a collation
 
     chain: MainChain
-    shardId: id of ShardChain
+    shard_id: id of ShardChain
     parent_collation_hash: the hash of the parent collation
     expected_period_number: the period number in which this collation expects to be included
     coinbase: coinbase
@@ -51,9 +51,9 @@ def create_collation(
     """
     log.info('Creating a collation')
 
-    assert chain.has_shard(shardId)
+    assert chain.has_shard(shard_id)
 
-    temp_state = chain.shards[shardId].mk_poststate_of_collation_hash(parent_collation_hash)
+    temp_state = chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash)
     cs = get_consensus_strategy(temp_state.config)
 
     # Set period_start_prevblock info
@@ -63,7 +63,7 @@ def create_collation(
     # Call the initialize state transition function
     cs.initialize(temp_state, period_start_prevblock)
     # Initialize a collation with the given previous state and current coinbase
-    collation = state_transition.mk_collation_from_prevstate(chain.shards[shardId], temp_state, coinbase)
+    collation = state_transition.mk_collation_from_prevstate(chain.shards[shard_id], temp_state, coinbase)
     # Add transactions
     state_transition.add_transactions(temp_state, collation, txqueue)
     # Call the finalize state transition function
@@ -71,7 +71,7 @@ def create_collation(
     # Set state root, receipt root, etc
     state_transition.set_execution_results(temp_state, collation)
 
-    collation.header.shardId = shardId
+    collation.header.shard_id = shard_id
     collation.header.parent_collation_hash = parent_collation_hash
     collation.header.expected_period_number = expected_period_number
     collation.header.period_start_prevhash = period_start_prevhash
@@ -103,8 +103,8 @@ def verify_collation_header(chain, header):
     chain: MainChain
     header: the given collation header
     """
-    if header.shardId < 0:
-        raise ValueError('Invalid shardId %d' % header.shardId)
+    if header.shard_id < 0:
+        raise ValueError('Invalid shard_id %d' % header.shard_id)
 
     period_start_prevhash = chain.get_period_start_prevhash(header.expected_period_number)
     is_correct_period_start_prevhash = (

@@ -27,12 +27,12 @@ class MainChain(Chain):
         self.shards = {}
         self.shard_id_list = set()
 
-    def init_shard(self, shardId):
+    def init_shard(self, shard_id):
         """Initialize a new ShardChain and add it to MainChain
         """
-        if not self.has_shard(shardId):
-            self.shard_id_list.add(shardId)
-            self.shards[shardId] = ShardChain(env=self.env, shardId=shardId)
+        if not self.has_shard(shard_id):
+            self.shard_id_list.add(shard_id)
+            self.shards[shard_id] = ShardChain(env=self.env, shard_id=shard_id)
             return True
         else:
             return False
@@ -40,17 +40,17 @@ class MainChain(Chain):
     def add_shard(self, shard):
         """Add an existing ShardChain to MainChain
         """
-        if not self.has_shard(shard.shardId):
-            self.shards[shard.shardId] = shard
-            self.shard_id_list.add(shard.shardId)
+        if not self.has_shard(shard.shard_id):
+            self.shards[shard.shard_id] = shard
+            self.shard_id_list.add(shard.shard_id)
             return True
         else:
             return False
 
-    def has_shard(self, shardId):
+    def has_shard(self, shard_id):
         """Check if the validator is tracking of this shard
         """
-        return shardId in self.shard_id_list
+        return shard_id in self.shard_id_list
 
     # Call upon receiving a block, reorganize the collation head
     # TODO: Override add_block
@@ -170,18 +170,18 @@ class MainChain(Chain):
     def update_head_collation_of_block(self, collation):
         """Update ShardChain.head_collation_of_block
         """
-        shardId = collation.header.shardId
+        shard_id = collation.header.shard_id
         collhash = collation.header.hash
 
         # Get the blockhash list of blocks that include the given collation
-        if collhash in self.shards[shardId].collation_blockhash_lists:
-            blockhash_list = self.shards[shardId].collation_blockhash_lists[collhash]
+        if collhash in self.shards[shard_id].collation_blockhash_lists:
+            blockhash_list = self.shards[shard_id].collation_blockhash_lists[collhash]
             while blockhash_list:
                 blockhash = blockhash_list.pop(0)
-                given_collation_score = self.shards[shardId].get_score(collation)
-                head_collation_score = self.shards[shardId].get_score(self.shards[shardId].get_head_collation(blockhash))
+                given_collation_score = self.shards[shard_id].get_score(collation)
+                head_collation_score = self.shards[shard_id].get_score(self.shards[shard_id].get_head_collation(blockhash))
                 if given_collation_score > head_collation_score:
-                    self.shards[shardId].head_collation_of_block[blockhash] = collhash
+                    self.shards[shard_id].head_collation_of_block[blockhash] = collhash
                     block = self.get_block(blockhash)
                     blockhash_list.extend(self.get_children(block))
         return True
@@ -190,8 +190,8 @@ class MainChain(Chain):
     # def handle_collation_header(self, collation_header):
     #     """After add_block and got the collation_header
     #     """
-    #     if self.has_shard(collation_header.shardId):
-    #         collation = self.shards[collation_header.shardId].get_collation(collation_header.hash)
+    #     if self.has_shard(collation_header.shard_id):
+    #         collation = self.shards[collation_header.shard_id].get_collation(collation_header.hash)
     #         if collation is None:
     #             self.download_collaton(collation_header)
     #         else:
@@ -205,36 +205,36 @@ class MainChain(Chain):
         """
         blockhash = block.header.hash
         collhash = collation.header.hash
-        shardId = collation.header.shardId
+        shard_id = collation.header.shard_id
         head_coll_in_prevhash = False
 
         # Update collation_blockhash_lists
-        if self.has_shard(shardId) and self.shards[shardId].db.get(collhash) is not None:
-            self.shards[shardId].collation_blockhash_lists[collhash].append(blockhash)
+        if self.has_shard(shard_id) and self.shards[shard_id].db.get(collhash) is not None:
+            self.shards[shard_id].collation_blockhash_lists[collhash].append(blockhash)
         else:
             head_coll_in_prevhash = True
 
         # Compare scores
-        given_collation_score = self.shards[shardId].get_score(collation)
-        head_collation_score = self.get_score(self.shards[shardId].head_collation_of_block[blockhash])
+        given_collation_score = self.shards[shard_id].get_score(collation)
+        head_collation_score = self.get_score(self.shards[shard_id].head_collation_of_block[blockhash])
         if given_collation_score > head_collation_score:
-            self.shards[shardId].head_collation_of_block[blockhash] = collhash
+            self.shards[shard_id].head_collation_of_block[blockhash] = collhash
         else:
             head_coll_in_prevhash = True
 
         if head_coll_in_prevhash:
-            self.shards[shardId].head_collation_of_block[blockhash] = self.shards[shardId].head_collation_of_block[block.header.prevhash]
+            self.shards[shard_id].head_collation_of_block[blockhash] = self.shards[shard_id].head_collation_of_block[block.header.prevhash]
 
-        self.shards[shardId].head_hash = self.shards[shardId].head_collation_of_block[blockhash]
+        self.shards[shard_id].head_hash = self.shards[shard_id].head_collation_of_block[blockhash]
 
     def handle_ignored_collation(self, collation):
         """Handle the ignored collation (previously ignored collation)
 
         collation: the parent collation
         """
-        if collation.header.hash in self.shards[collation.shardId].parent_queue:
-            for _collation in self.shards[collation.shardId].parent_queue[collation.header.hash]:
+        if collation.header.hash in self.shards[collation.shard_id].parent_queue:
+            for _collation in self.shards[collation.shard_id].parent_queue[collation.header.hash]:
                 _period_start_prevblock = self.get_block(collation.header.period_start_prevhash)
-                self.shards[collation.shardId].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation)
-                del self.shards[collation.shardId].parent_queue[collation.header.hash]
+                self.shards[collation.shard_id].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation)
+                del self.shards[collation.shard_id].parent_queue[collation.header.hash]
         self.update_head_collation_of_block(collation)

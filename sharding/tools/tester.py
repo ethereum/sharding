@@ -67,7 +67,7 @@ config_string = ':info'
 
 
 class ABIContract(object):  # pylint: disable=too-few-public-methods
-    def __init__(self, _chain, _abi, address, shardId=None):
+    def __init__(self, _chain, _abi, address, shard_id=None):
         self.address = address
 
         if isinstance(_abi, ContractTranslator):
@@ -78,12 +78,12 @@ class ABIContract(object):  # pylint: disable=too-few-public-methods
         self.translator = abi_translator
 
         for function_name in self.translator.function_data:
-            function = self.method_factory(_chain, function_name, shardId)
+            function = self.method_factory(_chain, function_name, shard_id)
             method = types.MethodType(function, self)
             setattr(self, function_name, method)
 
     @staticmethod
-    def method_factory(test_chain, function_name, shardId=None):
+    def method_factory(test_chain, function_name, shard_id=None):
         """ Return a proxy for calling a contract method with automatic encoding of
         argument and decoding of results.
         """
@@ -97,7 +97,7 @@ class ABIContract(object):  # pylint: disable=too-few-public-methods
                 value=kwargs.get('value', 0),
                 data=self.translator.encode(function_name, args),
                 startgas=kwargs.get('startgas', STARTGAS),
-                shardId=shardId
+                shard_id=shard_id
             )
 
             if result is False:
@@ -144,47 +144,47 @@ class Chain(object):
         self.shard_last_sender = {}
         self.shard_last_tx = {}
 
-    def direct_tx(self, transaction, shardId=None):
+    def direct_tx(self, transaction, shard_id=None):
         self.last_tx, self.last_sender = transaction, None
 
-        if shardId is None:
+        if shard_id is None:
             success, output = apply_transaction(self.head_state, transaction)
             self.block.transactions.append(transaction)
         else:
-            assert self.chain.has_shard(shardId)
-            success, output = apply_transaction(self.shard_head_state[shardId], transaction)
-            self.shard_collation[shardId].transactions.append(transaction)
+            assert self.chain.has_shard(shard_id)
+            success, output = apply_transaction(self.shard_head_state[shard_id], transaction)
+            self.shard_collation[shard_id].transactions.append(transaction)
 
         if not success:
             raise TransactionFailed()
         return output
 
-    def tx(self, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE, shardId=None):
+    def tx(self, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE, shard_id=None):
         sender_addr = privtoaddr(sender)
-        if shardId is None:
+        if shard_id is None:
             transaction = Transaction(
                 self.head_state.get_nonce(sender_addr), gasprice, startgas, to, value, data
             ).sign(sender)
         else:
-            assert self.chain.has_shard(shardId)
+            assert self.chain.has_shard(shard_id)
             transaction = Transaction(
-                self.shard_head_state[shardId].get_nonce(sender_addr), gasprice, startgas, to, value, data
+                self.shard_head_state[shard_id].get_nonce(sender_addr), gasprice, startgas, to, value, data
             ).sign(sender)
-        o = self.direct_tx(transaction, shardId=shardId)
+        o = self.direct_tx(transaction, shard_id=shard_id)
         self.last_sender = sender
         return o
 
-    def contract(self, sourcecode, args=[], sender=k0, value=0, language='evm', startgas=STARTGAS, gasprice=GASPRICE, shardId=None):
+    def contract(self, sourcecode, args=[], sender=k0, value=0, language='evm', startgas=STARTGAS, gasprice=GASPRICE, shard_id=None):
         if language == 'evm':
             assert len(args) == 0
-            return self.tx(sender=sender, to=b'', value=value, data=sourcecode, startgas=startgas, gasprice=gasprice, shardId=shardId)
+            return self.tx(sender=sender, to=b'', value=value, data=sourcecode, startgas=startgas, gasprice=gasprice, shard_id=shard_id)
         else:
             compiler = languages[language]
             interface = compiler.mk_full_signature(sourcecode)
             ct = ContractTranslator(interface)
             code = compiler.compile(sourcecode) + (ct.encode_constructor_arguments(args) if args else b'')
-            addr = self.tx(sender=sender, to=b'', value=value, data=code, startgas=startgas, gasprice=gasprice, shardId=shardId)
-            return ABIContract(self, ct, addr, shardId=shardId)
+            addr = self.tx(sender=sender, to=b'', value=value, data=code, startgas=startgas, gasprice=gasprice, shard_id=shard_id)
+            return ABIContract(self, ct, addr, shard_id=shard_id)
 
     def mine(self, number_of_blocks=1, coinbase=a0):
         self.cs.finalize(self.head_state, self.block)
@@ -210,65 +210,65 @@ class Chain(object):
         self.block.transactions = self.block.transactions[:txcount]
         self.head_state.revert(state_snapshot)
 
-    def __init_shard_var(self, shardId):
+    def __init_shard_var(self, shard_id):
         """Initial shard tester variables
         """
-        shard_chain = self.chain.shards[shardId]
-        self.shard_collation[shardId] = shard_state_transition.mk_collation_from_prevstate(shard_chain, shard_chain.state, coinbase=a0)
-        self.shard_head_state[shardId] = shard_chain.state.ephemeral_clone()
+        shard_chain = self.chain.shards[shard_id]
+        self.shard_collation[shard_id] = shard_state_transition.mk_collation_from_prevstate(shard_chain, shard_chain.state, coinbase=a0)
+        self.shard_head_state[shard_id] = shard_chain.state.ephemeral_clone()
 
         # collation parameters
         expected_period_number = self.chain.get_expected_period_number()
-        self.set_collation(shardId, expected_period_number, self.chain.shards[shardId].env.config['GENESIS_PREVHASH'])
+        self.set_collation(shard_id, expected_period_number, self.chain.shards[shard_id].env.config['GENESIS_PREVHASH'])
 
-        self.shard_last_sender[shardId] = None
-        self.shard_last_tx[shardId] = None
+        self.shard_last_sender[shard_id] = None
+        self.shard_last_tx[shard_id] = None
 
-    def set_collation(self, shardId, expected_period_number, parent_collation_hash=None):
-        assert self.chain.has_shard(shardId)
+    def set_collation(self, shard_id, expected_period_number, parent_collation_hash=None):
+        assert self.chain.has_shard(shard_id)
 
         period_start_prevhash = self.chain.get_period_start_prevhash(expected_period_number)
         assert period_start_prevhash is not None
         period_start_prevblock = self.chain.get_block(period_start_prevhash)
-        collation = self.shard_collation[shardId]
+        collation = self.shard_collation[shard_id]
 
         collation.header.expected_period_number = expected_period_number
         collation.header.period_start_prevhash = period_start_prevhash
         if parent_collation_hash is None:
-            parent_collation_hash = self.chain.shards[shardId].head_hash
+            parent_collation_hash = self.chain.shards[shard_id].head_hash
         collation.header.parent_collation_hash = parent_collation_hash
 
-        self.cs.initialize(self.shard_head_state[shardId], period_start_prevblock)
+        self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
 
-    def add_test_shard(self, shardId, alloc=None):
+    def add_test_shard(self, shard_id, alloc=None):
         """Initial shard with fake accounts
         """
-        assert not self.chain.has_shard(shardId)
+        assert not self.chain.has_shard(shard_id)
 
         initial_state = mk_basic_state(
             base_alloc if alloc is None else alloc,
             None, self.chain.env)
-        shard = ShardChain(shardId=shardId, initial_state=initial_state)
+        shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)
-        self.__init_shard_var(shardId)
+        self.__init_shard_var(shard_id)
 
-    def generate_shard_tx(self, shardId, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
+    def generate_shard_tx(self, shard_id, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
         sender_addr = privtoaddr(sender)
-        transaction = Transaction(self.shard_head_state[shardId].get_nonce(sender_addr), gasprice, startgas,
+        transaction = Transaction(self.shard_head_state[shard_id].get_nonce(sender_addr), gasprice, startgas,
                                   to, value, data).sign(sender)
         return transaction
 
-    def generate_collation(self, shardId, coinbase, key, txqueue=None, prev_collation_hash=None, expected_period_number=None):
+    def generate_collation(self, shard_id, coinbase, key, txqueue=None, prev_collation_hash=None, expected_period_number=None):
         """Generate collation
         """
-        assert self.chain.has_shard(shardId)
+        assert self.chain.has_shard(shard_id)
         if prev_collation_hash is None:
-            prev_collation_hash = self.chain.shards[shardId].head_hash
+            prev_collation_hash = self.chain.shards[shard_id].head_hash
         if expected_period_number is None:
             expected_period_number = self.chain.get_expected_period_number()
         return create_collation(
             self.chain,
-            shardId,
+            shard_id,
             prev_collation_hash,
             expected_period_number,
             coinbase,
@@ -276,22 +276,22 @@ class Chain(object):
             txqueue=txqueue)
 
     # TODO
-    def collate(self, shardId, coinbase=a0):
+    def collate(self, shard_id, coinbase=a0):
         """Collate the collation and send a collation-header-transaction
         """
-        assert self.chain.has_shard(shardId)
+        assert self.chain.has_shard(shard_id)
 
-        period_start_prevblock = self.chain.get_block(self.shard_collation[shardId].header.period_start_prevhash)
-        shard_state_transition.finalize(self.shard_head_state[shardId], coinbase)
-        shard_state_transition.set_execution_results(self.shard_head_state[shardId], self.shard_collation[shardId])
+        period_start_prevblock = self.chain.get_block(self.shard_collation[shard_id].header.period_start_prevhash)
+        shard_state_transition.finalize(self.shard_head_state[shard_id], coinbase)
+        shard_state_transition.set_execution_results(self.shard_head_state[shard_id], self.shard_collation[shard_id])
 
-        assert self.chain.shards[shardId].add_collation(self.shard_collation[shardId], period_start_prevblock, self.chain.handle_ignored_collation)
+        assert self.chain.shards[shard_id].add_collation(self.shard_collation[shard_id], period_start_prevblock, self.chain.handle_ignored_collation)
 
         # TODO: generate a tx
 
-        # self.shard_collation[shardId] = shard_state_transition.mk_collation_from_prevstate(self.chain.shards[shardId], shard_chain.state, coinbase=a0)
-        # self.shard_head_state[shardId] = self.chain.shards[shardId].state.ephemeral_clone()
-        # self.cs.initialize(self.shard_head_state[shardId], period_start_prevblock)
+        # self.shard_collation[shard_id] = shard_state_transition.mk_collation_from_prevstate(self.chain.shards[shard_id], shard_chain.state, coinbase=a0)
+        # self.shard_head_state[shard_id] = self.chain.shards[shard_id].state.ephemeral_clone()
+        # self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
 
         # self.block = mk_block_from_prevstate(self.chain, timestamp=self.chain.state.timestamp + 14)
         # self.head_state = self.chain.state.ephemeral_clone()
