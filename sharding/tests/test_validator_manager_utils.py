@@ -56,7 +56,7 @@ num_blocks = 6
 
 @pytest.fixture
 def chain():
-    """A modified head_state from ethereum.tester.Chain.head_state
+    """A initialized chain from ethereum.tester.Chain
     """
     c = t.Chain()
     c.mine(num_blocks - 1, coinbase=t.a0)
