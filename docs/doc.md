@@ -6,7 +6,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (ie. a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.
 -   `sample(uint256 shardId) returns uint256`: uses a recent block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit.
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
--   `getHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
+-   `get_shard_head(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 -   `getAncestor(bytes32 hash)`: returns the 10000th ancestor of this hash.
 -   `getAncestorDistance(bytes32 hash)`: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.
 -   `getCollationGasLimit()`: returns the gas limit that collations can currently have (by default make this function always answer 10 million).
