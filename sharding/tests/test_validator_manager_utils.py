@@ -3,7 +3,7 @@ import rlp
 
 from ethereum import utils
 from ethereum.messages import apply_transaction
-from ethereum.tools import tester as t
+from sharding.tools import tester as t
 from ethereum.transactions import Transaction
 
 from sharding.validator_manager_utils import (GASPRICE, STARTGAS, call_deposit,

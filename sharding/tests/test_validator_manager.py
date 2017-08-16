@@ -3,7 +3,7 @@ import rlp
 
 from ethereum import utils
 from ethereum.slogging import LogRecorder, configure_logging, set_level
-from ethereum.tools import tester as t
+from sharding.tools import tester as t
 from ethereum.transactions import Transaction
 from rlp.sedes import List, binary
 

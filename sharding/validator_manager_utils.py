@@ -4,7 +4,6 @@ import rlp
 
 from ethereum import abi, utils, vm
 from ethereum.messages import apply_message, apply_transaction
-from ethereum.tools import tester as t
 from ethereum.transactions import Transaction
 import viper
 
