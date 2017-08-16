@@ -5,13 +5,12 @@ from setuptools import setup, find_packages
 
 
 # requirements
-INSTALL_REQUIRES_REPLACEMENTS = {}
+INSTALL_REQUIRES_REPLACEMENTS = {
+    'git+git://github.com/ethereum/viper.git@master#egg=viper': 'viper',
+}
 INSTALL_REQUIRES = list()
 with open('requirements.txt') as requirements_file:
     for requirement in requirements_file:
-        # install_requires will break on git URLs, so skip them
-        if 'git+' in requirement:
-            continue
         dependency = INSTALL_REQUIRES_REPLACEMENTS.get(
             requirement.strip(),
             requirement.strip(),
@@ -24,12 +23,15 @@ INSTALL_REQUIRES = list(set(INSTALL_REQUIRES))
 DEPENDENCY_LINKS = []
 if os.environ.get("USE_PYETHEREUM_DEVELOP"):
     # Force installation of specific commits of pyethereum.
-    pyethereum_ref = '85efc8688a3adb45cf9e74fa17022ca4df3ad16a'
+    pyethereum_ref = 'be1360b40328a37d72353f1dd3329b8290560b31'
     DEPENDENCY_LINKS = [
-        'http://github.com/ethereum/pyethereum/tarball/%s#egg=ethereum-9.99.9' % pyethereum_ref,
-        'https://github.com/ethereum/serpent/tarball/develop#egg=ethereum-serpent'
+        'http://github.com/hwwhww/pyethereum/tarball/%s#egg=ethereum-9.99.9' % pyethereum_ref
     ]
 
+# Force installation of specific commits of viper.
+# viper_ref = 'fd7529e7faa6d3aebd8e0e893a42e43c562a56f5'  # Jul 30, 2017
+viper_ref = 'fb7333abd7e6460a0ebfea1ecc8a24d2e0f478d2'  # Aug 14, 2017
+DEPENDENCY_LINKS.append('http://github.com/ethereum/viper/tarball/%s#egg=viper-9.99.9' % viper_ref)
 
 # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
 # see: https://github.com/ethereum/pyethapp/wiki/Development:-Versions-and-Releases
@@ -42,6 +44,7 @@ setup(
     url='https://github.com/ethereum/sharding',
     packages=find_packages("."),
     package_data={},
+    zip_safe=False,
     classifiers=[
         'Intended Audience :: Developers',
         'Natural Language :: English',
