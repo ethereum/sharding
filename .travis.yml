@@ -1,0 +1,13 @@
+language: python
+python: 3.6
+sudo: required
+dist: trusty
+cache: pip
+before_install:
+  - sudo apt-get update
+install:
+  - pip install setuptools --upgrade
+  - USE_PYETHEREUM_DEVELOP=1 python setup.py develop
+  - pip install -r dev_requirements.txt
+script:
+  - pytest sharding/tests/
