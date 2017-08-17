@@ -54,17 +54,20 @@ def test_validator_manager():
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
     # test deposit: works fine
-    assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
-    assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
+    return_addr = utils.privtoaddr(utils.sha3("return_addr"))
+    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
+    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
     assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+    # test withdraw: see if the money is returned
+    assert c.head_state.get_balance(return_addr) == deposit_size
     # test deposit: make use of empty slots
-    assert 0 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
+    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
     assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
     # test deposit: working fine in the edge condition
-    assert 1 == x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
+    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
     # test deposit: fails when valcode_addr is deposited before
     with pytest.raises(t.TransactionFailed):
-        x.deposit(k1_valcode_addr, k1_valcode_addr, value=deposit_size, sender=t.k1)
+        x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
     # test withdraw: fails when the signature is not corret
     assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
 
@@ -74,7 +77,7 @@ def test_validator_manager():
     # test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
     assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
     assert x.sample(0) == "0x0000000000000000000000000000000000000000"
-    assert 1 == x.deposit(k0_valcode_addr, k0_valcode_addr, value=deposit_size, sender=t.k0)
+    assert 1 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
 
     def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
