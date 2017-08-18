@@ -3,9 +3,10 @@ import rlp
 
 from ethereum import utils
 from ethereum.messages import apply_transaction
-from sharding.tools import tester as t
 from ethereum.transactions import Transaction
 
+from sharding.config import sharding_config
+from sharding.tools import tester as t
 from sharding.validator_manager_utils import (GASPRICE, STARTGAS, call_deposit,
                                               call_sample,
                                               call_validation_code,
@@ -117,3 +118,6 @@ def test_call_add_header_get_shard_head(chain):
     deploy_tx(state, tx)
     assert colhdr_hash == call_get_shard_head(state, 0)
 
+def test_valmgr_addr_in_sharding_config():
+    assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
+           utils.checksum_encode(get_valmgr_addr())
