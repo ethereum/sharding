@@ -41,8 +41,6 @@ num_validators_per_cycle: num
 
 shard_count: num
 
-collator_reward: decimal
-
 add_header_log_topic: bytes32
 
 sighasher_addr: address
@@ -57,7 +55,6 @@ def __init__():
     self.period_length = 5
     self.num_validators_per_cycle = 100
     self.shard_count = 100
-    self.collator_reward = 0.002
     self.add_header_log_topic = sha3("add_header()")
     self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
 
