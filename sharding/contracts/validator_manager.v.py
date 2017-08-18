@@ -37,6 +37,8 @@ is_valcode_deposited: bool[address]
 
 period_length: num
 
+num_validators_per_cycle: num
+
 shard_count: num
 
 collator_reward: decimal
@@ -53,6 +55,7 @@ def __init__():
     self.shuffling_cycle_length = 2500
     self.sig_gas_limit = 400000
     self.period_length = 5
+    self.num_validators_per_cycle = 100
     self.shard_count = 100
     self.collator_reward = 0.002
     self.add_header_log_topic = sha3("add_header()")
@@ -128,7 +131,7 @@ def sample(shard_id: num) -> address:
     assert block.number >= self.period_length
     seed = blockhash(block.number - (block.number % self.period_length) - 1)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
-                                 as_num256(100))
+                                 as_num256(self.num_validators_per_cycle))
     if self.num_validators != 0:
         # TODO: here we assume this fixed number of rounds is enough to sample
         #       a validator
