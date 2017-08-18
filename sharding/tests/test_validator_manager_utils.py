@@ -13,6 +13,8 @@ from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
                                               call_tx_add_header,
                                               call_msg_add_header,
                                               call_get_shard_head,
+                                              call_get_collation_gas_limit,
+                                              call_tx_to_shard,
                                               get_valmgr_addr,
                                               mk_validation_code, sign,
                                               create_contract_tx)
@@ -113,6 +115,14 @@ def test_call_add_header_get_shard_head(chain):
     chain.mine(1)
 
     assert colhdr_hash == call_get_shard_head(chain.head_state, 0)
+
+
+
+def test_call_tx_to_shard(chain):
+    state = chain.head_state
+    tx = call_tx_to_shard(state, t.k0, 10, t.a1, 0, b'')
+    output = deploy_tx(state, tx)
+    assert 0 == utils.big_endian_to_int(output)
 
 
 def test_valmgr_addr_in_sharding_config():

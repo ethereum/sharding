@@ -13,9 +13,19 @@ collation_headers: public({
     score: num,
 }[bytes32][num])
 
+receipts: public({
+    shard_id: num,
+    value: wei_value,
+    sender: address,
+    to: address,
+    data: bytes <= 4096
+}[num])
+
 shard_head: public(bytes32[num])
 
 num_validators: public(num)
+
+num_receipts: num
 
 # indexs of empty slots caused by the function `withdraw`
 empty_slots_stack: num[num]
@@ -225,9 +235,18 @@ def get_collation_gas_limit() -> num:
     return 10000000
 
 
-# # Records a request to deposit msg.value ETH to address to in shard shard_id
-# # during a future collation. Saves a `receipt ID` for this request,
-# # also saving `msg.value`, `to`, `shard_id`, data and `msg.sender`.
-# def tx_to_shard(to: address, shard_id: num, data: bytes <= 1024) -> num:
-#     pass
-
+# Records a request to deposit msg.value ETH to address to in shard shard_id
+# during a future collation. Saves a `receipt ID` for this request,
+# also saving `msg.value`, `to`, `shard_id`, data and `msg.sender`.
+@payable
+def tx_to_shard(to: address, shard_id: num, data: bytes <= 4096) -> num:
+    self.receipts[self.num_receipts] = {
+        shard_id: shard_id,
+        value: msg.value,
+        sender: msg.sender,
+        to: to,
+        data: data
+    }
+    receipt_id = self.num_receipts
+    self.num_receipts += 1
+    return receipt_id

@@ -223,6 +223,13 @@ def call_get_collation_gas_limit(state):
     )
 
 
+def call_tx_to_shard(state, sender_privkey, value, to, shard_id, data):
+    return call_tx(
+        state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, data],
+        sender_privkey, get_valmgr_addr(), value
+    )
+
+
 def call_validation_code(state, validation_code_addr, msg_hash, signature):
     """Call validationCodeAddr on the main shard with 200000 gas, 0 value,
     the block_number concatenated with the sigIndex'th signature as input data gives output 1.

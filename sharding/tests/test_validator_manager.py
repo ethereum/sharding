@@ -166,3 +166,14 @@ def test_validator_manager():
         current_colhdr_hash = utils.sha3(current_colhdr)
     assert x.get_ancestor(shard_id, current_colhdr_hash) == shard0_genesis_colhdr_hash
     '''
+
+    # test tx_to_shard: add request tx and get the receipt id
+    to_addr = utils.privtoaddr(utils.sha3("to_addr"))
+    receipt_id0 = x.tx_to_shard(to_addr, 0, b'', sender=t.k0, value=100)
+    assert 0 == receipt_id0
+    # test tx_to_shard: see if receipt_id is incrementing when called
+    # multiple times
+    receipt_id1 = x.tx_to_shard(to_addr, 0, b'', sender=t.k1, value=101)
+    assert 1 == receipt_id1
+    assert 101 == x.get_receipts__value(receipt_id1)
+
