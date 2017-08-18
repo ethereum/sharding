@@ -11,7 +11,6 @@ validators: public({
 collation_headers: public({
     parent_collation_hash: bytes32,
     score: num,
-    exists: bool
 }[bytes32][num])
 
 shard_head: public(bytes32[num])
@@ -164,12 +163,13 @@ def add_header(header: bytes <= 4096) -> bool:
 
     # Check if this header already exists
     entire_header_hash = sha3(header)
-    assert not self.collation_headers[shard_id][entire_header_hash].exists
+    assert entire_header_hash != as_bytes32(0)
+    assert self.collation_headers[shard_id][entire_header_hash].score == 0
     # Check whether the parent exists.
     # if (parent_collation_hash == 0), i.e., is the genesis,
     # then there is no need to check.
     if parent_collation_hash != as_bytes32(0):
-        assert self.collation_headers[shard_id][parent_collation_hash].exists
+        assert (parent_collation_hash == as_bytes32(0)) or (self.collation_headers[shard_id][parent_collation_hash].score > 0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
@@ -179,8 +179,7 @@ def add_header(header: bytes <= 4096) -> bool:
     _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
     self.collation_headers[shard_id][entire_header_hash] = {
         parent_collation_hash: parent_collation_hash,
-        score: _score,
-        exists: True
+        score: _score
     }
 
     # Determine the head
