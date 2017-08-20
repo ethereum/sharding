@@ -177,3 +177,5 @@ def test_validator_manager():
     assert 1 == receipt_id1
     assert 101 == x.get_receipts__value(receipt_id1)
 
+    print(utils.checksum_encode(get_valmgr_addr()))
+
