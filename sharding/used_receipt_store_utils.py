@@ -21,6 +21,7 @@ def _setup_tx(shard_id):
         'sender_addr': sender_addr
     }
 
+
 def get_urs_contract(shard_id):
     if shard_id not in _urs_contracts.keys():
         _setup_tx(shard_id)
@@ -71,11 +72,13 @@ def mk_initiating_txs_for_urs(sender_privkey, sender_starting_nonce, shard_id):
     tx_send_money_to_urs = Transaction(sender_starting_nonce, GASPRICE, 90000, tx.sender, tx.startgas * tx.gasprice + tx.value, '').sign(sender_privkey)
     return [tx_send_money_to_urs, tx]
 
+
 def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
     return call_tx(
         state, get_urs_ct(shard_id), 'add_used_receipt', [receipt_id],
         sender_privkey, get_urs_contract(shard_id)['addr'], value
     )
+
 
 def call_get_used_receipts(state, shard_id, receipt_id):
     dummy_addr = b'\xff' * 20
