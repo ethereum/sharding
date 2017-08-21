@@ -2,12 +2,10 @@ import pytest
 import rlp
 
 from ethereum import utils
-from ethereum.messages import apply_transaction
-from ethereum.transactions import Transaction
 
 from sharding.config import sharding_config
 from sharding.tools import tester as t
-from sharding.validator_manager_utils import (GASPRICE, STARTGAS, DEPOSIT_SIZE,
+from sharding.validator_manager_utils import (DEPOSIT_SIZE,
                                               call_deposit,
                                               call_sample,
                                               call_validation_code,
@@ -15,9 +13,7 @@ from sharding.validator_manager_utils import (GASPRICE, STARTGAS, DEPOSIT_SIZE,
                                               call_tx_add_header,
                                               call_msg_add_header,
                                               call_get_shard_head,
-                                              call_get_collation_gas_limit,
                                               get_valmgr_addr,
-                                              mk_initiating_contracts,
                                               mk_validation_code, sign,
                                               create_contract_tx)
 
@@ -33,8 +29,9 @@ configure_logging(config_string=config_string)
 
 num_blocks = 6
 
-@pytest.fixture(scope='function')
-def chain_tester():
+
+@pytest.fixture()
+def chain():
     """A initialized chain from ethereum.tester.Chain
     """
     c = t.Chain()
@@ -47,8 +44,7 @@ def chain_tester():
     return c
 
 
-def test_call_deposit_withdraw_sample():
-    chain = chain_tester()
+def test_call_deposit_withdraw_sample(chain):
     # make validation code
     k0_valcode = mk_validation_code(t.a0)
     tx = create_contract_tx(chain.head_state, t.k0, k0_valcode)
@@ -60,7 +56,7 @@ def test_call_deposit_withdraw_sample():
     chain.direct_tx(tx)
     chain.mine(1)
     assert hex(utils.big_endian_to_int(k0_valcode_addr)) == \
-           hex(utils.big_endian_to_int(call_sample(chain.head_state, 0)))
+        hex(utils.big_endian_to_int(call_sample(chain.head_state, 0)))
 
     # withdraw
     tx = call_withdraw(chain.head_state, t.k0, 0, 0, sign(WITHDRAW_HASH, t.k0))
@@ -70,8 +66,7 @@ def test_call_deposit_withdraw_sample():
     assert call_validation_code(chain.head_state, k0_valcode_addr, WITHDRAW_HASH, sign(WITHDRAW_HASH, t.k0))
 
 
-def test_call_add_header_get_shard_head():
-    chain = chain_tester()
+def test_call_add_header_get_shard_head(chain):
     def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
         expected_period_number = num_blocks // period_length
@@ -124,7 +119,7 @@ def test_call_add_header_get_shard_head():
 
 def test_valmgr_addr_in_sharding_config():
     assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
-           utils.checksum_encode(get_valmgr_addr())
+        utils.checksum_encode(get_valmgr_addr())
 
 
 def test_sign():

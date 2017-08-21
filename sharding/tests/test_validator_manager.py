@@ -2,26 +2,18 @@ import pytest
 import rlp
 
 from ethereum import utils
-from ethereum.slogging import LogRecorder, configure_logging, set_level
 from sharding.tools import tester as t
-from ethereum.transactions import Transaction
 from rlp.sedes import List, binary
 
 from sharding.validator_manager_utils import (get_valmgr_addr,
                                               get_valmgr_ct,
                                               get_valmgr_code,
                                               mk_initiating_contracts,
-                                              mk_validation_code, sighasher_tx,
-                                              sign, viper_rlp_decoder_tx)
-
-config_string = ":info,:debug"
-'''
-from ethereum.slogging import LogRecorder, configure_logging, set_level
-config_string = ':info,eth.vm.log:trace,eth.vm.op:trace,eth.vm.stack:trace,eth.vm.exit:trace,eth.pb.msg:trace,eth.pb.tx:debug'
-configure_logging(config_string=config_string)
-'''
+                                              mk_validation_code,
+                                              sign)
 
 validator_manager_code = get_valmgr_code()
+
 
 def test_validator_manager():
     # Must pay 100 ETH to become a validator
@@ -132,11 +124,11 @@ def test_validator_manager():
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
-        result = x.add_header(h1)
+        x.add_header(h1)
     # test add_header: fails when the parent_collation_hash is not added before
     with pytest.raises(t.TransactionFailed):
         h2 = get_colhdr(shard_id, utils.sha3("123"))
-        result = x.add_header(h2)
+        x.add_header(h2)
     # test add_header: the log is generated normally
     h2 = get_colhdr(shard_id, h1_hash)
     h2_hash = utils.sha3(h2)
@@ -177,4 +169,3 @@ def test_validator_manager():
         current_colhdr_hash = utils.sha3(current_colhdr)
     assert x.get_ancestor(shard_id, current_colhdr_hash) == shard0_genesis_colhdr_hash
     '''
-
