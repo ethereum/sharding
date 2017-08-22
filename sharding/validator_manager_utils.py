@@ -11,6 +11,8 @@ from sharding.config import sharding_config
 STARTGAS = 3141592   # TODO: use config
 GASPRICE = 1         # TODO: use config
 DEPOSIT_SIZE = sharding_config['DEPOSIT_SIZE']
+WITHDRAW_HASH = utils.sha3("withdraw")
+
 
 _valmgr_ct = None
 _valmgr_code = None

@@ -5,7 +5,7 @@ from ethereum import utils
 
 from sharding.config import sharding_config
 from sharding.tools import tester as t
-from sharding.validator_manager_utils import (DEPOSIT_SIZE,
+from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
                                               call_deposit,
                                               call_sample,
                                               call_validation_code,
@@ -17,7 +17,6 @@ from sharding.validator_manager_utils import (DEPOSIT_SIZE,
                                               mk_validation_code, sign,
                                               create_contract_tx)
 
-WITHDRAW_HASH = utils.sha3("withdraw")
 
 config_string = ":info,:debug"
 '''
