@@ -12,7 +12,7 @@ STARTGAS = 3141592   # TODO: use config
 GASPRICE = 1         # TODO: use config
 DEPOSIT_SIZE = sharding_config['DEPOSIT_SIZE']
 WITHDRAW_HASH = utils.sha3("withdraw")
-
+ADD_HEADER_TOPIC = utils.sha3("add_header()")
 
 _valmgr_ct = None
 _valmgr_code = None
