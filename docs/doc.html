@@ -7,7 +7,7 @@
 <li><code>withdraw(uint256 validatorIndex, bytes sig) returns bool</code>: verifies that the signature is correct (ie. a call with 200000 gas, <code>validationCodeAddr</code> as destination, 0 value and <code>sha3("withdraw") + sig</code> as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.</li>
 <li><code>sample(uint256 shardId) returns uint256</code>: uses a recent block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit.</li>
 <li><code>addHeader(bytes header) returns bool</code>: attempts to process a collation header, returns True on success, reverts on failure.</li>
-<li><code>getHead(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
+<li><code>get_shard_head(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
 <li><code>getAncestor(bytes32 hash)</code>: returns the 10000th ancestor of this hash.</li>
 <li><code>getAncestorDistance(bytes32 hash)</code>: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.</li>
 <li><code>getCollationGasLimit()</code>: returns the gas limit that collations can currently have (by default make this function always answer 10 million).</li>
