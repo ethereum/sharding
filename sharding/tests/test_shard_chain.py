@@ -15,11 +15,19 @@ log.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope='function')
-def chain(shard_id):
-    t = tester.Chain(env='sharding')
-    t.mine(5)
-    t.add_test_shard(shard_id)
-    return t
+def chain(shard_id, k0_deposit=True):
+    c = tester.Chain(env='sharding', deploy_sharding_contracts=True)
+    c.mine(5)
+
+    # make validation code
+    privkey = tester.k0
+    valcode_addr = c.sharding_valcode_addr(privkey)
+    if k0_deposit:
+        # deposit
+        c.sharding_deposit(privkey, valcode_addr)
+        c.mine(1)
+    c.add_test_shard(shard_id)
+    return c
 
 
 def test_add_collation():
@@ -41,12 +49,12 @@ def test_add_collation():
     t.chain.shards[shard_id].add_collation(collation2, period_start_prevblock, t.chain.handle_ignored_collation)
     assert t.chain.shards[shard_id].get_score(collation2) == 1
     # parent = collation1
-    collation3 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, prev_collation_hash=collation1.header.hash)
+    collation3 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, parent_collation_hash=collation1.header.hash)
     period_start_prevblock = t.chain.get_block(collation3.header.period_start_prevhash)
     t.chain.shards[shard_id].add_collation(collation3, period_start_prevblock, t.chain.handle_ignored_collation)
     assert t.chain.shards[shard_id].get_score(collation3) == 2
     # parent = collation3
-    collation4 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, prev_collation_hash=collation3.header.hash)
+    collation4 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, parent_collation_hash=collation3.header.hash)
     period_start_prevblock = t.chain.get_block(collation4.header.period_start_prevhash)
     t.chain.shards[shard_id].add_collation(collation4, period_start_prevblock, t.chain.handle_ignored_collation)
     assert t.chain.shards[shard_id].get_score(collation4) == 3
@@ -66,7 +74,7 @@ def test_add_collation_error():
     t.chain.shards[shard_id].add_collation(collation1, period_start_prevblock, t.chain.handle_ignored_collation)
 
     # parent = collation1
-    collation2 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, prev_collation_hash=collation1.header.hash)
+    collation2 = t.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k1, txqueue=None, parent_collation_hash=collation1.header.hash)
     period_start_prevblock = t.chain.get_block(collation2.header.period_start_prevhash)
 
     collation2.header.post_state_root = trie.BLANK_ROOT
@@ -89,12 +97,12 @@ def test_handle_ignored_collation():
     t1.chain.shards[shard_id].add_collation(collation1, period_start_prevblock, t1.chain.handle_ignored_collation)
     assert t1.chain.shards[shard_id].get_score(collation1) == 1
     # collation2
-    collation2 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, prev_collation_hash=collation1.header.hash)
+    collation2 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, parent_collation_hash=collation1.header.hash)
     period_start_prevblock = t1.chain.get_block(collation2.header.period_start_prevhash)
     t1.chain.shards[shard_id].add_collation(collation2, period_start_prevblock, t1.chain.handle_ignored_collation)
     assert t1.chain.shards[shard_id].get_score(collation2) == 2
     # collation3
-    collation3 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, prev_collation_hash=collation2.header.hash)
+    collation3 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, parent_collation_hash=collation2.header.hash)
     period_start_prevblock = t1.chain.get_block(collation3.header.period_start_prevhash)
     t1.chain.shards[shard_id].add_collation(collation3, period_start_prevblock, t1.chain.handle_ignored_collation)
     assert t1.chain.shards[shard_id].get_score(collation3) == 3
@@ -139,9 +147,9 @@ def test_transaction():
     state = t.chain.shards[shard_id].mk_poststate_of_collation_hash(collation.header.hash)
 
     # Check to addesss received value
-    assert state.get_balance(tester.a4) == 1030000000000000000
+    assert state.get_balance(tester.a4) == 1000030000000000000000
     # Check incentives
-    assert state.get_balance(tester.a1) == 1002000000000000000
+    assert state.get_balance(tester.a1) == 1000002000000000000000
 
     # mk_poststate_of_collation_hash error
     with pytest.raises(Exception):
@@ -178,40 +186,11 @@ def test_get_parent():
     assert t.chain.shards[shard_id].is_first_collation(collation)
 
     # append to previous collation
-    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None, prev_collation_hash=collation.header.hash)
+    collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None, parent_collation_hash=collation.header.hash)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
     t.chain.shards[shard_id].add_collation(collation, period_start_prevblock, t.chain.handle_ignored_collation)
     assert not t.chain.shards[shard_id].is_first_collation(collation)
     assert t.chain.shards[shard_id].get_parent(collation).header.hash == collation.header.parent_collation_hash
-
-
-# TODO: after add_block
-# def test_get_head_collation():
-#     """Test get_head_collation(blockhash)
-#     """
-#     shard_id = 1
-#     t = chain(shard_id)
-#     tx1 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(0.03 * utils.denoms.ether))
-#     txqueue = TransactionQueue()
-#     txqueue.add_transaction(tx1)
-
-#     collation = t.generate_collation(shard_id=1, coinbase=tester.a1, txqueue=txqueue)
-#     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
-#     t.chain.shards[shard_id].add_collation(collation, period_start_prevblock, t.chain.handle_ignored_collation)
-#     log.info('state: {}'.format(encode_hex(t.chain.shards[shard_id].state.trie.root_hash)))
-
-#     blockhash = t.chain.head_hash
-#     #  print('head_collation: %s' % encode_hex(t.chain.shards[shard_id].get_head_collation(blockhash).header.hash))
-#     assert t.chain.shards[shard_id].get_head_collation(blockhash) is not None
-
-
-def test_collate():
-    shard_id = 1
-    t = chain(shard_id)
-    log.info('head state: {}'.format(encode_hex(t.chain.shards[shard_id].state.trie.root_hash)))
-    t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
-
-    assert t.collate(shard_id)
 
 
 def test_cb_function():

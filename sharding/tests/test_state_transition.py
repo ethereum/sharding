@@ -7,7 +7,6 @@ from ethereum import utils
 from ethereum.slogging import get_logger
 from ethereum.common import mk_transaction_sha, mk_receipt_sha
 from ethereum import trie
-from ethereum.exceptions import InsufficientBalance
 
 from sharding.collation import Collation, CollationHeader
 from sharding import state_transition
@@ -58,7 +57,7 @@ def test_add_transactions():
 
     state_transition.add_transactions(state, collation, txqueue)
     assert collation.transaction_count == 2
-    assert state.get_balance(tester.a4) == 1 * utils.denoms.ether + int(0.03 * utils.denoms.ether)
+    assert state.get_balance(tester.a4) == 1000 * utils.denoms.ether + int(0.03 * utils.denoms.ether)
 
     # InsufficientBalance -> don't include this transaction
     tx3 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(100000000000 * utils.denoms.ether))

@@ -36,7 +36,7 @@ def initialize_genesis_keys(state, genesis):
 
 class ShardChain(object):
     def __init__(self, shard_id, env=None,
-                 new_head_cb=None, reset_genesis=False, localtime=None,
+                 new_head_cb=None, reset_genesis=False, localtime=None, max_history=1000,
                  initial_state=None, **kwargs):
         self.env = env or Env()
         self.shard_id = shard_id
@@ -62,6 +62,7 @@ class ShardChain(object):
                 log.info('Initializing chain from provided state')
             else:
                 self.state = State(env=self.env)
+                self.last_state = self.state.to_snapshot()
 
             self.head_hash = self.env.config['GENESIS_PREVHASH']
             self.db.put(self.head_hash, 'GENESIS')
@@ -84,6 +85,7 @@ class ShardChain(object):
         self.time_queue = []
         self.parent_queue = {}
         self.localtime = time.time() if localtime is None else localtime
+        self.max_history = max_history
 
     @property
     def db(self):
@@ -105,7 +107,6 @@ class ShardChain(object):
             return rlp.decode(collation_rlp, Collation)
         except Exception as e:
             log.info(str(e))
-            print(str(e))
             return None
 
     def add_collation(self, collation, period_start_prevblock, handle_ignored_collation):
@@ -126,10 +127,14 @@ class ShardChain(object):
                 log.info('Collation %s with parent %s invalid, reason: %s' %
                          (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))
                 return False
+            deletes = temp_state.deletes
+            changed = temp_state.changed
             collation_score = self.get_score(collation)
             log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
         # Collation has no parent yet
         else:
+            changed = []
+            deletes = []
             log.info(
                 'Receiving collation(%s) which its parent is NOT in db: %s' %
                 (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
@@ -138,8 +143,12 @@ class ShardChain(object):
             self.parent_queue[collation.header.parent_collation_hash].append(collation)
             log.info('No parent found. Delaying for now')
             return False
-
         self.db.put(collation.header.hash, rlp.encode(collation))
+
+        self.db.put(b'changed:'+collation.hash, b''.join(list(changed.keys())))
+        log.debug('Saved %d address change logs' % len(changed.keys()))
+        self.db.put(b'deletes:'+collation.hash, b''.join(deletes))
+        log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
 
         # TODO: Delete old junk data
         # deletes, changed
@@ -239,24 +248,3 @@ class ShardChain(object):
         """Check if the given collation is the first collation of this shard
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
-
-    # TODO: test
-    def get_head_collation(self, blockhash):
-        """Get head collation
-        """
-        collation = None
-
-        if blockhash in self.head_collation_of_block:
-            collhash = self.head_collation_of_block[blockhash]
-        else:
-            log.info('head_collation_of_block[%s] is not found' % encode_hex(blockhash))
-            return None
-
-        try:
-            collation = self.get_collation(collhash)
-        except KeyError as e:
-            log.info(
-                'Collation (%s) with blockhash %s invalid, reason: %s' %
-                (encode_hex(collhash), encode_hex(blockhash), str(e)))
-            return None
-        return collation

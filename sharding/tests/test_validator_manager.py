@@ -34,10 +34,7 @@ def test_validator_manager():
     # deploy valmgr and its prerequisite contracts and transactions
     txs = mk_initiating_contracts(t.k0, c.head_state.get_nonce(t.a0))
     for tx in txs:
-        try:
-            c.direct_tx(tx)
-        except t.TransactionFailed:
-            pass
+        c.direct_tx(tx)
     x = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
 
     # test deposit: fails when msg.value != DEPOSIT_SIZE

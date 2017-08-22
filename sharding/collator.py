@@ -1,9 +1,14 @@
+import rlp
+
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.messages import apply_transaction
-from ethereum import utils
+from ethereum.common import mk_block_from_prevstate
+from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
+from sharding.validator_manager_utils import (sign, call_msg_add_header)
+from sharding.collation import CollationHeader
 
 log = get_logger('sharding.collator')
 
@@ -87,14 +92,6 @@ def create_collation(
     return collation
 
 
-def sign(msg_hash, privkey):
-    """Use privkey to ecdsa-sign the msg_hash
-    """
-    v, r, s = utils.ecsign(msg_hash, privkey)
-    signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
-    return signature
-
-
 def verify_collation_header(chain, header):
     """Verify the collation
 
@@ -106,13 +103,19 @@ def verify_collation_header(chain, header):
     if header.shard_id < 0:
         raise ValueError('Invalid shard_id %d' % header.shard_id)
 
-    period_start_prevhash = chain.get_period_start_prevhash(header.expected_period_number)
-    is_correct_period_start_prevhash = (
-        period_start_prevhash is not None and
-        header.period_start_prevhash == period_start_prevhash)
-    if not is_correct_period_start_prevhash:
-        raise ValueError('Incorrect period_start_prevhash')
+    # Call contract to verify header
+    state = chain.state.ephemeral_clone()
+    block = mk_block_from_prevstate(chain, timestamp=chain.state.timestamp + 14)
+    cs = get_consensus_strategy(state.config)
+    cs.initialize(state, block)
 
-    # TODO call contract to verify header
-
+    try:
+        result = call_msg_add_header(
+            state, 0, rlp.encode(CollationHeader.serialize(header)), header.coinbase)
+        result = bool(big_endian_to_int(result))
+        print('result:{}'.format(result))
+        if not result:
+            raise ValueError('Calling add_header returns False')
+    except:
+        raise ValueError('Calling add_header is failed')
     return True
