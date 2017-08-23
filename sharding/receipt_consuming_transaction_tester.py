@@ -42,9 +42,11 @@ def test_receipt_consuming_transaction(c):
     receipt_id = 1
     c.mine(1)
     assert not urs0.get_used_receipts(receipt_id)
-    send_msg_add_receipt(c.head_state, shard_id, receipt_id)
     c.mine(1)
+    send_msg_add_receipt(c.head_state, shard_id, receipt_id)
+    send_msg_add_receipt(c.chain.state, shard_id, receipt_id)
     # urs0.add_used_receipt(receipt_id)
     # rint(call_get_used_receipts(c.head_state, shard_id, receipt_id))
     assert urs0.get_used_receipts(receipt_id)
+    c.mine(1)
 
