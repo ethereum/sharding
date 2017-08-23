@@ -18,6 +18,14 @@ def c():
     return t.Chain(alloc=t.base_alloc)
 
 
+def is_receipt_consuming_tx(tx):
+    return True
+
+
+def verify_receipt_consuming_tx(tx):
+    return True
+
+
 def send_msg_add_receipt(state, shard_id, receipt_id):
     ct = get_urs_ct(shard_id)
     dummy_addr = b'\x00' * 20
@@ -27,6 +35,10 @@ def send_msg_add_receipt(state, shard_id, receipt_id):
     if result is None:
         raise MessageFailed("send_msg_add_receipt: failed")
     return result
+
+
+def send_msg_send_money(state, tx):
+    pass
 
 
 def test_receipt_consuming_transaction(c):
@@ -46,7 +58,6 @@ def test_receipt_consuming_transaction(c):
     send_msg_add_receipt(c.head_state, shard_id, receipt_id)
     send_msg_add_receipt(c.chain.state, shard_id, receipt_id)
     # urs0.add_used_receipt(receipt_id)
-    # rint(call_get_used_receipts(c.head_state, shard_id, receipt_id))
     assert urs0.get_used_receipts(receipt_id)
     c.mine(1)
 
