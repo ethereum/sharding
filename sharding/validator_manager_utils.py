@@ -115,6 +115,13 @@ def get_tx_rawhash(tx, network_id=None):
     return rawhash
 
 
+def extract_sender_from_tx(tx):
+    tx_rawhash = get_tx_rawhash(tx)
+    return utils.sha3(
+        utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
+    )[-20:]
+
+
 def create_valmgr_tx(gasprice=GASPRICE):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
     bytecode = get_valmgr_bytecode()
@@ -122,10 +129,7 @@ def create_valmgr_tx(gasprice=GASPRICE):
     tx.v = 27
     tx.r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     tx.s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
-    tx_rawhash = get_tx_rawhash(tx)
-    valmgr_sender_addr = utils.sha3(
-        utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
-    )[-20:]
+    valmgr_sender_addr = extract_sender_from_tx(tx)
     valmgr_addr = utils.mk_contract_address(valmgr_sender_addr, 0)
     _valmgr_sender_addr = valmgr_sender_addr
     _valmgr_addr = valmgr_addr
