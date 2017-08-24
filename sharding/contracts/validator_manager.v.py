@@ -192,6 +192,12 @@ def add_header(header: bytes <= 4096) -> bool:
     return True
 
 
+def get_period_start_prevhash(expected_period_number: num) -> bytes32:
+    block_number = expected_period_number * self.period_length - 1
+    assert block.number > block_number
+    return blockhash(block_number)
+
+
 # Returns the 10000th ancestor of this hash.
 # def get_ancestor(shard_id: num, hash: bytes32) -> bytes32:
 #     colhdr = self.collation_headers[shard_id][hash]

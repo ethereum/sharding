@@ -1,9 +1,12 @@
+import pytest
 import logging
 
 from ethereum.slogging import get_logger
+from ethereum.utils import encode_hex
 
 from sharding.tools import tester
 from sharding.shard_chain import ShardChain
+from sharding.collation import Collation
 
 log = get_logger('test.shard_chain')
 log.setLevel(logging.DEBUG)
@@ -105,3 +108,92 @@ def test_handle_ignored_collation():
     assert t2.chain.shards[shard_id].get_score(collation1) == 1
     assert t2.chain.shards[shard_id].get_score(collation2) == 2
     assert t2.chain.shards[shard_id].get_score(collation3) == 3
+
+
+@pytest.fixture(scope='function')
+def chain(shard_id, k0_deposit=True):
+    c = tester.Chain(env='sharding', deploy_sharding_contracts=True)
+    c.mine(5)
+
+    # make validation code
+    privkey = tester.k0
+    valcode_addr = c.sharding_valcode_addr(privkey)
+    if k0_deposit:
+        # deposit
+        c.sharding_deposit(privkey, valcode_addr)
+        c.mine(1)
+    c.add_test_shard(shard_id)
+    return c
+
+
+def test_longest_chain_rule():
+    # Initial chains
+    shard_id = 1
+    t = chain(shard_id)
+
+    # [block 1]
+    block_1 = t.mine(1)
+    log.info('[block 1] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+
+    # [block 2]: includes collation A -> B
+    t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
+    collation_AB = Collation(t.collate(shard_id, tester.k0))
+    block_2 = t.mine(5)
+    log.info('[block 2] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+    log.info('[block 2] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
+    assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 1
+
+    # [block 2']: includes collation A -> B
+    # Change main chain head
+    t.change_head(block_1.hash)
+    # Clear tester
+    t.set_collation(
+        shard_id,
+        expected_period_number=collation_AB.header.expected_period_number,
+        parent_collation_hash=collation_AB.header.parent_collation_hash)
+    # tx of shard 1
+    t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
+    collation_AB_2 = Collation(t.collate(shard_id, tester.k0))
+    # tx of main chain
+    t.tx(tester.k1, tester.a4, 1, data=b'')
+    assert collation_AB.hash == collation_AB_2.hash
+    t.mine(5)
+    log.info('[block 2\'] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+    log.info('[block 2\'] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
+    assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 1
+    assert t.chain.get_score(t.chain.head) == 13
+
+    # [block 3']: includes collation B -> C
+    # Clear tester
+    expected_period_number = t.chain.get_expected_period_number()
+    t.set_collation(shard_id, expected_period_number)
+    print('head collation: {}'.format(t.shard_collation[shard_id].to_dict()))
+    # tx of shard 1
+    t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
+    # tx of main chain
+    t.tx(tester.k1, tester.a4, 1, data=b'')
+    collation_BC = Collation(t.collate(shard_id, tester.k0))
+    t.mine(5)
+    log.info('[block 3\'] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+    log.info('[block 3\'] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
+    assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 2
+    assert t.chain.get_score(t.chain.head) == 18
+    assert t.chain.shards[shard_id].head_hash == collation_BC.hash
+
+    # [block 3]: doesn't include collation
+    # Change main chain head
+    t.change_head(block_2.hash)
+    t.mine(5)
+    log.info('[block 3] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+    log.info('[block 3] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
+    assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 2
+    assert t.chain.get_score(t.chain.head) == 18
+    assert t.chain.shards[shard_id].head_hash == collation_BC.hash
+
+    # [block 4]: doesn't include collation
+    t.mine(5)
+    log.info('[block 4] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
+    log.info('[block 4] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
+    assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 1
+    assert t.chain.get_score(t.chain.head) == 23
+    assert t.chain.shards[shard_id].head_hash == collation_AB.hash

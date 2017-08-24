@@ -151,7 +151,9 @@ class Chain(object):
         self.add_header_logs = []
 
         # validator manager contract and other pre-compiled contracts
+        self.is_sharding_contracts_deployed = False
         if deploy_sharding_contracts:
+            self.is_sharding_contracts_deployed = True
             self.deploy_initializing_contracts(k0)
             self.last_sender = k0
             self.mine(1)
@@ -203,7 +205,10 @@ class Chain(object):
         set_execution_results(self.head_state, self.block)
         self.block = Miner(self.block).mine(rounds=100, start_nonce=0)
         assert self.chain.add_block(self.block)
+        b = self.block
 
+        # Reorganize head collation
+        collation = None
         # Check add_header_logs
         for item in self.add_header_logs:
             # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
@@ -214,17 +219,22 @@ class Chain(object):
             if shard_id in self.chain.shard_id_list:
                 collation_hash = sha3(item)
                 collation = self.chain.shards[shard_id].get_collation(collation_hash)
-                self.chain.reorganize_head_collation(self.block, collation)
+        self.chain.reorganize_head_collation(b, collation)
         # Clear logs
         self.add_header_logs = []
 
-        assert self.head_state.trie.root_hash == self.chain.state.trie.root_hash
         for i in range(1, number_of_blocks):
-            b, _ = make_head_candidate(self.chain, timestamp=self.chain.state.timestamp + 14)
+            b, _ = make_head_candidate(self.chain, parent=b, timestamp=self.chain.state.timestamp + 14, coinbase=coinbase)
             b = Miner(b).mine(rounds=100, start_nonce=0)
             assert self.chain.add_block(b)
-        self.block = mk_block_from_prevstate(self.chain, timestamp=self.chain.state.timestamp + 14)
-        self.head_state = self.chain.state.ephemeral_clone()
+            self.chain.reorganize_head_collation(b, None)
+
+        self.change_head(b.header.hash, coinbase)
+        return b
+
+    def change_head(self, parent, coinbase=a0):
+        self.head_state = self.chain.mk_poststate_of_blockhash(parent).ephemeral_clone()
+        self.block = mk_block_from_prevstate(self.chain, self.head_state, timestamp=self.chain.state.timestamp, coinbase=coinbase)
         self.head_state.log_listeners = self.chain.state.log_listeners
         self.cs.initialize(self.head_state, self.block)
 
@@ -256,14 +266,24 @@ class Chain(object):
                 self.add_header_logs.append(log.data)
         self.head_state.log_listeners.append(header_event_watcher)
 
+    def _get_period_start_prevhash(self, expected_period_number):
+        # If it's on forked chain, we can't use get_blockhash_by_number.
+        # So try to get period_start_prevhash by message call
+        if self.is_sharding_contracts_deployed:
+            x = ABIContract(self, validator_manager_utils.get_valmgr_ct(), validator_manager_utils.get_valmgr_addr())
+            period_start_prevhash = x.get_period_start_prevhash(expected_period_number)
+        else:
+            period_start_prevhash = self.chain.get_period_start_prevhash(expected_period_number)
+        return period_start_prevhash
+
     def set_collation(self, shard_id, expected_period_number, parent_collation_hash=None, coinbase=a0):
         assert self.chain.has_shard(shard_id)
         if parent_collation_hash is None:
             parent_collation_hash = self.chain.shards[shard_id].head_hash
 
         # Initialize state: clear and update self.shard_head_state[shard_id] with period_start_prevblock env variables
-        self.shard_head_state[shard_id] = self.chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash)
-        period_start_prevhash = self.chain.get_period_start_prevhash(expected_period_number)
+        self.shard_head_state[shard_id] = self.chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash).ephemeral_clone()
+        period_start_prevhash = self._get_period_start_prevhash(expected_period_number)
         period_start_prevblock = self.chain.get_block(period_start_prevhash)
         assert period_start_prevblock is not None
         self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
@@ -359,6 +379,7 @@ class Chain(object):
         collation = self.shard_collation[shard_id]
         collation.header.sig = validator_manager_utils.sign(collation.signing_hash, privkey)
 
+        # Add collation to db
         period_start_prevblock = self.chain.get_block(self.shard_collation[shard_id].header.period_start_prevhash)
         assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock, self.chain.handle_ignored_collation)
 

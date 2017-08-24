@@ -41,8 +41,8 @@ class ShardChain(object):
         self.env = env or Env()
         self.shard_id = shard_id
 
-        self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[block_hash]
-        self.head_collation_of_block = {}   # M2: block_hash -> head_collation
+        self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
+        self.head_collation_of_block = {}   # M2: blockhash -> head_collation
 
         # Initialize the state
         head_hash_key = 'shard_' + str(shard_id) + '_head_hash'
@@ -118,9 +118,7 @@ class ShardChain(object):
                 (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
             if self.is_first_collation(collation):
                 log.debug('It is the first collation of shard {}'.format(self.shard_id))
-                temp_state = self.state.ephemeral_clone()
-            else:
-                temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
+            temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
             try:
                 apply_collation(temp_state, collation, period_start_prevblock)
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
@@ -146,9 +144,9 @@ class ShardChain(object):
         self.db.put(collation.header.hash, rlp.encode(collation))
 
         self.db.put(b'changed:'+collation.hash, b''.join(list(changed.keys())))
-        log.debug('Saved %d address change logs' % len(changed.keys()))
+        # log.debug('Saved %d address change logs' % len(changed.keys()))
         self.db.put(b'deletes:'+collation.hash, b''.join(deletes))
-        log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
+        # log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
 
         # TODO: Delete old junk data
         # deletes, changed
@@ -243,6 +241,15 @@ class ShardChain(object):
             self.db.put(key, str(score))
 
         return score
+
+    def get_head_coll_score(self, blockhash):
+        if blockhash in self.head_collation_of_block:
+            prev_head_coll_hash = self.head_collation_of_block[blockhash]
+            prev_head_coll = self.get_collation(prev_head_coll_hash)
+            prev_head_coll_score = self.get_score(prev_head_coll)
+        else:
+            prev_head_coll_score = 0
+        return prev_head_coll_score
 
     def is_first_collation(self, collation):
         """Check if the given collation is the first collation of this shard

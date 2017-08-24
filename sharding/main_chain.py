@@ -73,7 +73,7 @@ class MainChain(Chain):
             while blockhash_list:
                 blockhash = blockhash_list.pop(0)
                 given_collation_score = self.shards[shard_id].get_score(collation)
-                head_collation_score = self.shards[shard_id].get_score(self.shards[shard_id].get_head_collation(blockhash))
+                head_collation_score = self.shards[shard_id].get_score(self.shards[shard_id].head)
                 if given_collation_score > head_collation_score:
                     self.shards[shard_id].head_collation_of_block[blockhash] = collhash
                     block = self.get_block(blockhash)
@@ -93,40 +93,48 @@ class MainChain(Chain):
     #     else:
     #         return
 
-    # TODO: more test
-    def reorganize_head_collation(self, block, collation):
+    def reorganize_head_collation(self, block, collation=None):
         """Reorganize head collation
         """
         # Use alias for clear code
         blockhash = block.header.hash
-        collhash = collation.header.hash
-        shard_id = collation.header.shard_id
-        shard = self.shards[shard_id]
+        if collation is None:
+            collhash = shard_id = shard = None
+        else:
+            collhash = collation.header.hash
+            shard_id = collation.header.shard_id
+            shard = self.shards[shard_id]
 
         # Update collation_blockhash_lists
         if self.has_shard(shard_id) and shard.db.get(collhash) is not None:
             shard.collation_blockhash_lists[collhash].append(blockhash)
+            # Compare score
+            given_coll_score = shard.get_score(collation)
+            prev_head_coll_score = shard.get_head_coll_score(block.header.prevhash)
+            if given_coll_score > prev_head_coll_score:
+                shard.head_collation_of_block[blockhash] = collhash
+            else:
+                shard.head_collation_of_block[blockhash] = shard.head_collation_of_block[block.header.prevhash]
+            # Set head
+            shard.head_hash = shard.head_collation_of_block[self.head_hash]
+            shard.state = shard.mk_poststate_of_collation_hash(shard.head_hash)
         else:
-            shard.head_collation_of_block[blockhash] = shard.head_collation_of_block[block.header.prevhash]
+            # The given block doesn't contain a collation
+            self._reorganize_all_shards(block)
 
-        # Compare scores
-        given_collation_score = shard.get_score(collation)
-        try:
-            head_collation_hash = shard.head_collation_of_block[block.header.prevhash]
-            head_collation = shard.get_collation(head_collation_hash)
-            head_collation_score = shard.get_score(head_collation)
-        except KeyError:
-            head_collation_score = 0
-        if given_collation_score > head_collation_score:
-            shard.head_collation_of_block[blockhash] = collhash
-        else:
-            shard.head_collation_of_block[blockhash] = shard.head_collation_of_block[block.header.prevhash]
-
-        # Update shard head
-        temp_shard_head_hash = shard.head_collation_of_block[self.head_hash]
-        if temp_shard_head_hash != shard.head_hash:
-            shard.head_hash = temp_shard_head_hash
-            shard.state = shard.mk_poststate_of_collation_hash(collhash)
+    def _reorganize_all_shards(self, block):
+        """Reorganize all shards' head
+        """
+        blockhash = block.header.hash
+        block_prevhash = block.header.prevhash
+        for k in self.shards:
+            if block_prevhash in self.shards[k].head_collation_of_block:
+                self.shards[k].head_collation_of_block[blockhash] = self.shards[k].head_collation_of_block[block_prevhash]
+                self.shards[k].head_hash = self.shards[k].head_collation_of_block[self.head_hash]
+            else:
+                # The shard was just initialized
+                self.shards[k].head_collation_of_block[blockhash] = self.shards[k].head_hash
+            self.shards[k].state = self.shards[k].mk_poststate_of_collation_hash(self.shards[k].head_hash)
 
     def handle_ignored_collation(self, collation):
         """Handle the ignored collation (previously ignored collation)
