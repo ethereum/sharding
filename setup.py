@@ -23,9 +23,9 @@ INSTALL_REQUIRES = list(set(INSTALL_REQUIRES))
 DEPENDENCY_LINKS = []
 if os.environ.get("USE_PYETHEREUM_DEVELOP"):
     # Force installation of specific commits of pyethereum.
-    pyethereum_ref = 'be1360b40328a37d72353f1dd3329b8290560b31'
+    pyethereum_ref = '4e945e2a24554ec04eccb160cff689a82eed7e0d'
     DEPENDENCY_LINKS = [
-        'http://github.com/hwwhww/pyethereum/tarball/%s#egg=ethereum-9.99.9' % pyethereum_ref
+        'http://github.com/ethereum/pyethereum/tarball/%s#egg=ethereum-9.99.9' % pyethereum_ref
     ]
 
 # Force installation of specific commits of viper.
