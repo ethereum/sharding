@@ -19,22 +19,44 @@ def c():
     return t.Chain(alloc=t.base_alloc)
 
 
-def receipt_exists(state, receipt_id):
-    dummy_addr = '\x00' * 20
-    return bool(utils.big_endian_to_int(call_msg(
-        state, get_valmgr_ct(),
-        'get_receipts__value', [receipt_id],
-        dummy_addr, get_valmgr_addr(), 0
-    )))
-
-def is_receipt_consuming_tx(state, tx):
+def verify_receipt_consuming_tx(state, shard_id, tx):
     if (tx.v != 1) or (tx.s != 0) or not isinstance(tx.r, int):
         return False
     receipt_id = tx.r
-    return receipt_exists(state, receipt_id)
+    dummy_addr = '\x00' * 20
+    receipt_shard_id = utils.big_endian_to_int(
+        call_msg(state, get_valmgr_ct(), 'get_receipts__shard_id', [receipt_id],
+                 dummy_addr, get_valmgr_addr(), 0)
+    )
+    receipt_value = utils.big_endian_to_int(
+        call_msg(state, get_valmgr_ct(), 'get_receipts__value', [receipt_id],
+                 dummy_addr, get_valmgr_addr(), 0)
+    )
+    if receipt_value <= 0:
+        return False
+    receipt_to = call_msg(
+        state, get_valmgr_ct(), 'get_receipts__to', [receipt_id],
+        dummy_addr, get_valmgr_addr(), 0
+    )
+    if ((receipt_shard_id != shard_id) or
+        (receipt_value != tx.value) or
+        (hex(utils.big_endian_to_int(receipt_to)) != hex(utils.big_endian_to_int((tx.to)))) or
+        not bool(utils.big_endian_to_int(
+            call_msg(state, get_urs_ct(receipt_shard_id),
+                     'get_used_receipts', [receipt_id],
+                     dummy_addr, get_urs_contract(receipt_shard_id)['addr'], 0)
+            ))):
+        return False
 
+    # start to create msg
+    receipt_sender = call_msg(state, get_valmgr_ct(), 'get_receipts__sender', [receipt_id], dummy_addr, get_valmgr_addr(), 0)
+    receipt_data = call_msg(state, get_valmgr_ct(), 'get_receipts__data', [receipt_id], dummy_addr, get_valmgr_addr(), 0)
+    print(receipt_id)
+    print(receipt_value)
+    print(receipt_sender)
+    print(receipt_to)
+    print(receipt_data) # why data is so long?
 
-def verify_receipt_consuming_tx(state, tx):
     return True
 
 
@@ -84,4 +106,4 @@ def test_receipt_consuming_transaction(c):
     assert urs0.get_used_receipts(receipt_id)
     c.mine(1)
     tx = mk_testing_receipt_consuming_tx(receipt_id, to_addr, value)
-    print(is_receipt_consuming_tx(c.head_state, tx))
+    verify_receipt_consuming_tx(c.head_state, shard_id, tx)
