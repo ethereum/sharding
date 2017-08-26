@@ -52,8 +52,9 @@ def simplified_validate_transaction(state, tx):
 
 
 def is_receipt_consuming_tx_valid(state, shard_id, tx):
-    assert simplified_validate_transaction(state, tx)
     if (tx.v != 1) or (tx.s != 0) or not isinstance(tx.r, int):
+        return False
+    if not simplified_validate_transaction(state, tx):
         return False
     receipt_id = tx.r
     receipt_shard_id = call_valmgr(state, 'get_receipts__shard_id', [receipt_id])
