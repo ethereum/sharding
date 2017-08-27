@@ -28,7 +28,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 We first define a "collation header" as an RLP list with the following values:
 
     [
-        shardId: uint256,
+        shard_id: uint256,
         expected_period_number: uint256,
         period_start_prevhash: bytes32,
         parent_collation_hash: bytes32,
@@ -41,7 +41,7 @@ We first define a "collation header" as an RLP list with the following values:
 
 Where:
 
--   `shardId` is the shard ID of the shard
+-   `shard_id` is the shard ID of the shard
 -   `expected_period_number` is the period number in which this collation expects to be included. A period is an interval of `PERIOD_LENGTH` blocks.
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
 -   `parent_collation_hash` is the hash of the parent collation
@@ -54,10 +54,10 @@ For blocks where `block.number >= SERENITY_FORK_BLKNUM`, the block header's extr
 
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
 
--   The `shardId` is at least 0, and less than `SHARD_COUNT`
+-   The `shard_id` is at least 0, and less than `SHARD_COUNT`
 -   The `expected_period_number` equals `floor(block.number / PERIOD_LENGTH)`
 -   A collation with the hash `parent_collation_hash` has already been accepted
--   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = sample(shardId)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
+-   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = sample(shard_id)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
 
 A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`, and (iii) the total gas used is less than or equal to the output of calling `getCollationGasLimit()` on the main shard.
 
@@ -70,11 +70,11 @@ The state transition process for executing a collation is as follows:
 
 ### Receipt-consuming transactions
 
-A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let `(to, value, shardId, sender, data)` be the values that were saved by the `txToShard` call that created this receipt. For such a transaction to be valid:
+A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let `(to, value, shard_id, sender, data)` be the values that were saved by the `txToShard` call that created this receipt. For such a transaction to be valid:
 
 * Such a receipt *must* have in fact been created by a `txToShard` call in the main chain.
 * The `to` and `value` of the transaction *must* match the `to` and `value` of this receipt.
-* The shard Id *must* match `shardId`.
+* The shard Id *must* match `shard_id`.
 * The contract at address `USED_RECEIPT_STORE_ADDRESS` *must NOT* have a record saved saying that the given receipt ID was already consumed.
 
 The transaction has an additional side effect of saving a record in `USED_RECEIPT_STORE_ADDRESS` saying that the given receipt ID has been consumed. Such a transaction effects a message whose:
@@ -87,17 +87,17 @@ The transaction has an additional side effect of saving a record in `USED_RECEIP
 
 ### Details of `sample`
 
-The `sample` function should be coded in such a way that any given validator randomly gets allocated to some number of shards every `SHUFFLING_CYCLE`, where the expected number of shards is proportional to the validator's balance. During that cycle, `sample(shardId)` can only return that validator if the `shardId` is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.
+The `sample` function should be coded in such a way that any given validator randomly gets allocated to some number of shards every `SHUFFLING_CYCLE`, where the expected number of shards is proportional to the validator's balance. During that cycle, `sample(shard_id)` can only return that validator if the `shard_id` is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.
 
 Here is one possible implementation of `sample`, assuming for simplicity of illustration that all validators have the same deposit size:
 
-    def sample(shardId: num) -> address:
+    def sample(shard_id: num) -> address:
         cycle = floor(block.number / SHUFFLING_CYCLE)
         cycle_seed = blockhash(cycle * SHUFFLING_CYCLE)
         seed = blockhash(block.number - (block.number % PERIOD_LENGTH))
-        index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shardId)))),
+        index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                      100)
-        validator_index = num256_mod(as_num256(sha3(concat(cycle_seed), as_bytes32(shardId), as_bytes32(index_in_subset))),
+        validator_index = num256_mod(as_num256(sha3(concat(cycle_seed), as_bytes32(shard_id), as_bytes32(index_in_subset))),
                                      as_num256(self.validator_set_size))
         return self.validators[validator_index]
 

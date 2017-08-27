@@ -1,14 +1,18 @@
 import os
-
 import rlp
-
-from ethereum import abi, utils, vm
-from ethereum.messages import apply_message, apply_transaction
-from ethereum.transactions import Transaction
 import viper
 
-STARTGAS = 10 ** 8
-GASPRICE = 0
+from ethereum import abi, utils, vm
+from ethereum.messages import apply_message
+from ethereum.transactions import Transaction
+
+from sharding.config import sharding_config
+
+STARTGAS = 3141592   # TODO: use config
+GASPRICE = 1         # TODO: use config
+DEPOSIT_SIZE = sharding_config['DEPOSIT_SIZE']
+WITHDRAW_HASH = utils.sha3("withdraw")
+ADD_HEADER_TOPIC = utils.sha3("add_header()")
 
 _valmgr_ct = None
 _valmgr_code = None
@@ -23,8 +27,10 @@ viper_rlp_decoder_addr = viper_rlp_decoder_tx.creates
 sighasher_tx = rlp.decode(utils.parse_as_bin("0xf9016d808506fc23ac0083026a508080b9015a6101488061000e6000396101565660007f01000000000000000000000000000000000000000000000000000000000000006000350460f8811215610038576001915061003f565b60f6810391505b508060005b368312156100c8577f01000000000000000000000000000000000000000000000000000000000000008335048391506080811215610087576001840193506100c2565b60b881121561009d57607f8103840193506100c1565b60c08112156100c05760b68103600185013560b783036020035260005101840193505b5b5b50610044565b81810360388112156100f4578060c00160005380836001378060010160002060e052602060e0f3610143565b61010081121561010557600161011b565b6201000081121561011757600261011a565b60035b5b8160005280601f038160f701815382856020378282600101018120610140526020610140f350505b505050505b6000f31b2d4f"), Transaction)
 sighasher_addr = sighasher_tx.creates
 
+
 class MessageFailed(Exception):
     pass
+
 
 def mk_validation_code(address):
     '''
@@ -48,6 +54,7 @@ def sign(msg_hash, privkey):
     v, r, s = utils.ecsign(msg_hash, privkey)
     signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
     return signature
+
 
 def get_valmgr_ct():
     global _valmgr_ct, _valmgr_code
@@ -108,10 +115,10 @@ def get_tx_rawhash(tx, network_id=None):
     return rawhash
 
 
-def create_valmgr_tx(gasprice=GASPRICE, startgas=STARTGAS):
+def create_valmgr_tx(gasprice=GASPRICE):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
     bytecode = get_valmgr_bytecode()
-    tx = Transaction(0 , gasprice, startgas, to=b'', value = 0, data=bytecode)
+    tx = Transaction(0, gasprice, 4000000, to=b'', value=0, data=bytecode)
     tx.v = 27
     tx.r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     tx.s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -136,9 +143,10 @@ def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS)
 
 def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gasprice=GASPRICE):
     # Transaction(nonce, gasprice, startgas, to, value, data, v=0, r=0, s=0)
-    tx = Transaction(state.get_nonce(utils.privtoaddr(sender)), gasprice, startgas, to, value,
-            ct.encode_function_call(func, args)
-         ).sign(sender)
+    tx = Transaction(
+        state.get_nonce(utils.privtoaddr(sender)), gasprice, startgas, to, value,
+        ct.encode_function_call(func, args)
+    ).sign(sender)
     return tx
 
 
@@ -167,10 +175,17 @@ def call_sample(state, shard_id):
     )
 
 
-def call_add_header(state, sender_privkey, value, header):
+def call_tx_add_header(state, sender_privkey, value, header):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
         sender_privkey, get_valmgr_addr(), value
+    )
+
+
+def call_msg_add_header(state, value, header, collator_addr):
+    return call_msg(
+        state, get_valmgr_ct(), 'add_header', [header],
+        collator_addr, get_valmgr_addr(), value, startgas=10 ** 20
     )
 
 
@@ -222,6 +237,9 @@ def call_validation_code(state, validation_code_addr, msg_hash, signature):
 
 
 def mk_initiating_contracts(sender_privkey, sender_starting_nonce):
+    """Make transactions of createing initial contracts
+    Including rlp_decoder, sighasher and validator_manager
+    """
     o = []
     nonce = sender_starting_nonce
     global viper_rlp_decoder_tx, sighasher_tx
@@ -232,3 +250,14 @@ def mk_initiating_contracts(sender_privkey, sender_starting_nonce):
         o.append(tx)
         nonce += 1
     return o
+
+
+def create_contract_tx(state, sender_privkey, bytecode, startgas=STARTGAS):
+    """Generate create contract transaction
+    """
+    tx = Transaction(
+        state.get_nonce(utils.privtoaddr(sender_privkey)),
+        GASPRICE, startgas, to=b'', value=0,
+        data=bytecode
+    ).sign(sender_privkey)
+    return tx

@@ -7,7 +7,7 @@
 <li><code>withdraw(uint256 validatorIndex, bytes sig) returns bool</code>: verifies that the signature is correct (ie. a call with 200000 gas, <code>validationCodeAddr</code> as destination, 0 value and <code>sha3("withdraw") + sig</code> as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.</li>
 <li><code>sample(uint256 shardId) returns uint256</code>: uses a recent block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit.</li>
 <li><code>addHeader(bytes header) returns bool</code>: attempts to process a collation header, returns True on success, reverts on failure.</li>
-<li><code>getHead(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
+<li><code>get_shard_head(uint256 shardId) returns bytes32</code>: returns the header hash that is the head of a given shard as perceived by the manager contract.</li>
 <li><code>getAncestor(bytes32 hash)</code>: returns the 10000th ancestor of this hash.</li>
 <li><code>getAncestorDistance(bytes32 hash)</code>: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.</li>
 <li><code>getCollationGasLimit()</code>: returns the gas limit that collations can currently have (by default make this function always answer 10 million).</li>
@@ -32,7 +32,7 @@
 <p>We first define a "collation header" as an RLP list with the following values:</p>
 
 <pre><code>[
-    shardId: uint256,
+    shard_id: uint256,
     expected_period_number: uint256,
     period_start_prevhash: bytes32,
     parent_collation_hash: bytes32,
@@ -47,7 +47,7 @@
 <p>Where:</p>
 
 <ul>
-<li><code>shardId</code> is the shard ID of the shard</li>
+<li><code>shard_id</code> is the shard ID of the shard</li>
 <li><code>expected_period_number</code> is the period number in which this collation expects to be included. A period is an interval of <code>PERIOD_LENGTH</code> blocks.</li>
 <li><code>period_start_prevhash</code> is the block hash of block <code>PERIOD_LENGTH * expected_period_number - 1</code> (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.</li>
 <li><code>parent_collation_hash</code> is the hash of the parent collation</li>
@@ -62,10 +62,10 @@
 <p>A <strong>collation header</strong> is valid if calling <code>addHeader(header)</code> returns true. The validator manager contract should do this if:</p>
 
 <ul>
-<li>The <code>shardId</code> is at least 0, and less than <code>SHARD_COUNT</code></li>
+<li>The <code>shard_id</code> is at least 0, and less than <code>SHARD_COUNT</code></li>
 <li>The <code>expected_period_number</code> equals <code>floor(block.number / PERIOD_LENGTH)</code></li>
 <li>A collation with the hash <code>parent_collation_hash</code> has already been accepted</li>
-<li>The <code>sig</code> is a valid signature. That is, if we calculate <code>validation_code_addr = sample(shardId)</code>, then call <code>validation_code_addr</code> with the calldata being <code>sha3(shortened_header) ++ sig</code> (where <code>shortened_header</code> is the RLP encoded form of the collation header <em>without</em> the sig), the result of the call should be 1</li>
+<li>The <code>sig</code> is a valid signature. That is, if we calculate <code>validation_code_addr = sample(shard_id)</code>, then call <code>validation_code_addr</code> with the calldata being <code>sha3(shortened_header) ++ sig</code> (where <code>shortened_header</code> is the RLP encoded form of the collation header <em>without</em> the sig), the result of the call should be 1</li>
 </ul>
 
 <p>A <strong>collation</strong> is valid if (i) its collation header is valid, (ii) executing the collation on top of the <code>parent_collation_hash</code>'s <code>post_state_root</code> results in the given <code>post_state_root</code> and <code>receipts_root</code>, and (iii) the total gas used is less than or equal to the output of calling <code>getCollationGasLimit()</code> on the main shard.</p>
@@ -81,12 +81,12 @@
 
 <h3>Receipt-consuming transactions</h3>
 
-<p>A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let <code>(to, value, shardId, sender, data)</code> be the values that were saved by the <code>txToShard</code> call that created this receipt. For such a transaction to be valid:</p>
+<p>A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let <code>(to, value, shard_id, sender, data)</code> be the values that were saved by the <code>txToShard</code> call that created this receipt. For such a transaction to be valid:</p>
 
 <ul>
 <li>Such a receipt <em>must</em> have in fact been created by a <code>txToShard</code> call in the main chain.</li>
 <li>The <code>to</code> and <code>value</code> of the transaction <em>must</em> match the <code>to</code> and <code>value</code> of this receipt.</li>
-<li>The shard Id <em>must</em> match <code>shardId</code>.</li>
+<li>The shard Id <em>must</em> match <code>shard_id</code>.</li>
 <li>The contract at address <code>USED_RECEIPT_STORE_ADDRESS</code> <em>must NOT</em> have a record saved saying that the given receipt ID was already consumed.</li>
 </ul>
 
@@ -102,17 +102,17 @@
 
 <h3>Details of <code>sample</code></h3>
 
-<p>The <code>sample</code> function should be coded in such a way that any given validator randomly gets allocated to some number of shards every <code>SHUFFLING_CYCLE</code>, where the expected number of shards is proportional to the validator's balance. During that cycle, <code>sample(shardId)</code> can only return that validator if the <code>shardId</code> is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.</p>
+<p>The <code>sample</code> function should be coded in such a way that any given validator randomly gets allocated to some number of shards every <code>SHUFFLING_CYCLE</code>, where the expected number of shards is proportional to the validator's balance. During that cycle, <code>sample(shard_id)</code> can only return that validator if the <code>shard_id</code> is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.</p>
 
 <p>Here is one possible implementation of <code>sample</code>, assuming for simplicity of illustration that all validators have the same deposit size:</p>
 
-<pre><code>def sample(shardId: num) -&gt; address:
+<pre><code>def sample(shard_id: num) -&gt; address:
     cycle = floor(block.number / SHUFFLING_CYCLE)
     cycle_seed = blockhash(cycle * SHUFFLING_CYCLE)
     seed = blockhash(block.number - (block.number % PERIOD_LENGTH))
-    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shardId)))),
+    index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                  100)
-    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed), as_bytes32(shardId), as_bytes32(index_in_subset))),
+    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed), as_bytes32(shard_id), as_bytes32(index_in_subset))),
                                  as_num256(self.validator_set_size))
     return self.validators[validator_index]
 </code></pre>

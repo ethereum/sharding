@@ -6,7 +6,6 @@ from collections import defaultdict
 import rlp
 from rlp.utils import encode_hex
 
-from ethereum import utils
 from ethereum.exceptions import InvalidTransaction, VerificationFailed
 from ethereum.slogging import get_logger
 from ethereum.config import Env
@@ -19,12 +18,6 @@ from sharding.state_transition import update_collation_env_variables
 
 log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
-
-
-def safe_decode(x):
-    if x[:2] == '0x':
-        x = x[2:]
-    return utils.decode_hex(x)
 
 
 def initialize_genesis_keys(state, genesis):
@@ -42,17 +35,17 @@ def initialize_genesis_keys(state, genesis):
 
 
 class ShardChain(object):
-    def __init__(self, shardId, env=None,
-                 new_head_cb=None, reset_genesis=False, localtime=None,
+    def __init__(self, shard_id, env=None,
+                 new_head_cb=None, reset_genesis=False, localtime=None, max_history=1000,
                  initial_state=None, **kwargs):
         self.env = env or Env()
-        self.shardId = shardId
+        self.shard_id = shard_id
 
-        self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[block_hash]
-        self.head_collation_of_block = {}   # M2: block_hash -> head_collation
+        self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
+        self.head_collation_of_block = {}   # M2: blockhash -> head_collation
 
         # Initialize the state
-        head_hash_key = 'shard_' + str(shardId) + '_head_hash'
+        head_hash_key = 'shard_' + str(shard_id) + '_head_hash'
         if head_hash_key in self.db:  # new head tag
             self.state = self.mk_poststate_of_collation_hash(self.db.get(head_hash_key))
             log.info(
@@ -69,6 +62,7 @@ class ShardChain(object):
                 log.info('Initializing chain from provided state')
             else:
                 self.state = State(env=self.env)
+                self.last_state = self.state.to_snapshot()
 
             self.head_hash = self.env.config['GENESIS_PREVHASH']
             self.db.put(self.head_hash, 'GENESIS')
@@ -91,6 +85,7 @@ class ShardChain(object):
         self.time_queue = []
         self.parent_queue = {}
         self.localtime = time.time() if localtime is None else localtime
+        self.max_history = max_history
 
     @property
     def db(self):
@@ -112,10 +107,9 @@ class ShardChain(object):
             return rlp.decode(collation_rlp, Collation)
         except Exception as e:
             log.info(str(e))
-            print(str(e))
             return None
 
-    def add_collation(self, collation, period_start_prevblock, handle_orphan_collation):
+    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation):
         """Add collation to db and update score
         """
         if collation.header.parent_collation_hash in self.env.db:
@@ -123,20 +117,22 @@ class ShardChain(object):
                 'Receiving collation(%s) which its parent is in db: %s' %
                 (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
             if self.is_first_collation(collation):
-                log.debug('It is the first collation of shard {}'.format(self.shardId))
-                temp_state = self.state.ephemeral_clone()
-            else:
-                temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
+                log.debug('It is the first collation of shard {}'.format(self.shard_id))
+            temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
             try:
                 apply_collation(temp_state, collation, period_start_prevblock)
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
                 log.info('Collation %s with parent %s invalid, reason: %s' %
                          (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))
                 return False
+            deletes = temp_state.deletes
+            changed = temp_state.changed
             collation_score = self.get_score(collation)
             log.info('collation_score of {} is {}'.format(encode_hex(collation.header.hash), collation_score))
         # Collation has no parent yet
         else:
+            changed = []
+            deletes = []
             log.info(
                 'Receiving collation(%s) which its parent is NOT in db: %s' %
                 (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash)))
@@ -145,8 +141,12 @@ class ShardChain(object):
             self.parent_queue[collation.header.parent_collation_hash].append(collation)
             log.info('No parent found. Delaying for now')
             return False
-
         self.db.put(collation.header.hash, rlp.encode(collation))
+
+        self.db.put(b'changed:'+collation.hash, b''.join(list(changed.keys())))
+        # log.debug('Saved %d address change logs' % len(changed.keys()))
+        self.db.put(b'deletes:'+collation.hash, b''.join(deletes))
+        # log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
 
         # TODO: Delete old junk data
         # deletes, changed
@@ -163,9 +163,9 @@ class ShardChain(object):
 
         # TODO: It seems weird to use callback function to access member of MainChain
         try:
-            handle_orphan_collation(collation)
+            handle_ignored_collation(collation)
         except Exception as e:
-            log.info('handle_orphan_collation exception: {}'.format(str(e)))
+            log.info('handle_ignored_collation exception: {}'.format(str(e)))
             return False
 
         return True
@@ -242,28 +242,16 @@ class ShardChain(object):
 
         return score
 
+    def get_head_coll_score(self, blockhash):
+        if blockhash in self.head_collation_of_block:
+            prev_head_coll_hash = self.head_collation_of_block[blockhash]
+            prev_head_coll = self.get_collation(prev_head_coll_hash)
+            prev_head_coll_score = self.get_score(prev_head_coll)
+        else:
+            prev_head_coll_score = 0
+        return prev_head_coll_score
+
     def is_first_collation(self, collation):
         """Check if the given collation is the first collation of this shard
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
-
-    # TODO: test
-    def get_head_collation(self, blockhash):
-        """Get head collation
-        """
-        collation = None
-
-        if blockhash in self.head_collation_of_block:
-            collhash = self.head_collation_of_block[blockhash]
-        else:
-            log.info('head_collation_of_block[%s] is not found' % encode_hex(blockhash))
-            return None
-
-        try:
-            collation = self.get_collation(collhash)
-        except KeyError as e:
-            log.info(
-                'Collation (%s) with blockhash %s invalid, reason: %s' %
-                (encode_hex(collhash), encode_hex(blockhash), str(e)))
-            return None
-        return collation

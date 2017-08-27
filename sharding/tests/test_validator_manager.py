@@ -2,31 +2,23 @@ import pytest
 import rlp
 
 from ethereum import utils
-from ethereum.slogging import LogRecorder, configure_logging, set_level
 from sharding.tools import tester as t
-from ethereum.transactions import Transaction
 from rlp.sedes import List, binary
 
 from sharding.validator_manager_utils import (get_valmgr_addr,
                                               get_valmgr_ct,
                                               get_valmgr_code,
                                               mk_initiating_contracts,
-                                              mk_validation_code, sighasher_tx,
-                                              sign, viper_rlp_decoder_tx)
-
-config_string = ":info,:debug"
-'''
-from ethereum.slogging import LogRecorder, configure_logging, set_level
-config_string = ':info,eth.vm.log:trace,eth.vm.op:trace,eth.vm.stack:trace,eth.vm.exit:trace,eth.pb.msg:trace,eth.pb.tx:debug'
-configure_logging(config_string=config_string)
-'''
+                                              mk_validation_code,
+                                              sign,
+                                              WITHDRAW_HASH,
+                                              DEPOSIT_SIZE)
 
 validator_manager_code = get_valmgr_code()
 
+
 def test_validator_manager():
     # Must pay 100 ETH to become a validator
-    deposit_size = 10 ** 20
-    withdraw_msg_hash = utils.sha3("withdraw")
 
     c = t.Chain()
 
@@ -36,48 +28,45 @@ def test_validator_manager():
     num_blocks = 11
     c.mine(num_blocks - 1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
-    c.head_state.set_balance(address=t.a0, value=deposit_size * 10)
-    c.head_state.set_balance(address=t.a1, value=deposit_size * 10)
+    c.head_state.set_balance(address=t.a0, value=DEPOSIT_SIZE * 10)
+    c.head_state.set_balance(address=t.a1, value=DEPOSIT_SIZE * 10)
 
     # deploy valmgr and its prerequisite contracts and transactions
     txs = mk_initiating_contracts(t.k0, c.head_state.get_nonce(t.a0))
     for tx in txs:
-        try:
-            c.direct_tx(tx)
-        except t.TransactionFailed:
-            pass
+        c.direct_tx(tx)
     x = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
 
-    # test deposit: fails when msg.value != deposit_size
+    # test deposit: fails when msg.value != DEPOSIT_SIZE
     with pytest.raises(t.TransactionFailed):
         x.deposit(k0_valcode_addr, k0_valcode_addr)
     # test withdraw: fails when no validator record
-    assert not x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+    assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     # test deposit: works fine
     return_addr = utils.privtoaddr(utils.sha3("return_addr"))
-    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
-    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
-    assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     # test withdraw: see if the money is returned
-    assert c.head_state.get_balance(return_addr) == deposit_size
+    assert c.head_state.get_balance(return_addr) == DEPOSIT_SIZE
     # test deposit: make use of empty slots
-    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
-    assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
+    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     # test deposit: working fine in the edge condition
-    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
+    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
     # test deposit: fails when valcode_addr is deposited before
     with pytest.raises(t.TransactionFailed):
-        x.deposit(k1_valcode_addr, return_addr, value=deposit_size, sender=t.k1)
+        x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
     # test withdraw: fails when the signature is not corret
-    assert not x.withdraw(1, sign(withdraw_msg_hash, t.k0))
+    assert not x.withdraw(1, sign(WITHDRAW_HASH, t.k0))
 
     # test sample: correctly sample the only one validator
-    assert x.withdraw(0, sign(withdraw_msg_hash, t.k0))
+    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     assert x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr))
     # test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
-    assert x.withdraw(1, sign(withdraw_msg_hash, t.k1))
+    assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     assert x.sample(0) == "0x0000000000000000000000000000000000000000"
-    assert 1 == x.deposit(k0_valcode_addr, return_addr, value=deposit_size, sender=t.k0)
+    assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
 
     def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
@@ -132,11 +121,11 @@ def test_validator_manager():
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
-        result = x.add_header(h1)
+        x.add_header(h1)
     # test add_header: fails when the parent_collation_hash is not added before
     with pytest.raises(t.TransactionFailed):
         h2 = get_colhdr(shard_id, utils.sha3("123"))
-        result = x.add_header(h2)
+        x.add_header(h2)
     # test add_header: the log is generated normally
     h2 = get_colhdr(shard_id, h1_hash)
     h2_hash = utils.sha3(h2)
@@ -177,4 +166,3 @@ def test_validator_manager():
         current_colhdr_hash = utils.sha3(current_colhdr)
     assert x.get_ancestor(shard_id, current_colhdr_hash) == shard0_genesis_colhdr_hash
     '''
-

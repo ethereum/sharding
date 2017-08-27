@@ -1,9 +1,14 @@
+import rlp
+
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.messages import apply_transaction
-from ethereum import utils
+from ethereum.common import mk_block_from_prevstate
+from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
+from sharding.validator_manager_utils import (sign, call_msg_add_header)
+from sharding.collation import CollationHeader
 
 log = get_logger('sharding.collator')
 
@@ -33,7 +38,7 @@ def apply_collation(state, collation, period_start_prevblock):
 
 def create_collation(
         chain,
-        shardId,
+        shard_id,
         parent_collation_hash,
         expected_period_number,
         coinbase,
@@ -42,7 +47,7 @@ def create_collation(
     """Create a collation
 
     chain: MainChain
-    shardId: id of ShardChain
+    shard_id: id of ShardChain
     parent_collation_hash: the hash of the parent collation
     expected_period_number: the period number in which this collation expects to be included
     coinbase: coinbase
@@ -51,9 +56,9 @@ def create_collation(
     """
     log.info('Creating a collation')
 
-    assert chain.has_shard(shardId)
+    assert chain.has_shard(shard_id)
 
-    temp_state = chain.shards[shardId].mk_poststate_of_collation_hash(parent_collation_hash)
+    temp_state = chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash)
     cs = get_consensus_strategy(temp_state.config)
 
     # Set period_start_prevblock info
@@ -63,7 +68,7 @@ def create_collation(
     # Call the initialize state transition function
     cs.initialize(temp_state, period_start_prevblock)
     # Initialize a collation with the given previous state and current coinbase
-    collation = state_transition.mk_collation_from_prevstate(chain.shards[shardId], temp_state, coinbase)
+    collation = state_transition.mk_collation_from_prevstate(chain.shards[shard_id], temp_state, coinbase)
     # Add transactions
     state_transition.add_transactions(temp_state, collation, txqueue)
     # Call the finalize state transition function
@@ -71,7 +76,7 @@ def create_collation(
     # Set state root, receipt root, etc
     state_transition.set_execution_results(temp_state, collation)
 
-    collation.header.shardId = shardId
+    collation.header.shard_id = shard_id
     collation.header.parent_collation_hash = parent_collation_hash
     collation.header.expected_period_number = expected_period_number
     collation.header.period_start_prevhash = period_start_prevhash
@@ -81,14 +86,36 @@ def create_collation(
         collation.header.sig = sig
     except Exception as e:
         log.info('Failed to sign collation, exception: {}'.format(str(e)))
+        raise e
 
     log.info('Created collation successfully')
     return collation
 
 
-def sign(msg_hash, privkey):
-    """Use privkey to ecdsa-sign the msg_hash
+def verify_collation_header(chain, header):
+    """Verify the collation
+
+    Validate the collation header before calling ShardChain.add_collation
+
+    chain: MainChain
+    header: the given collation header
     """
-    v, r, s = utils.ecsign(msg_hash, privkey)
-    signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
-    return signature
+    if header.shard_id < 0:
+        raise ValueError('Invalid shard_id %d' % header.shard_id)
+
+    # Call contract to verify header
+    state = chain.state.ephemeral_clone()
+    block = mk_block_from_prevstate(chain, timestamp=chain.state.timestamp + 14)
+    cs = get_consensus_strategy(state.config)
+    cs.initialize(state, block)
+
+    try:
+        result = call_msg_add_header(
+            state, 0, rlp.encode(CollationHeader.serialize(header)), header.coinbase)
+        result = bool(big_endian_to_int(result))
+        print('result:{}'.format(result))
+        if not result:
+            raise ValueError('Calling add_header returns False')
+    except:
+        raise ValueError('Calling add_header is failed')
+    return True
