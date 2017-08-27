@@ -6,8 +6,8 @@ from ethereum.slogging import configure_logging, get_logger
 from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
-from sharding.used_receipt_store_utils import call_get_used_receipts, get_urs_ct, get_urs_contract
-from sharding.validator_manager_utils import MessageFailed, call_msg, call_tx, get_valmgr_addr, get_valmgr_ct, mk_initiating_contracts, mk_validation_code
+from sharding.used_receipt_store_utils import call_get_used_receipts, get_urs_ct, get_urs_contract, mk_initiating_txs_for_urs
+from sharding.validator_manager_utils import MessageFailed, call_msg, call_tx, get_valmgr_addr, get_valmgr_ct, mk_initiating_contracts, mk_validation_code, sign
 
 # config_string = 'eth.chain:info,eth.pb.msg:debug'
 # configure_logging(config_string=config_string)
@@ -48,6 +48,10 @@ def simplified_validate_transaction(state, tx):
     '''
     if state.gas_used + tx.startgas > state.gas_limit:
         return False
+    # TODO: a check to prevent the tx from using too much space
+    # if len(tx.data) >= 420:
+    #     return False
+
     return True
 
 
@@ -102,7 +106,7 @@ def send_msg_transfer_value(state, shard_id, tx):
     value = tx.value - tx.gasprice * tx.startgas
     log_rctx.debug("value={}, tx.value={}, tx.gasprice={}, tx.startgas={}".format(value, tx.value, tx.gasprice, tx.startgas))
     if value <= 0:
-        return False
+        return False, None
 
     # start transactioning
     send_msg_add_receipt(state, shard_id, receipt_id)
@@ -120,7 +124,7 @@ def send_msg_transfer_value(state, shard_id, tx):
     #      it seems no raise in apply_msg
     result, gas_remained, data = apply_msg(ext, msg)
     log_rctx.debug("after apply_msg:  urs_addr.balance={}, tx.to.balance={}".format(state.get_balance(urs_addr), state.get_balance(tx.to)))
-    # result_data = bytearray_to_bytestr(data) if result else None
+
     if not result:
         # TODO: is it correct to revert the balance here?
         state.delta_balance(urs_addr, -value)
@@ -132,11 +136,14 @@ def send_msg_transfer_value(state, shard_id, tx):
     state.delta_balance(to, refunds)
     log_rctx.debug("End: urs.balance={}, tx.to.balance={}\n\n".format(state.get_balance(urs_addr), state.get_balance(tx.to)))
 
-    return True
+    # TODO: handle the state.gas_used, whenever result is True or False,
+    #       referenced from `apply_transaction`.
+
+    return True, (utils.bytearray_to_bytestr(data) if result else None)
 
 
 def mk_testing_receipt_consuming_tx(receipt_id, to_addr, value, data=b''):
-    startgas = 210000
+    startgas = 300000
     tx = Transaction(0, t.GASPRICE, startgas, to_addr, value, data)
     tx.v, tx.r, tx.s = 1, receipt_id, 0
     return tx
@@ -150,17 +157,24 @@ def test_receipt_consuming_transaction(c):
     c.mine(1)
     valmgr = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
     to_addr = utils.privtoaddr(utils.sha3("test_to_addr"))
-    '''
-    # test the case when the to_addr is a contract_address
-    valcode_addr = c.tx(to=b'', data=mk_validation_code(t.a9))
-    to_addr = valcode_addr
-    '''
+
+    data = b''
+
+    # # test the case when the to_addr is a contract_address
+    # k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
+    # to_addr = k0_valcode_addr
+    # msg_hash = utils.sha3("test_msg")
+    # sig = sign(msg_hash, t.k0)
+    # data = utils.sha3("test_msg1") + sig
+
     # registre receipts
     valmgr.tx_to_shard(to_addr, shard_id, b'', sender=t.k0, value=1)
     value = 500000
-    receipt_id = valmgr.tx_to_shard(to_addr, shard_id, b'', sender=t.k0, value=value)
+    receipt_id = valmgr.tx_to_shard(to_addr, shard_id, data, sender=t.k0, value=value)
     # create the contract USED_RECEIPT_STORE in shard 0
-    c.direct_tx(get_urs_contract(shard_id)['tx'])
+    txs = mk_initiating_txs_for_urs(t.k0, c.head_state.get_nonce(t.a0), shard_id)
+    for tx in txs:
+        c.direct_tx(tx)
     urs0 = t.ABIContract(c, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'])
     receipt_id = 1
     c.mine(1)
