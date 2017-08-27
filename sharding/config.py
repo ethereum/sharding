@@ -18,7 +18,7 @@ sharding_config['SHARD_COUNT'] = 100
 #       `sharding_config['VALIDATOR_MANAGER_ADDRESS']` equals to
 #       `utils.checksum_encode(get_valmgr_addr())`?
 #       Because currently we modify the contract so frequently.
-sharding_config['VALIDATOR_MANAGER_ADDRESS'] = '0xF4499028FE104C448E9348FFbE0fE94aCa37Fd9B'
+sharding_config['VALIDATOR_MANAGER_ADDRESS'] = '0xc70369Da1a340083A8A5e36D99b7a2F72A254d90'
 sharding_config['USED_RECEIPT_STORE_ADDRESS'] = ''   # TODO
 sharding_config['SIG_GASLIMIT'] = 40000
 sharding_config['COLLATOR_REWARD'] = 0.002 * utils.denoms.ether
