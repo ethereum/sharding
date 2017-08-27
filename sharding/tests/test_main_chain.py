@@ -167,7 +167,6 @@ def test_longest_chain_rule():
     # Clear tester
     expected_period_number = t.chain.get_expected_period_number()
     t.set_collation(shard_id, expected_period_number)
-    print('head collation: {}'.format(t.shard_collation[shard_id].to_dict()))
     # tx of shard 1
     t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
     # tx of main chain

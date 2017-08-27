@@ -128,12 +128,15 @@ def get_env(env):
 
 
 class Chain(object):
-    def __init__(self, alloc=None, env=None, deploy_sharding_contracts=False):
+    def __init__(self, alloc=None, env=None, deploy_sharding_contracts=False, genesis=None):
         # MainChain
+        if genesis is None:
+            genesis = mk_basic_state(
+                base_alloc if alloc is None else alloc,
+                None,
+                get_env(env))
         self.chain = MainChain(
-            genesis=mk_basic_state(base_alloc if alloc is None else alloc,
-                                   None,
-                                   get_env(env)),
+            genesis=genesis,
             reset_genesis=True
         )
         self.cs = get_consensus_strategy(self.chain.env.config)
@@ -144,7 +147,7 @@ class Chain(object):
         self.last_tx = None
 
         # ShardChains
-        self.shard_collation = {}
+        self.collation = {}
         self.shard_head_state = {}
         self.shard_last_sender = {}
         self.shard_last_tx = {}
@@ -159,15 +162,15 @@ class Chain(object):
             self.mine(1)
 
     def direct_tx(self, transaction, shard_id=None):
-        self.last_tx, self.last_sender = transaction, None
-
         if shard_id is None:
+            self.last_tx, self.last_sender = transaction, None
             success, output = apply_transaction(self.head_state, transaction)
             self.block.transactions.append(transaction)
         else:
+            self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = transaction, None
             assert self.chain.has_shard(shard_id)
             success, output = apply_transaction(self.shard_head_state[shard_id], transaction)
-            self.shard_collation[shard_id].transactions.append(transaction)
+            self.collation[shard_id].transactions.append(transaction)
 
         if not success:
             raise TransactionFailed()
@@ -279,6 +282,11 @@ class Chain(object):
         return period_start_prevhash
 
     def set_collation(self, shard_id, expected_period_number, parent_collation_hash=None, coinbase=a0):
+        """Set collation before building some transactions on the shard chain
+
+        Set `self.shard_head_state` to the integration of "collation-state of parent_collation_hash" and "block-state of period_start_prevblock"
+        Set `self.collation` fields
+        """
         assert self.chain.has_shard(shard_id)
         if parent_collation_hash is None:
             parent_collation_hash = self.chain.shards[shard_id].head_hash
@@ -291,11 +299,11 @@ class Chain(object):
         self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
         collation = shard_state_transition.mk_collation_from_prevstate(self.chain.shards[shard_id], self.shard_head_state[shard_id], coinbase=coinbase)
 
-        # Initialize shard_collation, set expected_period_number, period_start_prevhash and parent_collation_hash
+        # Initialize collation, set expected_period_number, period_start_prevhash and parent_collation_hash
         collation.header.expected_period_number = expected_period_number
         collation.header.period_start_prevhash = period_start_prevhash
         collation.header.parent_collation_hash = parent_collation_hash
-        self.shard_collation[shard_id] = collation
+        self.collation[shard_id] = collation
 
     def add_test_shard(self, shard_id, alloc=None):
         """Initial shard with fake accounts
@@ -375,14 +383,14 @@ class Chain(object):
         # Finalize
         assert self.chain.has_shard(shard_id)
         shard_state_transition.finalize(self.shard_head_state[shard_id], coinbase)
-        shard_state_transition.set_execution_results(self.shard_head_state[shard_id], self.shard_collation[shard_id])
+        shard_state_transition.set_execution_results(self.shard_head_state[shard_id], self.collation[shard_id])
 
         # Sign the collation
-        collation = self.shard_collation[shard_id]
+        collation = self.collation[shard_id]
         collation.header.sig = validator_manager_utils.sign(collation.signing_hash, privkey)
 
         # Add collation to db
-        period_start_prevblock = self.chain.get_block(self.shard_collation[shard_id].header.period_start_prevhash)
+        period_start_prevblock = self.chain.get_block(self.collation[shard_id].header.period_start_prevhash)
         assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock, self.chain.handle_ignored_collation)
 
         # Create and send add_header tx
