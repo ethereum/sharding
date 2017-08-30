@@ -1,6 +1,6 @@
 import os
 import rlp
-import viper
+from viper import compiler
 
 from ethereum import abi, utils, vm
 from ethereum.messages import apply_message
@@ -60,7 +60,7 @@ def get_valmgr_ct():
     global _valmgr_ct, _valmgr_code
     if not _valmgr_ct:
         _valmgr_ct = abi.ContractTranslator(
-            viper.compiler.mk_full_signature(get_valmgr_code())
+            compiler.mk_full_signature(get_valmgr_code())
         )
     return _valmgr_ct
 
@@ -77,7 +77,7 @@ def get_valmgr_code():
 def get_valmgr_bytecode():
     global _valmgr_bytecode
     if not _valmgr_bytecode:
-        _valmgr_bytecode = viper.compiler.compile(get_valmgr_code())
+        _valmgr_bytecode = compiler.compile(get_valmgr_code())
     return _valmgr_bytecode
 
 
@@ -174,19 +174,19 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
     return tx
 
 
-def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr):
+def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr, gasprice=GASPRICE):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice
     )
 
 
-def call_withdraw(state, sender_privkey, value, validator_index, signature):
+def call_withdraw(state, sender_privkey, value, validator_index, signature, gasprice=GASPRICE):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'withdraw', [validator_index, signature],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice
     )
 
 
