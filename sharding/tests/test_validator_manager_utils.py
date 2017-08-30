@@ -55,14 +55,13 @@ def test_call_deposit_withdraw_sample(chain):
     tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a2)
     chain.direct_tx(tx)
     chain.mine(1)
-    assert hex(utils.big_endian_to_int(k0_valcode_addr)) == \
-        hex(utils.big_endian_to_int(call_sample(chain.head_state, 0)))
+    assert hex(utils.big_endian_to_int(k0_valcode_addr)) == call_sample(chain.head_state, 0)
 
     # withdraw
     tx = call_withdraw(chain.head_state, t.k0, 0, 0, sign(WITHDRAW_HASH, t.k0))
     chain.direct_tx(tx)
     chain.mine(1)
-    assert 0 == utils.big_endian_to_int(call_sample(chain.head_state, 0))
+    assert 0 == int(call_sample(chain.head_state, 0), 16)
     assert call_validation_code(chain.head_state, k0_valcode_addr, WITHDRAW_HASH, sign(WITHDRAW_HASH, t.k0))
 
 

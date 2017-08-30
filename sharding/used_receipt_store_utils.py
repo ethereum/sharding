@@ -5,7 +5,7 @@ from ethereum.transactions import Transaction
 from viper import compiler
 
 from sharding.validator_manager_utils import (GASPRICE, STARTGAS,
-                                              call_msg, call_tx,
+                                              call_contract_constantly, call_tx,
                                               get_tx_rawhash)
 
 _urs_contracts = {}
@@ -81,8 +81,7 @@ def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
 
 
 def call_get_used_receipts(state, shard_id, receipt_id):
-    dummy_addr = b'\xff' * 20
-    return bool(utils.big_endian_to_int(call_msg(
-        state, get_urs_ct(shard_id), 'get_used_receipts', [receipt_id],
-        dummy_addr, get_urs_contract(shard_id)['addr']
-    )))
+    return call_contract_constantly(
+        state, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],
+        'get_used_receipts', [receipt_id]
+    )

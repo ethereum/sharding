@@ -139,10 +139,28 @@ def create_valmgr_tx(gasprice=GASPRICE):
 def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
-    result = apply_message(state.ephemeral_clone(), msg)
+    result = apply_message(state, msg)
     if result is None:
         raise MessageFailed("Msg failed")
-    return result
+    if result is False:
+        return result
+    if result == b'':
+        return None
+    o = ct.decode(func, result)
+    return o[0] if len(o) == 1 else o
+
+
+def call_contract_constantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    return call_msg(
+        state.ephemeral_clone(), ct, func, args,
+        sender_addr, contract_addr, value, startgas
+    )
+
+
+def call_contract_inconstantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    return call_msg(
+        state, ct, func, args, sender_addr, contract_addr, value, startgas
+    )
 
 
 def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gasprice=GASPRICE):
@@ -171,11 +189,8 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature):
 
 
 def call_sample(state, shard_id):
-    ct = get_valmgr_ct()
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, ct, 'sample', [shard_id],
-        dummy_addr, get_valmgr_addr()
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(), 'sample', [shard_id]
     )
 
 
@@ -187,43 +202,39 @@ def call_tx_add_header(state, sender_privkey, value, header):
 
 
 def call_msg_add_header(state, value, header, collator_addr):
-    return call_msg(
-        state, get_valmgr_ct(), 'add_header', [header],
-        collator_addr, get_valmgr_addr(), value, startgas=10 ** 20
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(), 'add_header', [header],
+        value, startgas=10 ** 20, sender_addr=collator_addr
     )
 
 
 def call_get_shard_head(state, shard_id):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_shard_head', [shard_id],
-        dummy_addr, get_valmgr_addr()
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(),
+        'get_shard_head', [shard_id]
     )
 
 
 '''
 def call_get_ancestor(state, shard_id, header_hash):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor', [shard_id, header_hash],
-        dummy_addr, get_valmgr_addr()
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(),
+        'get_ancestor', [shard_id, header_hash]
     )
 
 
 def call_get_ancestor_distance(state, header_hash):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor_distance', [header_hash],
-        dummy_addr, get_valmgr_addr()
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(),
+        'get_ancestor_distance', [header_hash]
     )
 '''
 
 
 def call_get_collation_gas_limit(state):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_collation_gas_limit', [],
-        dummy_addr, get_valmgr_addr()
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(),
+        'get_collation_gas_limit', []
     )
 
 

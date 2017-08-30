@@ -112,7 +112,6 @@ def verify_collation_header(chain, header):
     try:
         result = call_msg_add_header(
             state, 0, rlp.encode(CollationHeader.serialize(header)), header.coinbase)
-        result = bool(big_endian_to_int(result))
         print('result:{}'.format(result))
         if not result:
             raise ValueError('Calling add_header returns False')

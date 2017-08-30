@@ -21,7 +21,7 @@ from sharding.collator import create_collation
 from sharding import state_transition as shard_state_transition
 from sharding import validator_manager_utils
 from sharding.collation import CollationHeader
-from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_msg
+from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_contract_constantly
 
 # Initialize accounts
 accounts = []
@@ -273,9 +273,10 @@ class Chain(object):
         # If it's on forked chain, we can't use get_blockhash_by_number.
         # So try to get period_start_prevhash by message call
         if self.is_sharding_contracts_deployed:
-            period_start_prevhash = call_msg(
-                self.head_state, validator_manager_utils.get_valmgr_ct(), 'get_period_start_prevhash', [expected_period_number],
-                b'\xff' * 20, validator_manager_utils.get_valmgr_addr()
+            period_start_prevhash = call_contract_constantly(
+                self.head_state, validator_manager_utils.get_valmgr_ct(),
+                validator_manager_utils.get_valmgr_addr(),
+                'get_period_start_prevhash', [expected_period_number]
             )
         else:
             period_start_prevhash = self.chain.get_period_start_prevhash(expected_period_number)
