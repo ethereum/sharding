@@ -4,7 +4,7 @@ from ethereum import utils
 
 from sharding.tools import tester as t
 from sharding.used_receipt_store_utils import (call_add_used_receipt,
-                                               call_get_used_receipts,
+                                               call_urs,
                                                mk_initiating_txs_for_urs)
 
 @pytest.fixture
@@ -21,8 +21,8 @@ def test_used_receipt_store(c):
         c.direct_tx(tx)
     c.mine(1)
     receipt_id = 1
-    assert not call_get_used_receipts(c.head_state, shard_id, receipt_id)
+    assert not call_urs(c.head_state, shard_id, 'get_used_receipts', [receipt_id])
     tx = call_add_used_receipt(c.head_state, t.k0, 0, shard_id, receipt_id)
     c.direct_tx(tx)
     c.mine(1)
-    assert call_get_used_receipts(c.head_state, shard_id, receipt_id)
+    assert call_urs(c.head_state, shard_id, 'get_used_receipts', [receipt_id])

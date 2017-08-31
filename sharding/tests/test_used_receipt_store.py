@@ -7,14 +7,8 @@ from sharding.used_receipt_store_utils import (create_urs_tx, get_urs_ct,
                                                get_urs_contract,
                                                mk_initiating_txs_for_urs)
 
-@pytest.fixture
-def c():
-    for k, v in t.base_alloc.items():
-        t.base_alloc[k] = {'balance': 10 * 100 * utils.denoms.ether}
-    return t.Chain(alloc=t.base_alloc)
-
-
-def test_used_receipt_store(c):
+def test_used_receipt_store():
+    c = t.Chain()
     shard_id = 0
     txs = mk_initiating_txs_for_urs(t.k0, c.head_state.get_nonce(t.a0), shard_id)
     for tx in txs:

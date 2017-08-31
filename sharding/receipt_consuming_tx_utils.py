@@ -6,25 +6,10 @@ from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
-from sharding.used_receipt_store_utils import call_get_used_receipts, get_urs_ct, get_urs_contract, mk_initiating_txs_for_urs
-from sharding.validator_manager_utils import MessageFailed, call_contract_constantly, call_contract_inconstantly, call_tx, get_valmgr_addr, get_valmgr_ct, mk_initiating_contracts, mk_validation_code, sign
+from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract, mk_initiating_txs_for_urs
+from sharding.validator_manager_utils import MessageFailed, call_contract_inconstantly, call_valmgr, mk_validation_code, sign
 
 log_rctx = get_logger('sharding.rctx')
-
-def call_urs(state, shard_id, func, args):
-    ct = get_urs_ct(shard_id)
-    return call_contract_constantly(
-        state, ct, get_urs_contract(shard_id)['addr'],
-        func, args, 0
-    )
-
-
-def call_valmgr(state, func, args):
-    ct = get_valmgr_ct()
-    return call_contract_constantly(
-        state, ct, get_valmgr_addr(),
-        func, args, 0
-    )
 
 def simplified_validate_transaction(state, tx):
     '''A simplified and modified one from

@@ -188,12 +188,6 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature):
     )
 
 
-def call_sample(state, shard_id):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(), 'sample', [shard_id]
-    )
-
-
 def call_tx_add_header(state, sender_privkey, value, header):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
@@ -205,36 +199,6 @@ def call_msg_add_header(state, value, header, collator_addr):
     return call_contract_constantly(
         state, get_valmgr_ct(), get_valmgr_addr(), 'add_header', [header],
         value, startgas=10 ** 20, sender_addr=collator_addr
-    )
-
-
-def call_get_shard_head(state, shard_id):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(),
-        'get_shard_head', [shard_id]
-    )
-
-
-'''
-def call_get_ancestor(state, shard_id, header_hash):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(),
-        'get_ancestor', [shard_id, header_hash]
-    )
-
-
-def call_get_ancestor_distance(state, header_hash):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(),
-        'get_ancestor_distance', [header_hash]
-    )
-'''
-
-
-def call_get_collation_gas_limit(state):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(),
-        'get_collation_gas_limit', []
     )
 
 
@@ -283,3 +247,11 @@ def create_contract_tx(state, sender_privkey, bytecode, startgas=STARTGAS):
         data=bytecode
     ).sign(sender_privkey)
     return tx
+
+
+def call_valmgr(state, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    startgas = sharding_config['CONTRACT_CALL_GAS']['VALIDATOR_MANAGER'][func]
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(), func, args,
+        value=value, startgas=startgas, sender_addr=sender_addr
+    )

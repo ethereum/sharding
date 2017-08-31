@@ -28,8 +28,6 @@ def test_validator_manager():
     num_blocks = 11
     c.mine(num_blocks - 1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
-    c.head_state.set_balance(address=t.a0, value=DEPOSIT_SIZE * 10)
-    c.head_state.set_balance(address=t.a1, value=DEPOSIT_SIZE * 10)
 
     # deploy valmgr and its prerequisite contracts and transactions
     txs = mk_initiating_contracts(t.k0, c.head_state.get_nonce(t.a0))
@@ -39,6 +37,7 @@ def test_validator_manager():
 
     # test deposit: fails when msg.value != DEPOSIT_SIZE
     with pytest.raises(t.TransactionFailed):
+        # gas == GASLIMIT
         x.deposit(k0_valcode_addr, k0_valcode_addr)
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))

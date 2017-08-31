@@ -4,6 +4,7 @@ from ethereum import abi, utils, vm
 from ethereum.transactions import Transaction
 from viper import compiler
 
+from sharding.config import sharding_config
 from sharding.validator_manager_utils import (GASPRICE, STARTGAS,
                                               call_contract_constantly, call_tx,
                                               get_tx_rawhash)
@@ -55,7 +56,7 @@ def get_urs_bytecode(shard_id):
 
 def create_urs_tx(shard_id, gasprice=GASPRICE):
     bytecode = get_urs_bytecode(shard_id)
-    tx = Transaction(0 , gasprice, 2000000, to=b'', value = 0, data=bytecode)
+    tx = Transaction(0 , gasprice, 2000000, to=b'', value=0, data=bytecode)
     tx.v = 27
     tx.r = 10000
     tx.s = shard_id + 1
@@ -80,8 +81,9 @@ def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
     )
 
 
-def call_get_used_receipts(state, shard_id, receipt_id):
+def call_urs(state, shard_id, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    startgas = sharding_config['CONTRACT_CALL_GAS']['USED_RECEIPT_STORE'][func]
     return call_contract_constantly(
         state, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],
-        'get_used_receipts', [receipt_id]
+        func, args, value=value, startgas=startgas, sender_addr=sender_addr
     )
