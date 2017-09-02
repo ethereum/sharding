@@ -81,8 +81,9 @@ def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
     )
 
 
-def call_urs(state, shard_id, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
-    startgas = sharding_config['CONTRACT_CALL_GAS']['USED_RECEIPT_STORE'][func]
+def call_urs(state, shard_id, func, args, value=0, startgas=None, sender_addr=b'\x00' * 20):
+    if startgas is None:
+        startgas = sharding_config['CONTRACT_CALL_GAS']['USED_RECEIPT_STORE'][func]
     return call_contract_constantly(
         state, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],
         func, args, value=value, startgas=startgas, sender_addr=sender_addr

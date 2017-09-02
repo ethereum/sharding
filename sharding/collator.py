@@ -7,7 +7,7 @@ from ethereum.common import mk_block_from_prevstate
 from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
-from sharding.validator_manager_utils import (sign, call_msg_add_header)
+from sharding.validator_manager_utils import (sign, call_valmgr)
 from sharding.collation import CollationHeader
 
 log = get_logger('sharding.collator')
@@ -110,11 +110,14 @@ def verify_collation_header(chain, header):
     cs.initialize(state, block)
 
     try:
-        result = call_msg_add_header(
-            state, 0, rlp.encode(CollationHeader.serialize(header)), header.coinbase)
+        result = call_valmgr(
+            state, 'add_header',
+            [rlp.encode(CollationHeader.serialize(header))],
+            sender_addr=header.coinbase
+        )
         print('result:{}'.format(result))
         if not result:
             raise ValueError('Calling add_header returns False')
     except:
-        raise ValueError('Calling add_header is failed')
+        raise ValueError('Calling add_header failed')
     return True

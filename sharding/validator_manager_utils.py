@@ -195,13 +195,6 @@ def call_tx_add_header(state, sender_privkey, value, header):
     )
 
 
-def call_msg_add_header(state, value, header, collator_addr):
-    return call_contract_constantly(
-        state, get_valmgr_ct(), get_valmgr_addr(), 'add_header', [header],
-        value, startgas=10 ** 20, sender_addr=collator_addr
-    )
-
-
 def call_tx_to_shard(state, sender_privkey, value, to, shard_id, data):
     return call_tx(
         state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, data],
@@ -249,8 +242,9 @@ def create_contract_tx(state, sender_privkey, bytecode, startgas=STARTGAS):
     return tx
 
 
-def call_valmgr(state, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
-    startgas = sharding_config['CONTRACT_CALL_GAS']['VALIDATOR_MANAGER'][func]
+def call_valmgr(state, func, args, value=0, startgas=None, sender_addr=b'\x00' * 20):
+    if startgas is None:
+        startgas = sharding_config['CONTRACT_CALL_GAS']['VALIDATOR_MANAGER'][func]
     return call_contract_constantly(
         state, get_valmgr_ct(), get_valmgr_addr(), func, args,
         value=value, startgas=startgas, sender_addr=sender_addr

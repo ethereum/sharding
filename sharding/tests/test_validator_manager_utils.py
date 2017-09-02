@@ -11,7 +11,6 @@ from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
                                               call_valmgr,
                                               call_withdraw,
                                               call_tx_add_header,
-                                              call_msg_add_header,
                                               call_tx_to_shard,
                                               get_valmgr_addr,
                                               mk_validation_code, sign,
@@ -102,7 +101,7 @@ def test_call_add_header_get_shard_head(chain):
     assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 
     # message call test
-    assert call_msg_add_header(chain.head_state, 0, colhdr, t.a0)
+    assert call_valmgr(chain.head_state, 'add_header', [colhdr], sender_addr=t.a0)
 
     # transaction call test
     # `add_header` verifies whether the colhdr is signed by the current
@@ -112,7 +111,6 @@ def test_call_add_header_get_shard_head(chain):
     chain.mine(1)
 
     assert colhdr_hash == call_valmgr(chain.head_state, 'get_shard_head', [0])
-
 
 
 def test_call_tx_to_shard(chain):
