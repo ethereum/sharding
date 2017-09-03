@@ -89,11 +89,6 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     result, gas_remained, data = apply_msg(ext, msg)
     log_rctx.debug("after apply_msg:  urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
 
-    if not result:
-        # TODO: is it correct to revert the balance here?
-        shard_state.delta_balance(urs_addr, -value)
-        raise MessageFailed("send_msg_transfer_value: failed")
-
     # gas refunds goes to the `to` address
     refunds = gas_remained * tx.gasprice
     log_rctx.debug("gas_remained={}, gasprice={}".format(gas_remained, tx.gasprice))

@@ -47,9 +47,6 @@ def test_receipt_consuming_transaction(c):
     # create the contract USED_RECEIPT_STORE in shard `shard_id`
     c.add_test_shard(shard_id)
     shard_state = c.shard_head_state[shard_id]
-    txs = mk_initiating_txs_for_urs(t.k0, shard_state.get_nonce(t.a0), shard_id)
-    for tx in txs:
-        c.direct_tx(tx, shard_id=shard_id)
     c.mine(1)
     urs0 = t.ABIContract(
         c, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],

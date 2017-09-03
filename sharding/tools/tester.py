@@ -19,7 +19,7 @@ from sharding.shard_chain import ShardChain
 from sharding.config import sharding_config
 from sharding.collator import create_collation
 from sharding import state_transition as shard_state_transition
-from sharding import validator_manager_utils
+from sharding import used_receipt_store_utils, validator_manager_utils
 from sharding.collation import CollationHeader
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_valmgr
@@ -185,13 +185,14 @@ class Chain(object):
             transaction = Transaction(
                 self.head_state.get_nonce(sender_addr), gasprice, startgas, to, value, data
             ).sign(sender)
+            self.last_sender = sender
         else:
             assert self.chain.has_shard(shard_id)
             transaction = Transaction(
                 self.shard_head_state[shard_id].get_nonce(sender_addr), gasprice, startgas, to, value, data
             ).sign(sender)
+            self.shard_last_sender[shard_id] = sender
         o = self.direct_tx(transaction, shard_id=shard_id)
-        self.last_sender = sender
         return o
 
     def contract(self, sourcecode, args=[], sender=k0, value=0, language='evm', startgas=STARTGAS, gasprice=GASPRICE, shard_id=None):
@@ -312,12 +313,19 @@ class Chain(object):
         """
         assert not self.chain.has_shard(shard_id)
 
+        base_alloc_with_urs = base_alloc.copy()
+        base_alloc_with_urs.update({
+            used_receipt_store_utils.get_urs_contract(shard_id)['addr']: {
+                'balance': (10 ** 9) * utils.denoms.ether
+            }
+        })
         initial_state = mk_basic_state(
             base_alloc if alloc is None else alloc,
             None, self.chain.env)
         shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)
         self.__init_shard_var(shard_id)
+        self.deploy_urs_contracts(k0, shard_id)
 
     def generate_shard_tx(self, shard_id, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
         """Generate a tx of shard
@@ -412,6 +420,18 @@ class Chain(object):
             self.direct_tx(tx)
         self.last_sender = sender_privkey
 
+    def deploy_urs_contracts(self, sender_privkey, shard_id):
+        """Deploy urs contract and its dependency
+        """
+        sender_addr = utils.privtoaddr(sender_privkey)
+        txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
+            sender_privkey,
+            self.shard_head_state[shard_id].get_nonce(sender_addr),
+            shard_id
+        )
+        for tx in txs:
+            self.direct_tx(tx, shard_id=shard_id)
+        self.shard_last_sender[shard_id] = sender_privkey
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))
