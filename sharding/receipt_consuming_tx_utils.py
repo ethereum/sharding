@@ -1,7 +1,7 @@
 import pytest
 
-from ethereum import utils, vm
-from ethereum.messages import VMExt, apply_message, apply_msg, apply_transaction
+from ethereum import opcodes, utils, vm
+from ethereum.messages import CREATE_CONTRACT_ADDRESS, VMExt, apply_message, apply_msg, apply_transaction
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
@@ -58,15 +58,19 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
 
     receipt_id = tx.r
     to = tx.to
-    # XXX: we should deduct the startgas of this message in advance, because
-    #      the message may be possibly a contract, not only a normal value
-    #      transfer.
-    # TODO: should we deduct the intrinsic_gas of the tx, which is calculated
-    #       in `apply_transaction` here?
+    # we should deduct the startgas of this message in advance, because
+    # the message may be possibly a contract, not only a normal value transfer.
     value = tx.value - tx.gasprice * tx.startgas
     log_rctx.debug("value={}, tx.value={}, tx.gasprice={}, tx.startgas={}".format(value, tx.value, tx.gasprice, tx.startgas))
     if value <= 0:
         return False, None
+    # calculate the intrinsic_gas
+    intrinsic_gas = tx.intrinsic_gas_used
+    # if mainchain_state.is_HOMESTEAD():
+    #     if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
+    #         intrinsic_gas += opcodes.CREATE[3]
+    #         if tx.startgas < intrinsic_gas:
+    #             return False, None
 
     # start transactioning
     send_msg_add_receipt(shard_state, shard_id, receipt_id)
@@ -74,7 +78,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     receipt_sender_hex = call_valmgr(mainchain_state, 'get_receipts__sender', [receipt_id])
     receipt_data = call_valmgr(mainchain_state, 'get_receipts__data', [receipt_id])
     data = (b'\x00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
-    msg = vm.Message(urs_addr, to, value, tx.startgas, data)
+    msg = vm.Message(urs_addr, to, value, tx.startgas - intrinsic_gas, data)
     # give money to urs_addr first, to transfer to the receipt.to
     shard_state.delta_balance(urs_addr, value)
     # from `apply_message`
