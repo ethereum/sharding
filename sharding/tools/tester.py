@@ -21,6 +21,7 @@ from sharding.collator import create_collation
 from sharding import state_transition as shard_state_transition
 from sharding import validator_manager_utils
 from sharding.collation import CollationHeader
+from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_valmgr
 
 # Initialize accounts
@@ -169,7 +170,9 @@ class Chain(object):
         else:
             self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = transaction, None
             assert self.chain.has_shard(shard_id)
-            success, output = apply_transaction(self.shard_head_state[shard_id], transaction)
+            success, output = apply_shard_transaction(
+                self.head_state, self.shard_head_state[shard_id], shard_id, transaction
+            )
             self.collation[shard_id].transactions.append(transaction)
 
         if not success:

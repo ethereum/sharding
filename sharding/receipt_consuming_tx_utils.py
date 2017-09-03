@@ -7,7 +7,7 @@ from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
 from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract, mk_initiating_txs_for_urs
-from sharding.validator_manager_utils import MessageFailed, call_contract_inconstantly, call_valmgr, mk_validation_code, sign
+from sharding.validator_manager_utils import MessageFailed, call_contract_inconstantly, call_valmgr
 
 log_rctx = get_logger('sharding.rctx')
 
@@ -25,7 +25,7 @@ def simplified_validate_transaction(state, tx):
     return True
 
 
-def is_receipt_consuming_tx_valid(mainchain_state, shard_state, shard_id, tx):
+def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
     if (tx.v != 1) or (tx.s != 0) or not isinstance(tx.r, int):
         return False
     if not simplified_validate_transaction(shard_state, tx):
@@ -100,3 +100,16 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     #       referenced from `apply_transaction`.
 
     return True, (utils.bytearray_to_bytestr(data) if result else None)
+
+
+def apply_shard_transaction(mainchain_state, shard_state, shard_id, tx):
+    """Apply shard transactions, including both receipt-consuming and normal
+    transactions.
+    """
+    if is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
+        success, output = send_msg_transfer_value(
+            mainchain_state, shard_state, shard_id, tx
+        )
+    else:
+        success, output = apply_transaction(shard_state, tx)
+    return success, output
