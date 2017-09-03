@@ -82,7 +82,9 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     # give money to urs_addr first, to transfer to the receipt.to
     shard_state.delta_balance(urs_addr, value)
     # from `apply_message`
-    ext = VMExt(shard_state, Transaction(0, 0, 21000, b'', 0, b''))
+    env_tx = Transaction(0, tx.gasprice, tx.startgas, b'', 0, b'')
+    env_tx._sender = utils.parse_as_bin(receipt_sender_hex)
+    ext = VMExt(shard_state, env_tx)
     log_rctx.debug("before apply_msg: urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
     # XXX: even if `transfer_value` in `apply_msg` fails, no error occurs.
     #      it seems no raise in apply_msg
