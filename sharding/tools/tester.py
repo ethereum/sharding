@@ -320,7 +320,7 @@ class Chain(object):
             }
         })
         initial_state = mk_basic_state(
-            base_alloc if alloc is None else alloc,
+            base_alloc_with_urs if alloc is None else alloc,
             None, self.chain.env)
         shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)

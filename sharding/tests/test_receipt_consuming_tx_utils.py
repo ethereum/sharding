@@ -90,5 +90,5 @@ def test_receipt_consuming_transaction(c):
     #       whether we should deduct the tx.intrinsic gas
     assert to_addr_orig_balance < shard_state.get_balance(to_addr)
     # There shouldn't be extra money generated in the urs0
-    assert urs0_orig_balance == shard_state.get_balance(
-        get_urs_contract(shard_id)['addr'])
+    assert shard_state.get_balance(get_urs_contract(shard_id)['addr']) == \
+           urs0_orig_balance - (value - rctx.startgas * rctx.gasprice)

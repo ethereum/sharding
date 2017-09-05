@@ -1,6 +1,7 @@
 import os
 
 from ethereum import abi, utils, vm
+from ethereum.messages import apply_transaction
 from ethereum.transactions import Transaction
 from viper import compiler
 
@@ -70,8 +71,20 @@ def create_urs_tx(shard_id, gasprice=GASPRICE):
 
 def mk_initiating_txs_for_urs(sender_privkey, sender_starting_nonce, shard_id):
     tx = get_urs_contract(shard_id)['tx']
-    tx_send_money_to_urs = Transaction(sender_starting_nonce, GASPRICE, 90000, tx.sender, tx.startgas * tx.gasprice + tx.value, '').sign(sender_privkey)
-    return [tx_send_money_to_urs, tx]
+    tx_send_money_to_urs_sender = Transaction(
+        sender_starting_nonce, GASPRICE, 90000, tx.sender,
+        tx.startgas * tx.gasprice + tx.value, ''
+    ).sign(sender_privkey)
+    return [tx_send_money_to_urs_sender, tx]
+
+
+def setup_urs(state, sender_privkey, sender_starting_nonce, shard_id):
+    txs = mk_initiating_txs_for_urs(sender_privkey, sender_starting_nonce, shard_id)
+    for tx in txs:
+        apply_transaction(state, tx)
+    state.delta_balance(
+        get_urs_contract(shard_id)['addr'], (10 ** 9) * utils.denoms.ether
+    )
 
 
 def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
