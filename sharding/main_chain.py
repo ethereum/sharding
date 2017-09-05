@@ -1,6 +1,7 @@
 from builtins import super
 from ethereum.slogging import get_logger
 from ethereum.pow.chain import Chain
+from ethereum.utils import encode_hex
 
 from sharding.shard_chain import ShardChain
 
@@ -48,7 +49,7 @@ class MainChain(Chain):
     def get_expected_period_number(self):
         """Get default expected period number to be the period number of the next block
         """
-        return (self.state.block_number + 1) // self.env.config['PERIOD_LENGTH']
+        return (self.head.number + 1) // self.env.config['PERIOD_LENGTH']
 
     def get_period_start_prevhash(self, expected_period_number):
         """Get period_start_prevhash by expected_period_number
@@ -130,7 +131,10 @@ class MainChain(Chain):
         for k in self.shards:
             if block_prevhash in self.shards[k].head_collation_of_block:
                 self.shards[k].head_collation_of_block[blockhash] = self.shards[k].head_collation_of_block[block_prevhash]
-                self.shards[k].head_hash = self.shards[k].head_collation_of_block[self.head_hash]
+                try:
+                    self.shards[k].head_hash = self.shards[k].head_collation_of_block[self.head_hash]
+                except KeyError:
+                    print('head_hash {} not in head_collation_of_block'.format(encode_hex(self.head_hash)))
             else:
                 # The shard was just initialized
                 self.shards[k].head_collation_of_block[blockhash] = self.shards[k].head_hash
@@ -144,6 +148,5 @@ class MainChain(Chain):
         if collation.header.hash in self.shards[collation.shard_id].parent_queue:
             for _collation in self.shards[collation.shard_id].parent_queue[collation.header.hash]:
                 _period_start_prevblock = self.get_block(collation.header.period_start_prevhash)
-                self.shards[collation.shard_id].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation)
+                self.shards[collation.shard_id].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation, self.update_head_collation_of_block)
                 del self.shards[collation.shard_id].parent_queue[collation.header.hash]
-        self.update_head_collation_of_block(collation)

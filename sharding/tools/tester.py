@@ -299,6 +299,7 @@ class Chain(object):
         period_start_prevhash = self._get_period_start_prevhash(expected_period_number)
         period_start_prevblock = self.chain.get_block(period_start_prevhash)
         assert period_start_prevblock is not None
+        assert period_start_prevblock.number == expected_period_number * self.chain.config['PERIOD_LENGTH'] - 1
         self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
         collation = shard_state_transition.mk_collation_from_prevstate(self.chain.shards[shard_id], self.shard_head_state[shard_id], coinbase=coinbase)
 

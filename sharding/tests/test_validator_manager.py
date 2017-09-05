@@ -129,7 +129,6 @@ def test_validator_manager():
         x.add_header(h2)
     # test add_header: the log is generated normally
 
-
     # TODO: The following tests need to mine before calling add_header,
     # this section may not be appropriate to test the second add_header
 

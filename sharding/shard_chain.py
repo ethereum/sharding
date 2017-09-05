@@ -20,14 +20,15 @@ log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
 
 
-def initialize_genesis_keys(state, genesis):
+def initialize_genesis_keys(state, genesis, shard_id):
     """Rewrite ethereum.genesis_helpers.initialize_genesis_keys
     """
     db = state.db
+    prefix = 'SHARD_' + str(shard_id) + '_'
     # db.put('GENESIS_NUMBER', str(genesis.header.number))
-    db.put('GENESIS_HASH', str(genesis.header.hash))
-    db.put('GENESIS_STATE', json.dumps(state.to_snapshot()))
-    db.put('GENESIS_RLP', rlp.encode(genesis))
+    db.put(prefix + 'GENESIS_HASH', str(genesis.header.hash))
+    db.put(prefix + 'GENESIS_STATE', json.dumps(state.to_snapshot()))
+    db.put(prefix + 'GENESIS_RLP', rlp.encode(genesis))
     db.put(b'score:' + genesis.header.hash, "0")
     db.put(b'state:' + genesis.header.hash, state.trie.root_hash)
     db.put(genesis.header.hash, 'GENESIS')
@@ -81,7 +82,7 @@ class ShardChain(object):
         self.new_head_cb = new_head_cb
 
         if reset_genesis:
-            initialize_genesis_keys(self.state, Collation(CollationHeader()))
+            initialize_genesis_keys(self.state, Collation(CollationHeader()), self.shard_id)
 
         self.time_queue = []
         self.parent_queue = {}
@@ -110,7 +111,7 @@ class ShardChain(object):
             log.info(str(e))
             return None
 
-    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation):
+    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation, update_head_collation_of_block=None):
         """Add collation to db and update score
         """
         if collation.header.parent_collation_hash in self.env.db:
@@ -173,6 +174,8 @@ class ShardChain(object):
             log.info('handle_ignored_collation exception: {}'.format(str(e)))
             return False
 
+        if update_head_collation_of_block is not None:
+            update_head_collation_of_block(collation)
         return True
 
     def mk_poststate_of_collation_hash(self, collation_hash):
@@ -183,7 +186,7 @@ class ShardChain(object):
 
         collation_rlp = self.db.get(collation_hash)
         if collation_rlp == 'GENESIS':
-            return State.from_snapshot(json.loads(self.db.get('GENESIS_STATE')), self.env)
+            return State.from_snapshot(json.loads(self.db.get('SHARD_' + str(self.shard_id) + '_GENESIS_STATE')), self.env)
         collation = rlp.decode(collation_rlp, Collation)
 
         state = State(env=self.env)
