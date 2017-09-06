@@ -85,20 +85,18 @@ def is_urs_setup(state, shard_id):
     )
 
 
-def setup_urs(state, sender_privkey, sender_starting_nonce, shard_id):
-    '''Depoly urs contract in shard `shard_id` and premine 1 billion ETH
+def prepare_and_mk_urs_txs(state, sender_privkey, sender_starting_nonce, shard_id):
+    '''Make urs contract in shard `shard_id` and premine 1 billion ETH
        to the contract, to enable receipt-consuming transaction
     '''
     if is_urs_setup(state, shard_id):
-        return False
+        return []
     txs = mk_initiating_txs_for_urs(sender_privkey, sender_starting_nonce, shard_id)
     assert len(txs) == 2
-    for tx in txs:
-        apply_transaction(state, tx) # tx_send_money_to_urs_sender
     state.delta_balance(
         get_urs_contract(shard_id)['addr'], (10 ** 9) * utils.denoms.ether
     )
-    return True
+    return txs
 
 
 def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):

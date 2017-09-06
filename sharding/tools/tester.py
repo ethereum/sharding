@@ -68,7 +68,7 @@ GASPRICE = 1
 
 
 # from ethereum.slogging import configure_logging
-# config_string = ':info'
+# config_string = 'sharding.shard_chain:debug'
 # configure_logging(config_string=config_string)
 
 
@@ -425,23 +425,26 @@ class Chain(object):
         """
         sender_addr = utils.privtoaddr(sender_privkey)
         state = self.shard_head_state[shard_id]
-        result = used_receipt_store_utils.setup_urs(
-            state,
-            sender_privkey,
-            state.get_nonce(sender_addr),
-            shard_id
+
+        if used_receipt_store_utils.is_urs_setup(state, shard_id):
+            txs = []
+        else:
+            txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
+                sender_privkey,
+                state.get_nonce(sender_addr),
+                shard_id
+            )
+            self.shard_last_tx[shard_id] = txs[-1]
+        urs_addr = used_receipt_store_utils.get_urs_contract(shard_id)['addr']
+        state.delta_balance(
+            urs_addr, (10 ** 9) * utils.denoms.ether
         )
-        if not result:
-            raise ValueError("Failed to setup urs contract at shard_id={}".format(shard_id))
-        # these few lines are literally duplicate, however it's still needed
-        # because I want to test `setup_urs`
-        txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
-            sender_privkey,
-            state.get_nonce(sender_addr),
-            shard_id
-        )
-        self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
-        self.collation[shard_id].transactions += txs
+        # self.chain.shards[shard_id].state.delta_balance(
+        #     urs_addr, (10 ** 9) * utils.denoms.ether
+        # )
+        self.shard_last_sender[shard_id] = None
+        for tx in txs:
+            self.direct_tx(tx, shard_id=shard_id)
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))
