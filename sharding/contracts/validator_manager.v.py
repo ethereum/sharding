@@ -166,7 +166,7 @@ def add_header(header: bytes <= 4096) -> bool:
     sig = values[8]
 
     # Check if the header is valid
-    assert shard_id >= 0
+    assert (shard_id >= 0) and (shard_id < self.shard_count)
     assert block.number >= self.period_length
     assert expected_period_number == floor(decimal(block.number / self.period_length))
     assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
