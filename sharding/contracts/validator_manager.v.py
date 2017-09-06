@@ -63,6 +63,8 @@ validation_code_addr_to_index: num[address]
 # log the latest period number of the shard
 period_head: public(num[num])
 
+shard_list: bool[100]
+
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
@@ -154,6 +156,36 @@ def sample(shard_id: num) -> address:
     addr = self.validators[as_num128(validator_index)].validation_code_addr
 
     return addr
+
+
+# Get all possible shard ids that the given valcode_addr
+# may be sampled in the current cycle
+def get_shard_list(valcode_addr: address) -> bool[100]:
+    zero_addr = 0x0000000000000000000000000000000000000000
+
+    cycle = floor(decimal(block.number / self.shuffling_cycle_length))
+    cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
+    if cycle_start_block_number < 0:
+        cycle_start_block_number = 0
+    cycle_seed = blockhash(cycle_start_block_number)
+
+    if self.num_validators != 0:
+        for i in range(100):
+            for j in range(100):
+                # 100 possible index_in_subset
+                collator = zero_addr
+                for k in range(1024):
+                    validator_index = num256_mod(
+                        as_num256(sha3(concat(cycle_seed, as_bytes32(i), as_bytes32(j), as_bytes32(k)))),
+                        as_num256(self.get_validators_max_index()))
+                    addr = self.validators[as_num128(validator_index)].validation_code_addr
+                    if addr != zero_addr:
+                        collator = addr
+                        break
+                if collator == valcode_addr:
+                    self.shard_list[i] = True
+                    break
+    return self.shard_list
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.

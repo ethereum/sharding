@@ -1,7 +1,9 @@
 import pytest
 import rlp
+from rlp.sedes import List, binary
 
 from ethereum import utils
+from ethereum import abi
 
 from sharding.config import sharding_config
 from sharding.tools import tester as t
@@ -12,9 +14,10 @@ from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
                                               call_withdraw,
                                               call_tx_add_header,
                                               call_tx_to_shard,
+                                              get_shard_list,
                                               get_valmgr_addr,
                                               mk_validation_code, sign,
-                                              create_contract_tx)
+                                              create_contract_tx,)
 
 
 config_string = ":info,:debug"
@@ -53,6 +56,9 @@ def test_call_deposit_withdraw_sample(chain):
     chain.direct_tx(tx)
     chain.mine(1)
     assert hex(utils.big_endian_to_int(k0_valcode_addr)) == call_valmgr(chain.head_state, 'sample', [0])
+
+    shard_list = get_shard_list(chain.head_state, k0_valcode_addr)
+    assert shard_list[0]
 
     # withdraw
     tx = call_withdraw(chain.head_state, t.k0, 0, 0, sign(WITHDRAW_HASH, t.k0))
@@ -100,24 +106,37 @@ def test_call_add_header_get_shard_head(chain):
     chain.direct_tx(tx)
     chain.mine(1)
 
+    # sample
+    if k0_valcode_addr == utils.big_endian_to_int(call_sample(chain.head_state, 0)):
+        privkey = t.k0
+        collator_addr = t.a0
+    else:
+        privkey = t.k1
+        collator_addr = t.a1
+
     # create collation header
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
-    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, collation_coinbase=t.a0, privkey=t.k0, n_blocks=chain.chain.head.number)
+    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, collation_coinbase=collator_addr, privkey=privkey, n_blocks=chain.chain.head.number)
     colhdr_hash = utils.sha3(colhdr)
     assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 
     # message call test
+<<<<<<< HEAD
     assert call_valmgr(chain.head_state, 'add_header', [colhdr], sender_addr=t.a0)
 
+=======
+    assert call_msg_add_header(chain.head_state, 0, colhdr, collator_addr)
+>>>>>>> Added get_shard_list function in validator manager contract
     # transaction call test
     # `add_header` verifies whether the colhdr is signed by the current
     # selected validator, using `sample`
-    tx = call_tx_add_header(chain.head_state, t.k0, 0, colhdr)
+    tx = call_tx_add_header(chain.head_state, privkey, 0, colhdr)
     chain.direct_tx(tx)
     chain.mine(1)
 
     assert colhdr_hash == call_valmgr(chain.head_state, 'get_shard_head', [0])
 
+<<<<<<< HEAD
 
 def test_call_tx_to_shard(chain):
     state = chain.head_state
@@ -129,6 +148,11 @@ def test_call_tx_to_shard(chain):
 # def test_valmgr_addr_in_sharding_config():
 #     assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
 #         utils.checksum_encode(get_valmgr_addr())
+=======
+def test_valmgr_addr_in_sharding_config():
+    assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
+        utils.checksum_encode(get_valmgr_addr())
+>>>>>>> Added get_shard_list function in validator manager contract
 
 
 def test_sign():
