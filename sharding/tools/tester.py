@@ -308,7 +308,7 @@ class Chain(object):
         collation.header.parent_collation_hash = parent_collation_hash
         self.collation[shard_id] = collation
 
-    def add_test_shard(self, shard_id, alloc=None):
+    def add_test_shard(self, shard_id, setup_urs_contracts=True, alloc=None):
         """Initial shard with fake accounts
         """
         assert not self.chain.has_shard(shard_id)
@@ -325,7 +325,8 @@ class Chain(object):
         shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)
         self.__init_shard_var(shard_id)
-        self.deploy_urs_contracts(k0, shard_id)
+        if setup_urs_contracts:
+            self.deploy_urs_contracts(k0, shard_id)
 
     def generate_shard_tx(self, shard_id, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
         """Generate a tx of shard
@@ -418,20 +419,29 @@ class Chain(object):
         txs = validator_manager_utils.mk_initiating_contracts(sender_privkey, self.head_state.get_nonce(sender_addr))
         for tx in txs:
             self.direct_tx(tx)
-        self.last_sender = sender_privkey
 
     def deploy_urs_contracts(self, sender_privkey, shard_id):
         """Deploy urs contract and its dependency
         """
         sender_addr = utils.privtoaddr(sender_privkey)
-        txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
+        state = self.shard_head_state[shard_id]
+        result = used_receipt_store_utils.setup_urs(
+            state,
             sender_privkey,
-            self.shard_head_state[shard_id].get_nonce(sender_addr),
+            state.get_nonce(sender_addr),
             shard_id
         )
-        for tx in txs:
-            self.direct_tx(tx, shard_id=shard_id)
-        self.shard_last_sender[shard_id] = sender_privkey
+        if not result:
+            raise ValueError("Failed to setup urs contract at shard_id={}".format(shard_id))
+        # these few lines are literally duplicate, however it's still needed
+        # because I want to test `setup_urs`
+        txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
+            sender_privkey,
+            state.get_nonce(sender_addr),
+            shard_id
+        )
+        self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
+        self.collation[shard_id].transactions += txs
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))

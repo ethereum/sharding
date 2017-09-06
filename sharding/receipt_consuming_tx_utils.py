@@ -6,7 +6,7 @@ from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
-from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract, mk_initiating_txs_for_urs
+from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract
 from sharding.validator_manager_utils import MessageFailed, call_contract_inconstantly, call_valmgr
 
 log_rctx = get_logger('sharding.rctx')
@@ -88,6 +88,8 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     #      it seems no raise in apply_msg
     result, gas_remained, data = apply_msg(ext, msg)
     log_rctx.debug("after apply_msg:  urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
+
+    assert gas_remained >= 0
 
     # gas refunds goes to the `to` address
     refunds = gas_remained * tx.gasprice
