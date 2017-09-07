@@ -1,10 +1,11 @@
 from ethereum.common import mk_transaction_sha, mk_receipt_sha
-from ethereum.messages import apply_transaction
 from ethereum.exceptions import InsufficientBalance, BlockGasLimitReached, \
     InsufficientStartGas, InvalidNonce, UnsignedTransaction
+from ethereum.messages import apply_transaction
 from ethereum.slogging import get_logger
 from ethereum.utils import encode_hex
 
+from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 from sharding.collation import Collation, CollationHeader
 
 log = get_logger('sharding.shard_state_transition')
@@ -23,7 +24,7 @@ def mk_collation_from_prevstate(shard_chain, state, coinbase):
     return collation
 
 
-def add_transactions(state, collation, txqueue, min_gasprice=0):
+def add_transactions(shard_state, collation, txqueue, shard_id, min_gasprice=0, mainchain_state=None):
     """Add transactions to a collation
     (refer to ethereum.common.add_transactions)
     """
@@ -32,12 +33,17 @@ def add_transactions(state, collation, txqueue, min_gasprice=0):
     pre_txs = len(collation.transactions)
     log.info('Adding transactions, %d in txqueue, %d dunkles' % (len(txqueue.txs), pre_txs))
     while 1:
-        tx = txqueue.pop_transaction(max_gas=state.gas_limit - state.gas_used,
-                                     min_gasprice=min_gasprice)
+        tx = txqueue.pop_transaction(
+            max_gas=shard_state.gas_limit - shard_state.gas_used,
+            min_gasprice=min_gasprice
+        )
         if tx is None:
             break
         try:
-            apply_transaction(state, tx)
+            if mainchain_state is not None:
+                apply_shard_transaction(mainchain_state, shard_state, shard_id, tx)
+            else:
+                apply_transaction(shard_state, tx)
             collation.transactions.append(tx)
         except (InsufficientBalance, BlockGasLimitReached, InsufficientStartGas,
                 InvalidNonce, UnsignedTransaction) as e:

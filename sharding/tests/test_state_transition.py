@@ -55,14 +55,14 @@ def test_add_transactions():
     state = t.chain.shards[shard_id].state.ephemeral_clone()
     collation = state_transition.mk_collation_from_prevstate(t.chain.shards[shard_id], state, coinbase)
 
-    state_transition.add_transactions(state, collation, txqueue)
+    state_transition.add_transactions(state, collation, txqueue, shard_id, mainchain_state=t.head_state)
     assert collation.transaction_count == 2
     assert state.get_balance(tester.a4) == 1000 * utils.denoms.ether + int(0.03 * utils.denoms.ether)
 
     # InsufficientBalance -> don't include this transaction
     tx3 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(100000000000 * utils.denoms.ether))
     txqueue.add_transaction(tx3)
-    state_transition.add_transactions(state, collation, txqueue)
+    state_transition.add_transactions(state, collation, txqueue, shard_id, mainchain_state=t.head_state)
     assert collation.transaction_count == 2
 
 

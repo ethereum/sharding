@@ -76,7 +76,7 @@ def create_collation(
     # Initialize a collation with the given previous state and current coinbase
     collation = state_transition.mk_collation_from_prevstate(chain.shards[shard_id], temp_state, coinbase)
     # Add transactions
-    state_transition.add_transactions(temp_state, collation, txqueue)
+    state_transition.add_transactions(temp_state, collation, txqueue, shard_id, mainchain_state=chain.state)
     # Call the finalize state transition function
     state_transition.finalize(temp_state, collation.header.coinbase)
     # Set state root, receipt root, etc
