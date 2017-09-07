@@ -9,11 +9,12 @@ from ethereum.utils import big_endian_to_int
 from sharding import state_transition
 from sharding.validator_manager_utils import (sign, call_valmgr)
 from sharding.collation import CollationHeader
+from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')
 
 
-def apply_collation(state, collation, period_start_prevblock):
+def apply_collation(state, collation, period_start_prevblock, mainchain_state=None, shard_id=None):
     """Apply collation
     """
     snapshot = state.snapshot()
@@ -26,7 +27,12 @@ def apply_collation(state, collation, period_start_prevblock):
         # Validate tx_list_root in collation first
         assert state_transition.validate_transaction_tree(collation)
         for tx in collation.transactions:
-            apply_transaction(state, tx)
+            if mainchain_state is not None and shard_id is not None:
+                apply_shard_transaction(
+                    mainchain_state, state, shard_id, tx
+                )
+            else:
+                apply_transaction(state, tx)
         # Set state root, receipt root, etc
         state_transition.finalize(state, collation.header.coinbase)
         assert state_transition.verify_execution_results(state, collation)

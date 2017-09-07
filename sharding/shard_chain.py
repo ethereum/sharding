@@ -37,12 +37,13 @@ def initialize_genesis_keys(state, genesis):
 class ShardChain(object):
     def __init__(self, shard_id, env=None,
                  new_head_cb=None, reset_genesis=False, localtime=None, max_history=1000,
-                 initial_state=None, **kwargs):
+                 initial_state=None, main_chain=None, **kwargs):
         self.env = env or Env()
         self.shard_id = shard_id
 
         self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
         self.head_collation_of_block = {}   # M2: blockhash -> head_collation
+        self.main_chain = main_chain
 
         # Initialize the state
         head_hash_key = 'shard_' + str(shard_id) + '_head_hash'
@@ -120,7 +121,11 @@ class ShardChain(object):
                 log.debug('It is the first collation of shard {}'.format(self.shard_id))
             temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
             try:
-                apply_collation(temp_state, collation, period_start_prevblock)
+                apply_collation(
+                    temp_state, collation, period_start_prevblock,
+                    None if self.main_chain is None else self.main_chain.state,
+                    self.shard_id
+                )
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
                 log.info('Collation %s with parent %s invalid, reason: %s' %
                          (encode_hex(collation.header.hash), encode_hex(collation.header.parent_collation_hash), str(e)))

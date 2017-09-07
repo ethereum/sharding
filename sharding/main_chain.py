@@ -25,7 +25,7 @@ class MainChain(Chain):
         """
         if not self.has_shard(shard_id):
             self.shard_id_list.add(shard_id)
-            self.shards[shard_id] = ShardChain(env=self.env, shard_id=shard_id)
+            self.shards[shard_id] = ShardChain(env=self.env, shard_id=shard_id, main_chain=self)
             return True
         else:
             return False

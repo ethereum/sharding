@@ -1,13 +1,12 @@
 import pytest
 
 from ethereum import opcodes, utils, vm
-from ethereum.messages import CREATE_CONTRACT_ADDRESS, VMExt, apply_message, apply_msg, apply_transaction
+from ethereum.messages import CREATE_CONTRACT_ADDRESS, VMExt, apply_msg, apply_transaction
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
-from sharding.tools import tester as t
 from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract
-from sharding.validator_manager_utils import MessageFailed, call_contract_inconstantly, call_valmgr
+from sharding.validator_manager_utils import call_contract_inconstantly, call_valmgr
 
 log_rctx = get_logger('sharding.rctx')
 

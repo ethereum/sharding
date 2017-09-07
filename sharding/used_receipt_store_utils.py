@@ -1,7 +1,6 @@
 import os
 
 from ethereum import abi, utils, vm
-from ethereum.messages import apply_transaction
 from ethereum.transactions import Transaction
 from viper import compiler
 
@@ -113,3 +112,4 @@ def call_urs(state, shard_id, func, args, value=0, startgas=None, sender_addr=b'
         state, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],
         func, args, value=value, startgas=startgas, sender_addr=sender_addr
     )
+
