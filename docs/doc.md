@@ -46,7 +46,7 @@ Where:
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
 -   `parent_collation_hash` is the hash of the parent collation
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation
--   `post_state_root` is the new state root of the shard after this aollation
+-   `post_state_root` is the new state root of the shard after this collation
 -   `receipts_root` is the root hash of the receipt trie
 -   `sig` is a signature
 
