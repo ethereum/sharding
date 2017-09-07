@@ -326,7 +326,7 @@ class Chain(object):
         self.chain.add_shard(shard)
         self.__init_shard_var(shard_id)
         if setup_urs_contracts:
-            self.deploy_urs_contracts(k0, shard_id)
+            self.setup_and_deploy_urs_contracts(k0, shard_id)
 
     def generate_shard_tx(self, shard_id, sender=k0, to=b'\x00' * 20, value=0, data=b'', startgas=STARTGAS, gasprice=GASPRICE):
         """Generate a tx of shard
@@ -420,7 +420,7 @@ class Chain(object):
         for tx in txs:
             self.direct_tx(tx)
 
-    def deploy_urs_contracts(self, sender_privkey, shard_id):
+    def setup_and_deploy_urs_contracts(self, sender_privkey, shard_id):
         """Deploy urs contract and its dependency
         """
         sender_addr = utils.privtoaddr(sender_privkey)
