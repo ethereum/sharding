@@ -223,14 +223,13 @@ class MainChain(Chain):
 
                 self.add_block(_blk)
 
-                # check_collation
+                # FIXME check_collation
                 collation_map = self.parse_add_header_logs()
                 print('[in parent_queue] Reorganizing......')
                 for shard_id in self.shard_id_list:
                     # FIXME not this self.shard_id_list
                     collation = collation_map[shard_id] if shard_id in collation_map else None
                     self.reorganize_head_collation(_blk, collation)
-                    self._update_shard_head(shard_id)
 
             del self.parent_queue[block.header.hash]
         return True
@@ -395,4 +394,8 @@ class MainChain(Chain):
                     # FIXME
                     log.info('Getting add_header before getting collation!')
                 collation_map[shard_id] = collation
+
+        # Clear add_header_logs cache
+        self.add_header_logs = []
+
         return collation_map

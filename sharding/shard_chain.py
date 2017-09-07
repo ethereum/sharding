@@ -41,8 +41,8 @@ class ShardChain(object):
                  initial_state=None, main_chain=None, **kwargs):
         self.env = env or Env()
         self.shard_id = shard_id
-        self.active = True
-        self.is_syncing = False
+        self.active = False
+        self.is_syncing = True
 
         self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
         self.head_collation_of_block = {}   # M2: blockhash -> head_collation
@@ -266,8 +266,8 @@ class ShardChain(object):
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
 
-    def inactive(self):
+    def activate(self):
         self.active = True
 
-    def deactive(self):
+    def deactivate(self):
         self.active = False
