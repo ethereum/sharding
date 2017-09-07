@@ -17,9 +17,6 @@ def simplified_validate_transaction(state, tx):
     '''
     if state.gas_used + tx.startgas > state.gas_limit:
         return False
-    # TODO: a check to prevent the tx from using too much space
-    # if len(tx.data) >= 420:
-    #     return False
 
     return True
 
@@ -78,13 +75,12 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     receipt_data = call_valmgr(mainchain_state, 'get_receipts__data', [receipt_id])
     data = (b'\x00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
     msg = vm.Message(urs_addr, to, value, tx.startgas - intrinsic_gas, data)
-    # from `apply_message`
     env_tx = Transaction(0, tx.gasprice, tx.startgas, b'', 0, b'')
     env_tx._sender = utils.parse_as_bin(receipt_sender_hex)
     ext = VMExt(shard_state, env_tx)
     log_rctx.debug("before apply_msg: urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
-    # XXX: even if `transfer_value` in `apply_msg` fails, no error occurs.
-    #      it seems no raise in apply_msg
+    # even if `transfer_value` in `apply_msg` fails, no error occurs.
+    # it seems no raise in apply_msg
     result, gas_remained, data = apply_msg(ext, msg)
     log_rctx.debug("after apply_msg:  urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
 
@@ -106,7 +102,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
         log_rctx.debug('TX SUCCESS', data=data)
         shard_state.refunds += len(set(shard_state.suicides)) * opcodes.GSUICIDEREFUND
         if shard_state.refunds > 0:
-            log_tx.debug('Refunding', gas_refunded=min(shard_state.refunds, gas_used // 2))
+            log_rctx.debug('Refunding', gas_refunded=min(shard_state.refunds, gas_used // 2))
             gas_remained += min(shard_state.refunds, gas_used // 2)
             gas_used -= min(shard_state.refunds, gas_used // 2)
             shard_state.refunds = 0
