@@ -1,7 +1,7 @@
 import pytest
 
 from ethereum import opcodes, utils, vm
-from ethereum.messages import CREATE_CONTRACT_ADDRESS, VMExt, apply_msg, apply_transaction
+from ethereum.messages import CREATE_CONTRACT_ADDRESS, SKIP_MEDSTATES, VMExt, apply_msg, apply_transaction, mk_receipt
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
@@ -90,16 +90,58 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
 
     assert gas_remained >= 0
 
-    # gas refunds goes to the `to` address
-    refunds = gas_remained * tx.gasprice
-    log_rctx.debug("gas_remained={}, gasprice={}".format(gas_remained, tx.gasprice))
-    shard_state.delta_balance(to, refunds)
-    log_rctx.debug("End: urs.balance={}, tx.to.balance={}\n\n".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
+    gas_used = tx.startgas - gas_remained
 
-    # TODO: handle the state.gas_used, whenever result is True or False,
-    #       referenced from `apply_transaction`.
+    # Transaction failed
+    if not result:
+        log_rctx.debug('TX FAILED', reason='out of gas',
+                     startgas=tx.startgas, gas_remained=gas_remained)
+        shard_state.gas_used += tx.startgas
+        shard_state.delta_balance(tx.to, tx.gasprice * gas_remained)
+        shard_state.delta_balance(shard_state.block_coinbase, tx.gasprice * gas_used)
+        output = b''
+        success = 0
+    # Transaction success
+    else:
+        log_rctx.debug('TX SUCCESS', data=data)
+        shard_state.refunds += len(set(shard_state.suicides)) * opcodes.GSUICIDEREFUND
+        if shard_state.refunds > 0:
+            log_tx.debug('Refunding', gas_refunded=min(shard_state.refunds, gas_used // 2))
+            gas_remained += min(shard_state.refunds, gas_used // 2)
+            gas_used -= min(shard_state.refunds, gas_used // 2)
+            shard_state.refunds = 0
+        # sell remaining gas
+        shard_state.delta_balance(tx.to, tx.gasprice * gas_remained)
+        log_rctx.debug("gas_remained={}, gasprice={}".format(gas_remained, tx.gasprice))
+        log_rctx.debug("End: urs.balance={}, tx.to.balance={}\n\n".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
+        shard_state.delta_balance(shard_state.block_coinbase, tx.gasprice * gas_used)
+        shard_state.gas_used += gas_used
+        if tx.to:
+            output = utils.bytearray_to_bytestr(data)
+        else:
+            output = data
+        success = 1
 
-    return True, (utils.bytearray_to_bytestr(data) if result else None)
+    # Clear suicides
+    suicides = shard_state.suicides
+    shard_state.suicides = []
+    for s in suicides:
+        shard_state.set_balance(s, 0)
+        shard_state.del_account(s)
+
+    # Pre-Metropolis: commit state after every tx
+    if not shard_state.is_METROPOLIS() and not SKIP_MEDSTATES:
+        shard_state.commit()
+
+    # Construct a receipt
+    r = mk_receipt(shard_state, shard_state.logs)
+    _logs = list(shard_state.logs)
+    shard_state.logs = []
+    shard_state.add_receipt(r)
+    shard_state.set_param('bloom', shard_state.bloom | r.bloom)
+    shard_state.set_param('txindex', shard_state.txindex + 1)
+
+    return success, output
 
 
 def apply_shard_transaction(mainchain_state, shard_state, shard_id, tx):
