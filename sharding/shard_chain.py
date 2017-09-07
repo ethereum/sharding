@@ -41,6 +41,8 @@ class ShardChain(object):
                  initial_state=None, main_chain=None, **kwargs):
         self.env = env or Env()
         self.shard_id = shard_id
+        self.active = True
+        self.is_syncing = False
 
         self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
         self.head_collation_of_block = {}   # M2: blockhash -> head_collation
@@ -263,3 +265,9 @@ class ShardChain(object):
         """Check if the given collation is the first collation of this shard
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
+
+    def inactive(self):
+        self.active = True
+
+    def deactive(self):
+        self.active = False
