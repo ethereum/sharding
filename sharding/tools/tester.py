@@ -313,14 +313,8 @@ class Chain(object):
         """
         assert not self.chain.has_shard(shard_id)
 
-        base_alloc_with_urs = base_alloc.copy()
-        base_alloc_with_urs.update({
-            used_receipt_store_utils.get_urs_contract(shard_id)['addr']: {
-                'balance': (10 ** 9) * utils.denoms.ether
-            }
-        })
         initial_state = mk_basic_state(
-            base_alloc_with_urs if alloc is None else alloc,
+            base_alloc if alloc is None else alloc,
             None, self.chain.env)
         shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)
@@ -423,28 +417,22 @@ class Chain(object):
     def setup_and_deploy_urs_contracts(self, sender_privkey, shard_id):
         """Deploy urs contract and its dependency
         """
-        sender_addr = utils.privtoaddr(sender_privkey)
         state = self.shard_head_state[shard_id]
 
         if used_receipt_store_utils.is_urs_setup(state, shard_id):
-            txs = []
-        else:
-            txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
-                sender_privkey,
-                state.get_nonce(sender_addr),
-                shard_id
-            )
-            self.shard_last_tx[shard_id] = txs[-1]
-        urs_addr = used_receipt_store_utils.get_urs_contract(shard_id)['addr']
-        state.delta_balance(
-            urs_addr, (10 ** 9) * utils.denoms.ether
+            return
+        txs = used_receipt_store_utils.mk_initiating_txs_for_urs(
+            sender_privkey,
+            state.get_nonce(utils.privtoaddr(sender_privkey)),
+            shard_id
         )
-        # self.chain.shards[shard_id].state.delta_balance(
-        #     urs_addr, (10 ** 9) * utils.denoms.ether
-        # )
-        self.shard_last_sender[shard_id] = None
         for tx in txs:
             self.direct_tx(tx, shard_id=shard_id)
+        state.delta_balance(
+            used_receipt_store_utils.get_urs_contract(shard_id)['addr'],
+            (10 ** 9) * utils.denoms.ether
+        )
+        self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))
