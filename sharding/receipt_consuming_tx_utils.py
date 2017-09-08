@@ -130,7 +130,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
         shard_state.commit()
 
     # Construct a receipt
-    r = mk_receipt(shard_state, shard_state.logs)
+    r = mk_receipt(shard_state, success, shard_state.logs)
     _logs = list(shard_state.logs)
     shard_state.logs = []
     shard_state.add_receipt(r)
