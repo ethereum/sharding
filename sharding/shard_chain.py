@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 
 import rlp
-from rlp.utils import encode_hex
+from rlp.utils import encode_hex, decode_hex
 
 from ethereum.exceptions import InvalidTransaction, VerificationFailed
 from ethereum.slogging import get_logger
@@ -271,3 +271,44 @@ class ShardChain(object):
 
     def deactivate(self):
         self.active = False
+
+    def sync(self, state_data, collation, score, collation_blockhash_lists, head_collation_of_block):
+        self.state = State.from_snapshot(state_data, self.env, executing_on_head=True)
+        """ A lazy sync for simulation
+        """
+        self.head_hash = collation.hash
+        self.db.put(collation.header.hash, rlp.encode(collation))
+        self.db.put(b'score:' + collation.header.hash, score)
+        # self.collation_blockhash_lists = self.collation_blockhash_lists_from_dict(collation_blockhash_lists)
+        for blockhash, b_list in head_collation_of_block.items():
+            if blockhash not in collation_blockhash_lists:
+                self.collation_blockhash_lists[blockhash] = []
+            self.collation_blockhash_lists[blockhash].append(b_list)
+            self.collation_blockhash_lists[blockhash] = list(set(self.collation_blockhash_lists[blockhash]))
+        # self.head_collation_of_block = self.head_collation_of_block_from_dict(head_collation_of_block)
+        for blockhash, collhash in head_collation_of_block.items():
+            self.head_collation_of_block[blockhash] = collhash
+
+    def collation_blockhash_lists_to_dict(self):
+        output = {}
+        for collhash, b_list in self.collation_blockhash_lists.items():
+            output[encode_hex(collhash)] = [encode_hex(b) for b in b_list]
+        return output
+
+    def head_collation_of_block_to_dict(self):
+        output = {}
+        for blockhash, collhash in self.head_collation_of_block.items():
+            output[encode_hex(blockhash)] = encode_hex(collhash)
+        return output
+
+    def collation_blockhash_lists_from_dict(self, collation_blockhash_lists):
+        output = {}
+        for collhash, b_list in collation_blockhash_lists.items():
+            output[decode_hex(collhash)] = [decode_hex(b) for b in b_list]
+        return output
+
+    def head_collation_of_block_from_dict(self, head_collation_of_block):
+        output = {}
+        for blockhash, collhash in head_collation_of_block.items():
+            output[decode_hex(blockhash)] = decode_hex(collhash)
+        return output

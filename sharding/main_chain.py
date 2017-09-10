@@ -326,7 +326,7 @@ class MainChain(Chain):
             shard = self.shards[shard_id]
 
         # Update collation_blockhash_lists
-        if self.has_shard(shard_id) and shard.db.get(collhash) is not None:
+        if self.has_shard(shard_id) and collhash and shard.db.get(collhash):
             shard.collation_blockhash_lists[collhash].append(blockhash)
             # Compare score
             given_coll_score = shard.get_score(collation)

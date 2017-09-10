@@ -6,9 +6,11 @@ from ethereum.slogging import get_logger
 from ethereum.transaction_queue import TransactionQueue
 from ethereum import utils
 from ethereum import trie
+from ethereum.config import Env
 
 from sharding.tools import tester
 from sharding.shard_chain import ShardChain
+from sharding.config import sharding_config
 
 log = get_logger('test.shard_chain')
 log.setLevel(logging.DEBUG)
@@ -191,6 +193,41 @@ def test_get_parent():
     t.chain.shards[shard_id].add_collation(collation, period_start_prevblock, t.chain.handle_ignored_collation)
     assert not t.chain.shards[shard_id].is_first_collation(collation)
     assert t.chain.shards[shard_id].get_parent(collation).header.hash == collation.header.parent_collation_hash
+
+
+def test_sync():
+    shard_id = 1
+    t = chain(shard_id)
+    t.chain.init_shard(shard_id)
+    t.collate(shard_id, tester.k0)
+    t.mine(5)
+    shard = t.chain.shards[shard_id]
+    s1 = shard.state.trie.root_hash
+    h1 = shard.head.hash
+
+    cbl = shard.collation_blockhash_lists_to_dict()
+    hcb = shard.head_collation_of_block_to_dict()
+
+    other_shard = ShardChain(shard_id, env=Env(config=sharding_config))
+    other_shard.sync(
+        state_data=shard.state.to_snapshot(),
+        collation=shard.head,
+        score=shard.get_score(shard.head),
+        collation_blockhash_lists=cbl,
+        head_collation_of_block=hcb
+    )
+    s2 = other_shard.state.trie.root_hash
+    h2 = other_shard.head.hash
+
+    assert s1 == s2
+    assert h1 == h2
+
+    collation1 = t.generate_collation(shard_id=shard_id, coinbase=tester.a1, key=tester.k1, txqueue=None)
+    assert other_shard.add_collation(
+        collation1,
+        period_start_prevblock=t.chain.get_block(collation1.header.period_start_prevhash),
+        handle_ignored_collation=t.chain.handle_ignored_collation,
+        update_head_collation_of_block=t.chain.update_head_collation_of_block)
 
 
 def test_cb_function():
