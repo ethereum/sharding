@@ -73,7 +73,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
 
     receipt_sender_hex = call_valmgr(mainchain_state, 'get_receipts__sender', [receipt_id])
     receipt_data = call_valmgr(mainchain_state, 'get_receipts__data', [receipt_id])
-    data = (b'\x00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
+    data = (b'00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
     msg = vm.Message(urs_addr, to, value, tx.startgas - intrinsic_gas, data)
     env_tx = Transaction(0, tx.gasprice, tx.startgas, b'', 0, b'')
     env_tx._sender = utils.parse_as_bin(receipt_sender_hex)
