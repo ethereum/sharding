@@ -125,7 +125,6 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
 
 def sample(shard_id: num) -> address:
-    zero_addr = 0x0000000000000000000000000000000000000000
 
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
     cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
@@ -139,21 +138,17 @@ def sample(shard_id: num) -> address:
     seed = blockhash(block.number - (block.number % self.period_length) - 1)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                  as_num256(self.num_validators_per_cycle))
-    if self.num_validators != 0:
-        # TODO: here we assume this fixed number of rounds is enough to sample
-        #       a validator
-        for i in range(1024):
-            validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset), as_bytes32(i)))),
-                                         as_num256(self.get_validators_max_index()))
-            addr = self.validators[as_num128(validator_index)].validation_code_addr
-            if addr != zero_addr:
-                return addr
+    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
+                                 as_num256(self.get_validators_max_index()))
+    addr = self.validators[as_num128(validator_index)].validation_code_addr
 
-    return zero_addr
+    return addr
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
 def add_header(header: bytes <= 4096) -> bool:
+    zero_addr = 0x0000000000000000000000000000000000000000
+
     values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
     shard_id = values[0]
     expected_period_number = values[1]
@@ -182,6 +177,8 @@ def add_header(header: bytes <= 4096) -> bool:
         assert (parent_collation_hash == as_bytes32(0)) or (self.collation_headers[shard_id][parent_collation_hash].score > 0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
+    if collator_valcode_addr == zero_addr:
+        return False
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
