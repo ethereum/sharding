@@ -62,11 +62,11 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
         return False, None
     # calculate the intrinsic_gas
     intrinsic_gas = tx.intrinsic_gas_used
-    # if mainchain_state.is_HOMESTEAD():
-    #     if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
-    #         intrinsic_gas += opcodes.CREATE[3]
-    #         if tx.startgas < intrinsic_gas:
-    #             return False, None
+    # TODO: Removed "if mainchain_state.is_HOMESTEAD():" currently.
+    if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
+        intrinsic_gas += opcodes.CREATE[3]
+        if tx.startgas < intrinsic_gas:
+            return False, None
 
     # start transactioning
     send_msg_add_receipt(shard_state, shard_id, receipt_id)
