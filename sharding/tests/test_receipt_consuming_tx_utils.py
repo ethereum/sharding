@@ -6,7 +6,8 @@ from ethereum.slogging import configure_logging
 from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
-from sharding.receipt_consuming_tx_utils import apply_shard_transaction
+from sharding.receipt_consuming_tx_utils import (apply_shard_transaction,
+                                                 is_valid_receipt_consuming_tx)
 from sharding.used_receipt_store_utils import (get_urs_ct, get_urs_contract,
                                                mk_initiating_txs_for_urs)
 from sharding.validator_manager_utils import get_valmgr_addr, get_valmgr_ct
@@ -92,3 +93,9 @@ def test_receipt_consuming_transaction(c):
     # There shouldn't be extra money generated in the urs0
     assert shard_state.get_balance(get_urs_contract(shard_id)['addr']) == \
            urs0_orig_balance - (value - rctx.startgas * rctx.gasprice)
+
+    # test is_valid_receipt_consuming_tx: ban tx.to == b''
+    rctx = mk_testing_receipt_consuming_tx(0, b'', value)
+    assert not is_valid_receipt_consuming_tx(
+        c.head_state, shard_state, shard_id, rctx
+    )

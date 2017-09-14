@@ -24,6 +24,8 @@ def simplified_validate_transaction(state, tx):
 def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
     if (tx.v != 1) or (tx.s != 0) or not isinstance(tx.r, int):
         return False
+    if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
+        return False
     if not simplified_validate_transaction(shard_state, tx):
         return False
     receipt_id = tx.r
@@ -54,20 +56,12 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     log_rctx.debug("Begin: urs.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
 
     receipt_id = tx.r
-    to = tx.to
     # we should deduct the startgas of this message in advance, because
     # the message may be possibly a contract, not only a normal value transfer.
     value = tx.value - tx.gasprice * tx.startgas
     log_rctx.debug("value={}, tx.value={}, tx.gasprice={}, tx.startgas={}".format(value, tx.value, tx.gasprice, tx.startgas))
     if value <= 0:
         return False, None
-    # calculate the intrinsic_gas
-    intrinsic_gas = tx.intrinsic_gas_used
-    # TODO: Removed "if mainchain_state.is_HOMESTEAD():" currently.
-    if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
-        intrinsic_gas += opcodes.CREATE[3]
-        if tx.startgas < intrinsic_gas:
-            return False, None
 
     # start transactioning
     if not send_msg_add_used_receipt(shard_state, shard_id, receipt_id):
@@ -76,7 +70,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     receipt_sender_hex = call_valmgr(mainchain_state, 'get_receipts__sender', [receipt_id])
     receipt_data = call_valmgr(mainchain_state, 'get_receipts__data', [receipt_id])
     data = (b'00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
-    msg = vm.Message(urs_addr, to, value, tx.startgas - intrinsic_gas, data)
+    msg = vm.Message(urs_addr, tx.to, value, tx.startgas - tx.intrinsic_gas_used, data)
     env_tx = Transaction(0, tx.gasprice, tx.startgas, b'', 0, b'')
     env_tx._sender = utils.parse_as_bin(receipt_sender_hex)
     ext = VMExt(shard_state, env_tx)
@@ -93,7 +87,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     # Transaction failed
     if not result:
         log_rctx.debug('TX FAILED', reason='out of gas',
-                     startgas=tx.startgas, gas_remained=gas_remained)
+                       startgas=tx.startgas, gas_remained=gas_remained)
         shard_state.gas_used += tx.startgas
         shard_state.delta_balance(tx.to, tx.gasprice * gas_remained)
         shard_state.delta_balance(shard_state.block_coinbase, tx.gasprice * gas_used)
