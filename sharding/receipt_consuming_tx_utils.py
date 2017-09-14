@@ -40,7 +40,7 @@ def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
     return True
 
 
-def send_msg_add_receipt(state, shard_id, receipt_id):
+def send_msg_add_used_receipt(state, shard_id, receipt_id):
     ct = get_urs_ct(shard_id)
     urs_addr = get_urs_contract(shard_id)['addr']
     return call_contract_inconstantly(
@@ -70,7 +70,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
             return False, None
 
     # start transactioning
-    if not send_msg_add_receipt(shard_state, shard_id, receipt_id):
+    if not send_msg_add_used_receipt(shard_state, shard_id, receipt_id):
         return False, None
 
     receipt_sender_hex = call_valmgr(mainchain_state, 'get_receipts__sender', [receipt_id])
