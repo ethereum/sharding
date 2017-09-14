@@ -27,6 +27,11 @@ viper_rlp_decoder_addr = viper_rlp_decoder_tx.creates
 sighasher_tx = rlp.decode(utils.parse_as_bin("0xf9016d808506fc23ac0083026a508080b9015a6101488061000e6000396101565660007f01000000000000000000000000000000000000000000000000000000000000006000350460f8811215610038576001915061003f565b60f6810391505b508060005b368312156100c8577f01000000000000000000000000000000000000000000000000000000000000008335048391506080811215610087576001840193506100c2565b60b881121561009d57607f8103840193506100c1565b60c08112156100c05760b68103600185013560b783036020035260005101840193505b5b5b50610044565b81810360388112156100f4578060c00160005380836001378060010160002060e052602060e0f3610143565b61010081121561010557600161011b565b6201000081121561011757600261011a565b60035b5b8160005280601f038160f701815382856020378282600101018120610140526020610140f350505b505050505b6000f31b2d4f"), Transaction)
 sighasher_addr = sighasher_tx.creates
 
+
+class MessageFailed(Exception):
+    pass
+
+
 def mk_validation_code(address):
     '''
     validation_code = """
@@ -135,7 +140,9 @@ def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS)
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
     result = apply_message(state, msg)
-    if result is False or result is None:
+    if result is None:
+        raise MessageFailed("Msg failed")
+    if result is False:
         return result
     if result == b'':
         return None
@@ -206,7 +213,7 @@ def call_validation_code(state, validation_code_addr, msg_hash, signature):
     msg = vm.Message(dummy_addr, validation_code_addr, 0, 200000, data)
     result = apply_message(state.ephemeral_clone(), msg)
     if result is None:
-        return False
+        raise MessageFailed()
     return bool(utils.big_endian_to_int(result))
 
 
@@ -250,3 +257,4 @@ def is_valmgr_setup(state):
     return not (b'' == state.get_code(get_valmgr_addr()) and
         0 == state.get_nonce(get_valmgr_sender_addr())
     )
+

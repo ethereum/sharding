@@ -7,7 +7,8 @@ from sharding.tools import tester as t
 from sharding.used_receipt_store_utils import (create_urs_tx, get_urs_ct,
                                                get_urs_contract,
                                                mk_initiating_txs_for_urs)
-from sharding.validator_manager_utils import call_contract_inconstantly
+from sharding.validator_manager_utils import (MessageFailed,
+                                             call_contract_inconstantly)
 
 def chain(shard_id):
     c = t.Chain(env='sharding', deploy_sharding_contracts=True)
@@ -27,11 +28,12 @@ def test_used_receipt_store():
     assert not x.get_used_receipts(0)
     urs_addr = get_urs_contract(shard_id)['addr']
     # test add_used_receipt: only USED_RECEIPT_STORE can call itself with msg
-    assert not call_contract_inconstantly(
-        shard_state, get_urs_ct(shard_id), urs_addr,
-        'add_used_receipt', [0],
-        0, sender_addr=t.a0
-    )
+    with pytest.raises(MessageFailed):
+        call_contract_inconstantly(
+            shard_state, get_urs_ct(shard_id), urs_addr,
+            'add_used_receipt', [0],
+            0, sender_addr=t.a0
+        )
     assert call_contract_inconstantly(
         shard_state, get_urs_ct(shard_id), urs_addr,
         'add_used_receipt', [0],
