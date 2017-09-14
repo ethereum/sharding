@@ -158,9 +158,11 @@ def call_contract_constantly(state, ct, contract_addr, func, args, value=0, star
 
 
 def call_contract_inconstantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
-    return call_msg(
+    result = call_msg(
         state, ct, func, args, sender_addr, contract_addr, value, startgas
     )
+    state.commit()
+    return result
 
 
 def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gasprice=GASPRICE):

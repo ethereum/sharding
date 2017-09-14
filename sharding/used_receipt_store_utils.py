@@ -95,14 +95,8 @@ def prepare_and_mk_urs_txs(state, sender_privkey, sender_starting_nonce, shard_i
     state.delta_balance(
         get_urs_contract(shard_id)['addr'], (10 ** 9) * utils.denoms.ether
     )
+    state.commit()
     return txs
-
-
-def call_add_used_receipt(state, sender_privkey, value, shard_id, receipt_id):
-    return call_tx(
-        state, get_urs_ct(shard_id), 'add_used_receipt', [receipt_id],
-        sender_privkey, get_urs_contract(shard_id)['addr'], value
-    )
 
 
 def call_urs(state, shard_id, func, args, value=0, startgas=None, sender_addr=b'\x00' * 20):

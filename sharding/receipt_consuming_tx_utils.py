@@ -42,9 +42,10 @@ def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
 
 def send_msg_add_receipt(state, shard_id, receipt_id):
     ct = get_urs_ct(shard_id)
-    contract_addr = get_urs_contract(shard_id)['addr']
+    urs_addr = get_urs_contract(shard_id)['addr']
     return call_contract_inconstantly(
-        state, ct, contract_addr, 'add_used_receipt', [receipt_id], 0
+        state, ct, urs_addr, 'add_used_receipt', [receipt_id],
+        0, sender_addr=urs_addr
     )
 
 
@@ -69,7 +70,8 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
             return False, None
 
     # start transactioning
-    send_msg_add_receipt(shard_state, shard_id, receipt_id)
+    if not send_msg_add_receipt(shard_state, shard_id, receipt_id):
+        return False, None
 
     receipt_sender_hex = call_valmgr(mainchain_state, 'get_receipts__sender', [receipt_id])
     receipt_data = call_valmgr(mainchain_state, 'get_receipts__data', [receipt_id])
@@ -109,7 +111,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
         # sell remaining gas
         shard_state.delta_balance(tx.to, tx.gasprice * gas_remained)
         log_rctx.debug("gas_remained={}, gasprice={}".format(gas_remained, tx.gasprice))
-        log_rctx.debug("End: urs.balance={}, tx.to.balance={}\n\n".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
+        log_rctx.debug("End: urs.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
         shard_state.delta_balance(shard_state.block_coinbase, tx.gasprice * gas_used)
         shard_state.gas_used += gas_used
         if tx.to:
