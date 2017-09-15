@@ -72,7 +72,7 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
     data = (b'00' * 12) + utils.parse_as_bin(receipt_sender_hex) + receipt_data
     msg = vm.Message(urs_addr, tx.to, value, tx.startgas - tx.intrinsic_gas_used, data)
     env_tx = Transaction(0, tx.gasprice, tx.startgas, b'', 0, b'')
-    env_tx._sender = utils.parse_as_bin(receipt_sender_hex)
+    env_tx._sender = urs_addr
     ext = VMExt(shard_state, env_tx)
     log_rctx.debug("before apply_msg: urs_addr.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
     # even if `transfer_value` in `apply_msg` fails, no error occurs.
