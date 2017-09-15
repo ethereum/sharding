@@ -135,11 +135,9 @@ def test_longest_chain_rule():
     block_1 = t.mine(1)
     log.info('[block 1] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
 
-    # collate for the existing txs
-    collation_0 = Collation(t.collate(shard_id, tester.k0))
     t.set_collation(
         shard_id,
-        expected_period_number=collation_0.header.expected_period_number)
+        expected_period_number=t.chain.get_expected_period_number())
 
     # [block 2]: includes collation A -> B
     t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)

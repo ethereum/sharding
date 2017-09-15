@@ -389,7 +389,7 @@ class MainChain(Chain):
             log.info('Got log item form self.add_header_logs!')
             # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
             # use sedes to prevent integer 0 from being decoded as b''
-            sedes = List([utils.big_endian_int, utils.big_endian_int, hash32, hash32, hash32, utils.address, hash32, hash32, binary])
+            sedes = List([utils.big_endian_int, utils.big_endian_int, hash32, hash32, hash32, utils.address, hash32, hash32, utils.big_endian_int, binary])
             values = rlp.decode(item, sedes)
             shard_id = values[0]
             log.info("add_header: shard_id={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], encode_hex(utils.sha3(item)), encode_hex(values[3])))

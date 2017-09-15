@@ -85,6 +85,7 @@ def create_collation(
     collation.header.parent_collation_hash = parent_collation_hash
     collation.header.expected_period_number = expected_period_number
     collation.header.period_start_prevhash = period_start_prevhash
+    collation.header.number = chain.shards[shard_id].get_collation(parent_collation_hash).number + 1
 
     try:
         sig = sign(collation.signing_hash, key)

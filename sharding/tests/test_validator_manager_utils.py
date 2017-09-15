@@ -67,7 +67,7 @@ def test_call_deposit_withdraw_sample(chain):
 
 
 def test_call_add_header_get_shard_head(chain):
-    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
+    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
         period_length = 5
         expected_period_number = (n_blocks + 1) // period_length
         b = chain.chain.get_block_by_number(expected_period_number * period_length - 1)
@@ -79,14 +79,14 @@ def test_call_add_header_get_shard_head(chain):
             rlp.encode([
                 shard_id, expected_period_number, period_start_prevhash,
                 parent_collation_hash, tx_list_root, collation_coinbase,
-                post_state_root, receipt_root
+                post_state_root, receipt_root, number
             ])
         )
         sig = sign(sighash, privkey)
         return rlp.encode([
             shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
-            post_state_root, receipt_root, sig
+            post_state_root, receipt_root, number, sig
         ])
 
     # register t.k0 as the validators
@@ -105,7 +105,7 @@ def test_call_add_header_get_shard_head(chain):
     chain.mine(1)
 
     # sample
-    if k0_valcode_addr == utils.big_endian_to_int(call_sample(chain.head_state, 0)):
+    if k0_valcode_addr == int(call_valmgr(chain.head_state, 'sample', [0]), 16):
         privkey = t.k0
         collator_addr = t.a0
     else:
@@ -114,7 +114,7 @@ def test_call_add_header_get_shard_head(chain):
 
     # create collation header
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
-    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, collation_coinbase=collator_addr, privkey=privkey, n_blocks=chain.chain.head.number)
+    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, 1, collation_coinbase=collator_addr, privkey=privkey, n_blocks=chain.chain.head.number)
     colhdr_hash = utils.sha3(colhdr)
     assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 

@@ -194,11 +194,13 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature, gasp
 def get_shard_list(state, valcode_addr):
     ct = get_valmgr_ct()
     dummy_addr = b'\xff' * 20
-    shard_list = call_msg(
-        state, ct, 'get_shard_list', [valcode_addr],
-        dummy_addr, get_valmgr_addr(), 0, startgas=10 ** 20
+    shard_list = call_contract_constantly(
+        state, ct, get_valmgr_addr(), 'get_shard_list', [valcode_addr],
+        value=0, startgas=10 ** 20, sender_addr=dummy_addr
     )
-    return abi.decode_abi(['bool[' + str(sharding_config['SHARD_COUNT']) + ']'], shard_list)[0]
+    return shard_list
+    # assert len(shard_list) == 100
+    # return abi.decode_abi(['bool[100]'], shard_list)[0]
 
 
 def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, nonce=None, startgas=300000):

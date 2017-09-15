@@ -65,7 +65,7 @@ def test_validator_manager():
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     assert x.sample(0) == "0x0000000000000000000000000000000000000000"
 
-    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
+    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0):
         period_length = 5
         expected_period_number = num_blocks // period_length
         b = c.chain.get_block_by_number(expected_period_number * period_length - 1)
@@ -77,14 +77,14 @@ def test_validator_manager():
             rlp.encode([
                 shard_id, expected_period_number, period_start_prevhash,
                 parent_collation_hash, tx_list_root, collation_coinbase,
-                post_state_root, receipt_root
+                post_state_root, receipt_root, number
             ])
         )
         sig = sign(sighash, t.k0)
         return rlp.encode([
             shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
-            post_state_root, receipt_root, sig
+            post_state_root, receipt_root, number, sig
         ])
 
     header_logs = []
@@ -100,7 +100,7 @@ def test_validator_manager():
                 last_log = header_logs.pop(0)
                 # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
                 # use sedes to prevent integer 0 from being decoded as b''
-                sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
+                sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, utils.big_endian_int, binary])
                 values = rlp.decode(last_log, sedes)
                 print("add_header: shard_id={}, expected_period_number={}, header_hash={}, parent_header_hash={}".format(values[0], values[1], utils.sha3(last_log), values[3]))
 
@@ -111,21 +111,20 @@ def test_validator_manager():
 
     # test get_shard_head: returns genesis_colhdr_hash when there is no new header
     assert x.get_shard_head() == shard0_genesis_colhdr_hash
-
-    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
-    h1_hash = utils.sha3(h1)
+    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
     # test add_header: fails when there is no collator in this period
     assert not x.add_header(h1)
     assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
     # test add_header: works normally with parent_collation_hash == GENESIS
+    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
     assert x.add_header(h1)
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
-        h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
+        h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
         x.add_header(h1)
     # test add_header: fails when the parent_collation_hash is not added before
     with pytest.raises(t.TransactionFailed):
-        h2 = get_colhdr(shard_id, utils.sha3("123"))
+        h2 = get_colhdr(shard_id, utils.sha3("123"), 2)
         x.add_header(h2)
     # test add_header: the log is generated normally
 

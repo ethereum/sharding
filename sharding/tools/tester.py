@@ -218,9 +218,8 @@ class Chain(object):
         collation = None
         # Check add_header_logs
         for item in self.add_header_logs:
-            # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
             # use sedes to prevent integer 0 from being decoded as b''
-            sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
+            sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, utils.big_endian_int, binary])
             values = rlp.decode(item, sedes)
             shard_id = values[0]
             if shard_id in self.chain.shard_id_list:
@@ -307,6 +306,7 @@ class Chain(object):
         collation.header.expected_period_number = expected_period_number
         collation.header.period_start_prevhash = period_start_prevhash
         collation.header.parent_collation_hash = parent_collation_hash
+        collation.header.number = self.chain.shards[shard_id].get_collation(parent_collation_hash).number + 1
         self.collation[shard_id] = collation
 
     def add_test_shard(self, shard_id, setup_urs_contracts=True, alloc=None):
