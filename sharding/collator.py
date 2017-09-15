@@ -27,12 +27,9 @@ def apply_collation(state, collation, period_start_prevblock, mainchain_state=No
         # Validate tx_list_root in collation first
         assert state_transition.validate_transaction_tree(collation)
         for tx in collation.transactions:
-            if mainchain_state is not None and shard_id is not None:
-                apply_shard_transaction(
-                    mainchain_state, state, shard_id, tx
-                )
-            else:
-                apply_transaction(state, tx)
+            apply_shard_transaction(
+                mainchain_state, state, shard_id, tx
+            )
         # Set state root, receipt root, etc
         state_transition.finalize(state, collation.header.coinbase)
         assert state_transition.verify_execution_results(state, collation)

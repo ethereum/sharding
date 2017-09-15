@@ -140,7 +140,8 @@ def apply_shard_transaction(mainchain_state, shard_state, shard_id, tx):
     """Apply shard transactions, including both receipt-consuming and normal
     transactions.
     """
-    if is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
+    if ((mainchain_state is not None) and (shard_id is not None) and
+            is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)):
         success, output = send_msg_transfer_value(
             mainchain_state, shard_state, shard_id, tx
         )

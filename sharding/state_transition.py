@@ -40,10 +40,7 @@ def add_transactions(shard_state, collation, txqueue, shard_id, min_gasprice=0, 
         if tx is None:
             break
         try:
-            if mainchain_state is not None:
-                apply_shard_transaction(mainchain_state, shard_state, shard_id, tx)
-            else:
-                apply_transaction(shard_state, tx)
+            apply_shard_transaction(mainchain_state, shard_state, shard_id, tx)
             collation.transactions.append(tx)
         except (InsufficientBalance, BlockGasLimitReached, InsufficientStartGas,
                 InvalidNonce, UnsignedTransaction) as e:
