@@ -115,7 +115,7 @@ def test_call_add_header_get_shard_head(chain):
 
 def test_call_tx_to_shard(chain):
     state = chain.head_state
-    tx = call_tx_to_shard(state, t.k0, 10, t.a1, 0, b'')
+    tx = call_tx_to_shard(state, t.k0, 10, t.a1, 0, 100000, 1, b'')
     output = chain.direct_tx(tx)
     assert 0 == utils.big_endian_to_int(output)
 

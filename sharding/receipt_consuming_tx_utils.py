@@ -17,6 +17,10 @@ def simplified_validate_transaction(state, tx):
     '''
     if state.gas_used + tx.startgas > state.gas_limit:
         return False
+    # TODO: limit the data size to zero. Still need to confirm the limit of
+    #       `tx.data` size
+    if len(tx.data) != 0:
+        return False
 
     return True
 
@@ -30,11 +34,15 @@ def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
         return False
     receipt_id = tx.r
     receipt_shard_id = call_valmgr(mainchain_state, 'get_receipts__shard_id', [receipt_id])
+    receipt_startgas = call_valmgr(mainchain_state, 'get_receipts__tx_startgas', [receipt_id])
+    receipt_gasprice = call_valmgr(mainchain_state, 'get_receipts__tx_gasprice', [receipt_id])
     receipt_value = call_valmgr(mainchain_state, 'get_receipts__value', [receipt_id])
     if receipt_value <= 0:
         return False
     receipt_to = call_valmgr(mainchain_state, 'get_receipts__to', [receipt_id])
     if ((receipt_shard_id != shard_id) or
+        (receipt_startgas != tx.startgas) or
+        (receipt_gasprice != tx.gasprice) or
         (receipt_value != tx.value) or
         (receipt_to != hex(utils.big_endian_to_int((tx.to)))) or
         call_urs(shard_state, shard_id, 'get_used_receipts', [receipt_id])):

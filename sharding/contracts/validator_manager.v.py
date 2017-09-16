@@ -15,6 +15,8 @@ collation_headers: public({
 
 receipts: public({
     shard_id: num,
+    tx_startgas: num,
+    tx_gasprice: num,
     value: wei_value,
     sender: address,
     to: address,
@@ -124,6 +126,7 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     return result
 
 
+@constant
 def sample(shard_id: num) -> address:
 
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
@@ -199,6 +202,7 @@ def add_header(header: bytes <= 4096) -> bool:
     return True
 
 
+@constant
 def get_period_start_prevhash(expected_period_number: num) -> bytes32:
     block_number = expected_period_number * self.period_length - 1
     assert block.number > block_number
@@ -221,6 +225,7 @@ def get_period_start_prevhash(expected_period_number: num) -> bytes32:
 
 # Returns the difference between the block number of this hash and the block
 # number of the 10000th ancestor of this hash.
+@constant
 def get_ancestor_distance(hash: bytes32) -> bytes32:
     # TODO: to be implemented
     pass
@@ -228,17 +233,21 @@ def get_ancestor_distance(hash: bytes32) -> bytes32:
 
 # Returns the gas limit that collations can currently have (by default make
 # this function always answer 10 million).
+@constant
 def get_collation_gas_limit() -> num:
     return 10000000
 
 
 # Records a request to deposit msg.value ETH to address to in shard shard_id
 # during a future collation. Saves a `receipt ID` for this request,
-# also saving `msg.value`, `to`, `shard_id`, data and `msg.sender`.
+# also saving `msg.sender`, `msg.value`, `to`, `shard_id`, `startgas`,
+# `gasprice`, and `data`.
 @payable
-def tx_to_shard(to: address, shard_id: num, data: bytes <= 4096) -> num:
+def tx_to_shard(to: address, shard_id: num, tx_startgas: num, tx_gasprice: num, data: bytes <= 4096) -> num:
     self.receipts[self.num_receipts] = {
         shard_id: shard_id,
+        tx_startgas: tx_startgas,
+        tx_gasprice: tx_gasprice,
         value: msg.value,
         sender: msg.sender,
         to: to,
@@ -247,3 +256,10 @@ def tx_to_shard(to: address, shard_id: num, data: bytes <= 4096) -> num:
     receipt_id = self.num_receipts
     self.num_receipts += 1
     return receipt_id
+
+
+@payable
+def update_gasprice(receipt_id: num, tx_gasprice: num) -> bool:
+    assert self.receipts[receipt_id].sender == msg.sender
+    self.receipts[receipt_id].tx_gasprice = tx_gasprice
+    return True

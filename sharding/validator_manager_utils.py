@@ -197,9 +197,9 @@ def call_tx_add_header(state, sender_privkey, value, header):
     )
 
 
-def call_tx_to_shard(state, sender_privkey, value, to, shard_id, data):
+def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data):
     return call_tx(
-        state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, data],
+        state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, startgas, gasprice, data],
         sender_privkey, get_valmgr_addr(), value
     )
 

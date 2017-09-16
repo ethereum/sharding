@@ -10,7 +10,8 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `getAncestor(bytes32 hash)`: returns the 10000th ancestor of this hash.
 -   `getAncestorDistance(bytes32 hash)`: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.
 -   `getCollationGasLimit()`: returns the gas limit that collations can currently have (by default make this function always answer 10 million).
--   `txToShard(address to, uint256 shardId, bytes data) returns uint256`: records a request to deposit `msg.value` ETH to address `to` in shard `shardId` during a future collation. Saves a receipt ID for this request, also saving `msg.value`, `to`, `shardId`, `data` and `msg.sender`.
+-   `txToShard(address to, uint256 shardId, uint256 tx_startgas, uint256 tx_gasprice, bytes data) returns uint256`: records a request to deposit `msg.value` ETH to address `to` in shard `shardId` during a future collation, with `startgas=tx_gasprice` and `gasprice=tx_gasprice`.  Saves a receipt ID for this request, also saving `msg.value`, `to`, `shardId`, `tx_startgas`, `tx_gasprice`, `data` and `msg.sender`.
+-   `update_gasprice(uint256 receipt_id, uint256 tx_gasprice) returns bool`: updates the `tx_gasprice` in receipt `receipt_id`, and returns True on success.
 
 ### Parameters
 
@@ -70,10 +71,10 @@ The state transition process for executing a collation is as follows:
 
 ### Receipt-consuming transactions
 
-A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let `(to, value, shard_id, sender, data)` be the values that were saved by the `txToShard` call that created this receipt. For such a transaction to be valid:
+A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let `(to, value, shard_id, tx_startgas, tx_gasprice, sender, data)` be the values that were saved by the `txToShard` call that created this receipt. For such a transaction to be valid:
 
 * Such a receipt *must* have in fact been created by a `txToShard` call in the main chain.
-* The `to` and `value` of the transaction *must* match the `to` and `value` of this receipt.
+* The `to`, `value`, `startgas`, and `gasprice` of the transaction *must* match the `to`, `value`, `tx_startgas` and `tx_gasprice` of this receipt.
 * The shard Id *must* match `shard_id`.
 * The contract at address `USED_RECEIPT_STORE_ADDRESS` *must NOT* have a record saved saying that the given receipt ID was already consumed.
 
@@ -81,6 +82,8 @@ The transaction has an additional side effect of saving a record in `USED_RECEIP
 
 * `sender` is `USED_RECEIPT_STORE_ADDRESS`
 * `to` is the `to` from the receipt
+* `startgas` is the `tx_startgas` from the receipt
+* `gasprice` is the `tx_gasprice` from the receipt
 * `value` is the `value` from the receipt, minus `gasprice * gaslimit`
 * `data` is twelve zero bytes concatenated with the `sender` from the receipt concatenated with the `data` from the receipt
 * Gas refunds go to the `to` address

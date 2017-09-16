@@ -168,13 +168,22 @@ def test_validator_manager():
 
     # test tx_to_shard: add request tx and get the receipt id
     to_addr = utils.privtoaddr(utils.sha3("to_addr"))
-    receipt_id0 = x.tx_to_shard(to_addr, 0, b'', sender=t.k0, value=100)
+    startgas = 100000
+    gasprice = 1
+    receipt_id0 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k0, value=100)
     assert 0 == receipt_id0
     # test tx_to_shard: see if receipt_id is incrementing when called
     # multiple times
-    receipt_id1 = x.tx_to_shard(to_addr, 0, b'', sender=t.k1, value=101)
+    receipt_id1 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=101)
     assert 1 == receipt_id1
     assert 101 == x.get_receipts__value(receipt_id1)
+
+    # test update_gasprice: fails when msg.sender doesn't match
+    with pytest.raises(t.TransactionFailed):
+        x.update_gasprice(receipt_id1, 2, sender=t.k0)
+    # test update_gasprice: see if the gasprice updated successfully
+    assert x.update_gasprice(receipt_id1, 2, sender=t.k1)
+    assert 2 == x.get_receipts__tx_gasprice(receipt_id1)
 
     print(utils.checksum_encode(get_valmgr_addr()))
 
