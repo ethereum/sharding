@@ -120,9 +120,9 @@ def test_call_tx_to_shard(chain):
     assert 0 == utils.big_endian_to_int(output)
 
 
-def test_valmgr_addr_in_sharding_config():
-    assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
-        utils.checksum_encode(get_valmgr_addr())
+# def test_valmgr_addr_in_sharding_config():
+#     assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
+#         utils.checksum_encode(get_valmgr_addr())
 
 
 def test_sign():
