@@ -297,7 +297,7 @@ class MainChain(Chain):
                 if given_collation_score > head_collation_score:
                     self.shards[shard_id].head_collation_of_block[blockhash] = collhash
                     block = self.get_block(blockhash)
-                    blockhash_list.extend(self.get_children(block))
+                    blockhash_list.extend([b.header.hash for b in self.get_children(block)])
         return True
 
     # TODO: implement in pyethapp

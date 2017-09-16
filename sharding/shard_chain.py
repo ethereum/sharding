@@ -280,11 +280,11 @@ class ShardChain(object):
         self.db.put(collation.header.hash, rlp.encode(collation))
         self.db.put(b'score:' + collation.header.hash, score)
         # self.collation_blockhash_lists = self.collation_blockhash_lists_from_dict(collation_blockhash_lists)
-        for blockhash, b_list in head_collation_of_block.items():
-            if blockhash not in collation_blockhash_lists:
-                self.collation_blockhash_lists[blockhash] = []
-            self.collation_blockhash_lists[blockhash].append(b_list)
-            self.collation_blockhash_lists[blockhash] = list(set(self.collation_blockhash_lists[blockhash]))
+        for collhash, b_list in collation_blockhash_lists.items():
+            if collhash not in collation_blockhash_lists:
+                self.collation_blockhash_lists[collhash] = []
+            self.collation_blockhash_lists[collhash].extend(b_list)
+            self.collation_blockhash_lists[collhash] = list(set(self.collation_blockhash_lists[collhash]))
         # self.head_collation_of_block = self.head_collation_of_block_from_dict(head_collation_of_block)
         for blockhash, collhash in head_collation_of_block.items():
             self.head_collation_of_block[blockhash] = collhash
