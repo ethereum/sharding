@@ -14,7 +14,7 @@ sharding_config["METROPOLIS_FORK_BLKNUM"] = 2**99
 sharding_config['SHARD_COUNT'] = 100
 # valmgr_addr: should be modified whenever "the v, r, s in valmgr tx" or
 # "the content of the contract" change
-sharding_config['VALIDATOR_MANAGER_ADDRESS'] = '0x2712b5D174ACc96a3aBE499Ce488b3139533f916'
+sharding_config['VALIDATOR_MANAGER_ADDRESS'] = '0x1783fD0DA535CACf99F0CB62D60C5478D5D40aF1'
 sharding_config['USED_RECEIPT_STORE_ADDRESS'] = ''   # TODO
 sharding_config['SIG_GASLIMIT'] = 40000
 sharding_config['COLLATOR_REWARD'] = 0.002 * utils.denoms.ether
