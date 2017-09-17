@@ -32,11 +32,6 @@ def test_collate():
     shard_id = 1
     t = chain(shard_id)
 
-    # Clear tester
-    expected_period_number = t.chain.get_expected_period_number()
-    t.set_collation(
-        shard_id,
-        expected_period_number=expected_period_number)
     # Round 1
     t.tx(tester.k1, tester.a2, 1, data=b'', shard_id=shard_id)
     log.info('CURRENT HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))

@@ -316,6 +316,11 @@ class Chain(object):
         initial_state = mk_basic_state(
             base_alloc if alloc is None else alloc,
             None, self.chain.env)
+        initial_state.delta_balance(
+            used_receipt_store_utils.get_urs_contract(shard_id)['addr'],
+            (10 ** 9) * utils.denoms.ether
+        )
+        initial_state.commit()
         shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
         self.chain.add_shard(shard)
         self.__init_shard_var(shard_id)
@@ -428,10 +433,6 @@ class Chain(object):
         )
         for tx in txs:
             self.direct_tx(tx, shard_id=shard_id)
-        state.delta_balance(
-            used_receipt_store_utils.get_urs_contract(shard_id)['addr'],
-            (10 ** 9) * utils.denoms.ether
-        )
         self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
 
 def int_to_0x_hex(v):
