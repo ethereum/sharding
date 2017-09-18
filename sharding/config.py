@@ -24,20 +24,20 @@ sharding_config['SHUFFLING_CYCLE'] = 2500            # blocks
 sharding_config['DEPOSIT_SIZE'] = 10 ** 20
 sharding_config['CONTRACT_CALL_GAS'] = {
     'VALIDATOR_MANAGER': defaultdict(lambda: 200000, {
-        'deposit': 170000,
-        'withdraw': 110000, # TODO: is it enough?
-        'sample': 400000, # should be large enough, due to the uncertain iterations
-        'get_shard_head': 80000,
-        'add_header': 170000,
-        'tx_to_shard': 180000,
-        'get_receipts__value': 70000,
-        'get_receipts__shard_id': 70000,
-        'get_receipts__to': 70000,
-        'get_receipts__sender': 70000,
-        'get_receipts__data': 70000
+        'deposit': 160000,
+        'withdraw': 100000,
+        'sample': 10000,
+        'get_shard_head': 10000,
+        'add_header': 150000,
+        'tx_to_shard': 200000,
+        'get_receipts__value': 10000,
+        'get_receipts__shard_id': 10000,
+        'get_receipts__to': 10000,
+        'get_receipts__sender': 10000,
+        'get_receipts__data': 10000
     }),
     'USED_RECEIPT_STORE': defaultdict(lambda: 200000, {
-        'get_used_receipts': 40000,
+        'get_used_receipts': 10000,
         'add_used_receipt': 90000
     })
 }
