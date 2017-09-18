@@ -115,7 +115,7 @@ def verify_collation_header(chain, header):
     try:
         result = call_valmgr(
             state, 'add_header',
-            [rlp.encode(CollationHeader.serialize(header))],
+            [rlp.encode(header)],
             sender_addr=header.coinbase
         )
         print('result:{}'.format(result))
