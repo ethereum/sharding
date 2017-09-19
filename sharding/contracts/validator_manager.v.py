@@ -60,6 +60,9 @@ sighasher_addr: address
 # mapping validator_code_addr to index of validators
 validation_code_addr_to_index: num[address]
 
+# log the latest period number of the shard
+period_head: public(num[num])
+
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
@@ -183,19 +186,23 @@ def add_header(header: bytes <= 4096) -> bool:
     # then there is no need to check.
     if parent_collation_hash != as_bytes32(0):
         assert (parent_collation_hash == as_bytes32(0)) or (self.collation_headers[shard_id][parent_collation_hash].score > 0)
+    # Check if only one colllation in one period
+    assert self.period_head[shard_id] < expected_period_number
+
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
     if collator_valcode_addr == zero_addr:
         return False
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
-
     # Add the header
     _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
     self.collation_headers[shard_id][entire_header_hash] = {
         parent_collation_hash: parent_collation_hash,
         score: _score
     }
+    # Update the latest period number
+    self.period_head[shard_id] = expected_period_number
 
     # Determine the head
     if _score > self.collation_headers[shard_id][self.shard_head[shard_id]].score:
@@ -271,4 +278,5 @@ def update_gasprice(receipt_id: num, tx_gasprice: num) -> bool:
 
 
 def get_index(addr: address) -> num:
+    # FIXME: one validation_code_addr may be reused
     return self.validation_code_addr_to_index[addr]

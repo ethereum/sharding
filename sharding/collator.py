@@ -46,7 +46,8 @@ def create_collation(
         expected_period_number,
         coinbase,
         key,
-        txqueue=None):
+        txqueue=None,
+        period_start_prevhash=None):
     """Create a collation
 
     chain: MainChain
@@ -65,8 +66,9 @@ def create_collation(
     cs = get_consensus_strategy(temp_state.config)
 
     # Set period_start_prevblock info
-    period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
-    assert period_start_prevhash is not None
+    if period_start_prevhash is None:
+        period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
+        assert period_start_prevhash is not None
     period_start_prevblock = chain.get_block(period_start_prevhash)
     # Call the initialize state transition function
     cs.initialize(temp_state, period_start_prevblock)
@@ -118,9 +120,8 @@ def verify_collation_header(chain, header):
             [rlp.encode(header)],
             sender_addr=header.coinbase
         )
-        print('result:{}'.format(result))
         if not result:
             raise ValueError('Calling add_header returns False')
-    except:
-        raise ValueError('Calling add_header failed')
+    except Exception as e:
+        raise ValueError('Calling add_header is failed', str(e))
     return True

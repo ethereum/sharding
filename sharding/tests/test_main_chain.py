@@ -65,7 +65,7 @@ def test_get_period_start_prevhash():
     t.mine(5)
 
     expected_period_number = 1
-    assert t.chain.get_period_start_prevhash(expected_period_number)
+    assert t.chain.get_period_start_prevhash(expected_period_number) == t.chain.get_block_by_number(4).hash
 
     expected_period_number = 2
     assert t.chain.get_period_start_prevhash(expected_period_number) is None

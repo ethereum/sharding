@@ -190,10 +190,10 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature, gasp
     )
 
 
-def call_tx_add_header(state, sender_privkey, value, header):
+def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice
     )
 
 
@@ -257,4 +257,3 @@ def is_valmgr_setup(state):
     return not (b'' == state.get_code(get_valmgr_addr()) and
         0 == state.get_nonce(get_valmgr_sender_addr())
     )
-

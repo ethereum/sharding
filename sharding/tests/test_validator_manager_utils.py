@@ -63,9 +63,9 @@ def test_call_deposit_withdraw_sample(chain):
 
 
 def test_call_add_header_get_shard_head(chain):
-    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
+    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
         period_length = 5
-        expected_period_number = num_blocks // period_length
+        expected_period_number = (n_blocks + 1) // period_length
         b = chain.chain.get_block_by_number(expected_period_number * period_length - 1)
         period_start_prevhash = b.header.hash
         tx_list_root = b"tx_list " * 4
@@ -78,7 +78,7 @@ def test_call_add_header_get_shard_head(chain):
                 post_state_root, receipt_root
             ])
         )
-        sig = sign(sighash, t.k0)
+        sig = sign(sighash, privkey)
         return rlp.encode([
             shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
@@ -89,14 +89,20 @@ def test_call_add_header_get_shard_head(chain):
     tx = create_contract_tx(chain.head_state, t.k0, mk_validation_code(t.a0))
     k0_valcode_addr = chain.direct_tx(tx)
     chain.mine(1)
+    tx2 = create_contract_tx(chain.head_state, t.k1, mk_validation_code(t.a1))
+    k1_valcode_addr = chain.direct_tx(tx2)
+    chain.mine(1)
 
     tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a0)
+    chain.direct_tx(tx)
+    chain.mine(1)
+    tx = call_deposit(chain.head_state, t.k1, DEPOSIT_SIZE, k1_valcode_addr, t.a1)
     chain.direct_tx(tx)
     chain.mine(1)
 
     # create collation header
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
-    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash)
+    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, collation_coinbase=t.a0, privkey=t.k0, n_blocks=chain.chain.head.number)
     colhdr_hash = utils.sha3(colhdr)
     assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 
