@@ -26,18 +26,20 @@ sharding_config['CONTRACT_CALL_GAS'] = {
     'VALIDATOR_MANAGER': defaultdict(lambda: 200000, {
         'deposit': 160000,
         'withdraw': 100000,
-        'sample': 10000,
-        'get_shard_head': 10000,
+        'sample': 40000,
+        'get_shard_head': 40000,
         'add_header': 150000,
         'tx_to_shard': 200000,
-        'get_receipts__value': 10000,
-        'get_receipts__shard_id': 10000,
-        'get_receipts__to': 10000,
-        'get_receipts__sender': 10000,
-        'get_receipts__data': 10000
+        'get_receipts__value': 40000,
+        'get_receipts__shard_id': 40000,
+        'get_receipts__to': 40000,
+        'get_receipts__sender': 40000,
+        'get_receipts__data': 40000,
+        'get_receipts__tx_startgas': 40000,
+        'get_receipts__tx_gasprice': 40000,
     }),
     'USED_RECEIPT_STORE': defaultdict(lambda: 200000, {
-        'get_used_receipts': 10000,
-        'add_used_receipt': 90000
+        'get_used_receipts': 40000,
+        'add_used_receipt': 90000,
     })
 }
