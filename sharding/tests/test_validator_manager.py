@@ -20,7 +20,7 @@ validator_manager_code = get_valmgr_code()
 def test_validator_manager():
     # Must pay 100 ETH to become a validator
 
-    c = t.Chain()
+    c = t.Chain(env='sharding', deploy_sharding_contracts=True)
 
     k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
     k1_valcode_addr = c.tx(t.k1, '', 0, mk_validation_code(t.a1))
@@ -28,17 +28,13 @@ def test_validator_manager():
     num_blocks = 11
     c.mine(num_blocks - 1, coinbase=t.a0)
     c.head_state.gas_limit = 10 ** 12
-    c.head_state.set_balance(address=t.a0, value=DEPOSIT_SIZE * 10)
-    c.head_state.set_balance(address=t.a1, value=DEPOSIT_SIZE * 10)
 
     # deploy valmgr and its prerequisite contracts and transactions
-    txs = mk_initiating_contracts(t.k0, c.head_state.get_nonce(t.a0))
-    for tx in txs:
-        c.direct_tx(tx)
     x = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
 
     # test deposit: fails when msg.value != DEPOSIT_SIZE
     with pytest.raises(t.TransactionFailed):
+        # gas == GASLIMIT
         x.deposit(k0_valcode_addr, k0_valcode_addr)
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
@@ -66,7 +62,6 @@ def test_validator_manager():
     # test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     assert x.sample(0) == "0x0000000000000000000000000000000000000000"
-    assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
 
     def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
         period_length = 5
@@ -114,9 +109,13 @@ def test_validator_manager():
 
     # test get_shard_head: returns genesis_colhdr_hash when there is no new header
     assert x.get_shard_head() == shard0_genesis_colhdr_hash
-    # test add_header: works normally with parent_collation_hash == GENESIS
+
     h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash)
     h1_hash = utils.sha3(h1)
+    # test add_header: fails when there is no collator in this period
+    assert not x.add_header(h1)
+    assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    # test add_header: works normally with parent_collation_hash == GENESIS
     assert x.add_header(h1)
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
@@ -166,3 +165,25 @@ def test_validator_manager():
         current_colhdr_hash = utils.sha3(current_colhdr)
     assert x.get_ancestor(shard_id, current_colhdr_hash) == shard0_genesis_colhdr_hash
     '''
+
+    # test tx_to_shard: add request tx and get the receipt id
+    to_addr = utils.privtoaddr(utils.sha3("to_addr"))
+    startgas = 100000
+    gasprice = 1
+    receipt_id0 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k0, value=100)
+    assert 0 == receipt_id0
+    # test tx_to_shard: see if receipt_id is incrementing when called
+    # multiple times
+    receipt_id1 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=101)
+    assert 1 == receipt_id1
+    assert 101 == x.get_receipts__value(receipt_id1)
+
+    # test update_gasprice: fails when msg.sender doesn't match
+    with pytest.raises(t.TransactionFailed):
+        x.update_gasprice(receipt_id1, 2, sender=t.k0)
+    # test update_gasprice: see if the gasprice updated successfully
+    assert x.update_gasprice(receipt_id1, 2, sender=t.k1)
+    assert 2 == x.get_receipts__tx_gasprice(receipt_id1)
+
+    print(utils.checksum_encode(get_valmgr_addr()))
+

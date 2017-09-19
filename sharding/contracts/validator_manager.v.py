@@ -13,9 +13,21 @@ collation_headers: public({
     score: num,
 }[bytes32][num])
 
+receipts: public({
+    shard_id: num,
+    tx_startgas: num,
+    tx_gasprice: num,
+    value: wei_value,
+    sender: address,
+    to: address,
+    data: bytes <= 4096
+}[num])
+
 shard_head: public(bytes32[num])
 
 num_validators: public(num)
+
+num_receipts: num
 
 # indexs of empty slots caused by the function `withdraw`
 empty_slots_stack: num[num]
@@ -114,8 +126,8 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     return result
 
 
+@constant
 def sample(shard_id: num) -> address:
-    zero_addr = 0x0000000000000000000000000000000000000000
 
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
     cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
@@ -129,21 +141,17 @@ def sample(shard_id: num) -> address:
     seed = blockhash(block.number - (block.number % self.period_length) - 1)
     index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                  as_num256(self.num_validators_per_cycle))
-    if self.num_validators != 0:
-        # TODO: here we assume this fixed number of rounds is enough to sample
-        #       a validator
-        for i in range(1024):
-            validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset), as_bytes32(i)))),
-                                         as_num256(self.get_validators_max_index()))
-            addr = self.validators[as_num128(validator_index)].validation_code_addr
-            if addr != zero_addr:
-                return addr
+    validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
+                                 as_num256(self.get_validators_max_index()))
+    addr = self.validators[as_num128(validator_index)].validation_code_addr
 
-    return zero_addr
+    return addr
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
 def add_header(header: bytes <= 4096) -> bool:
+    zero_addr = 0x0000000000000000000000000000000000000000
+
     values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
     shard_id = values[0]
     expected_period_number = values[1]
@@ -156,7 +164,7 @@ def add_header(header: bytes <= 4096) -> bool:
     sig = values[8]
 
     # Check if the header is valid
-    assert shard_id >= 0
+    assert (shard_id >= 0) and (shard_id < self.shard_count)
     assert block.number >= self.period_length
     assert expected_period_number == floor(decimal(block.number / self.period_length))
     assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
@@ -172,6 +180,8 @@ def add_header(header: bytes <= 4096) -> bool:
         assert (parent_collation_hash == as_bytes32(0)) or (self.collation_headers[shard_id][parent_collation_hash].score > 0)
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
+    if collator_valcode_addr == zero_addr:
+        return False
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
@@ -192,6 +202,7 @@ def add_header(header: bytes <= 4096) -> bool:
     return True
 
 
+@constant
 def get_period_start_prevhash(expected_period_number: num) -> bytes32:
     block_number = expected_period_number * self.period_length - 1
     assert block.number > block_number
@@ -214,6 +225,7 @@ def get_period_start_prevhash(expected_period_number: num) -> bytes32:
 
 # Returns the difference between the block number of this hash and the block
 # number of the 10000th ancestor of this hash.
+@constant
 def get_ancestor_distance(hash: bytes32) -> bytes32:
     # TODO: to be implemented
     pass
@@ -221,13 +233,33 @@ def get_ancestor_distance(hash: bytes32) -> bytes32:
 
 # Returns the gas limit that collations can currently have (by default make
 # this function always answer 10 million).
+@constant
 def get_collation_gas_limit() -> num:
     return 10000000
 
 
-# # Records a request to deposit msg.value ETH to address to in shard shard_id
-# # during a future collation. Saves a `receipt ID` for this request,
-# # also saving `msg.value`, `to`, `shard_id`, data and `msg.sender`.
-# def tx_to_shard(to: address, shard_id: num, data: bytes <= 1024) -> num:
-#     pass
+# Records a request to deposit msg.value ETH to address to in shard shard_id
+# during a future collation. Saves a `receipt ID` for this request,
+# also saving `msg.sender`, `msg.value`, `to`, `shard_id`, `startgas`,
+# `gasprice`, and `data`.
+@payable
+def tx_to_shard(to: address, shard_id: num, tx_startgas: num, tx_gasprice: num, data: bytes <= 4096) -> num:
+    self.receipts[self.num_receipts] = {
+        shard_id: shard_id,
+        tx_startgas: tx_startgas,
+        tx_gasprice: tx_gasprice,
+        value: msg.value,
+        sender: msg.sender,
+        to: to,
+        data: data
+    }
+    receipt_id = self.num_receipts
+    self.num_receipts += 1
+    return receipt_id
 
+
+@payable
+def update_gasprice(receipt_id: num, tx_gasprice: num) -> bool:
+    assert self.receipts[receipt_id].sender == msg.sender
+    self.receipts[receipt_id].tx_gasprice = tx_gasprice
+    return True

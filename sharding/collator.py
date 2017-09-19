@@ -7,13 +7,14 @@ from ethereum.common import mk_block_from_prevstate
 from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
-from sharding.validator_manager_utils import (sign, call_msg_add_header)
+from sharding.validator_manager_utils import (sign, call_valmgr)
 from sharding.collation import CollationHeader
+from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')
 
 
-def apply_collation(state, collation, period_start_prevblock):
+def apply_collation(state, collation, period_start_prevblock, mainchain_state=None, shard_id=None):
     """Apply collation
     """
     snapshot = state.snapshot()
@@ -26,7 +27,9 @@ def apply_collation(state, collation, period_start_prevblock):
         # Validate tx_list_root in collation first
         assert state_transition.validate_transaction_tree(collation)
         for tx in collation.transactions:
-            apply_transaction(state, tx)
+            apply_shard_transaction(
+                mainchain_state, state, shard_id, tx
+            )
         # Set state root, receipt root, etc
         state_transition.finalize(state, collation.header.coinbase)
         assert state_transition.verify_execution_results(state, collation)
@@ -70,7 +73,7 @@ def create_collation(
     # Initialize a collation with the given previous state and current coinbase
     collation = state_transition.mk_collation_from_prevstate(chain.shards[shard_id], temp_state, coinbase)
     # Add transactions
-    state_transition.add_transactions(temp_state, collation, txqueue)
+    state_transition.add_transactions(temp_state, collation, txqueue, shard_id, mainchain_state=chain.state)
     # Call the finalize state transition function
     state_transition.finalize(temp_state, collation.header.coinbase)
     # Set state root, receipt root, etc
@@ -110,12 +113,14 @@ def verify_collation_header(chain, header):
     cs.initialize(state, block)
 
     try:
-        result = call_msg_add_header(
-            state, 0, rlp.encode(CollationHeader.serialize(header)), header.coinbase)
-        result = bool(big_endian_to_int(result))
+        result = call_valmgr(
+            state, 'add_header',
+            [rlp.encode(header)],
+            sender_addr=header.coinbase
+        )
         print('result:{}'.format(result))
         if not result:
             raise ValueError('Calling add_header returns False')
     except:
-        raise ValueError('Calling add_header is failed')
+        raise ValueError('Calling add_header failed')
     return True

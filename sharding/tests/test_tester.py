@@ -62,10 +62,10 @@ def test_deposit_and_withdaw():
     # deposit
     t.sharding_deposit(privkey, valcode_addr)
     assert hex(utils.big_endian_to_int(valcode_addr)) == \
-        hex(utils.big_endian_to_int(validator_manager_utils.call_sample(t.head_state, shard_id)))
+        validator_manager_utils.call_valmgr(t.head_state, 'sample', [shard_id])
     x = tester.ABIContract(t, validator_manager_utils.get_valmgr_ct(), validator_manager_utils.get_valmgr_addr())
     assert x.get_num_validators() == 1
     # withdraw
     t.sharding_withdraw(privkey, 0)
-    assert 0 == utils.big_endian_to_int(validator_manager_utils.call_sample(t.head_state, 0))
+    assert 0 == int(validator_manager_utils.call_valmgr(t.head_state, 'sample', [0]), 16)
     assert x.get_num_validators() == 0

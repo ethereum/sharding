@@ -115,6 +115,13 @@ def get_tx_rawhash(tx, network_id=None):
     return rawhash
 
 
+def extract_sender_from_tx(tx):
+    tx_rawhash = get_tx_rawhash(tx)
+    return utils.sha3(
+        utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
+    )[-20:]
+
+
 def create_valmgr_tx(gasprice=GASPRICE):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
     bytecode = get_valmgr_bytecode()
@@ -122,10 +129,7 @@ def create_valmgr_tx(gasprice=GASPRICE):
     tx.v = 27
     tx.r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     tx.s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
-    tx_rawhash = get_tx_rawhash(tx)
-    valmgr_sender_addr = utils.sha3(
-        utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
-    )[-20:]
+    valmgr_sender_addr = extract_sender_from_tx(tx)
     valmgr_addr = utils.mk_contract_address(valmgr_sender_addr, 0)
     _valmgr_sender_addr = valmgr_sender_addr
     _valmgr_addr = valmgr_addr
@@ -135,9 +139,29 @@ def create_valmgr_tx(gasprice=GASPRICE):
 def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
     abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
     msg = vm.Message(sender_addr, to, value, startgas, abidata)
-    result = apply_message(state.ephemeral_clone(), msg)
+    result = apply_message(state, msg)
     if result is None:
         raise MessageFailed("Msg failed")
+    if result is False:
+        return result
+    if result == b'':
+        return None
+    o = ct.decode(func, result)
+    return o[0] if len(o) == 1 else o
+
+
+def call_contract_constantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    return call_msg(
+        state.ephemeral_clone(), ct, func, args,
+        sender_addr, contract_addr, value, startgas
+    )
+
+
+def call_contract_inconstantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
+    result = call_msg(
+        state, ct, func, args, sender_addr, contract_addr, value, startgas
+    )
+    state.commit()
     return result
 
 
@@ -166,15 +190,6 @@ def call_withdraw(state, sender_privkey, value, validator_index, signature):
     )
 
 
-def call_sample(state, shard_id):
-    ct = get_valmgr_ct()
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, ct, 'sample', [shard_id],
-        dummy_addr, get_valmgr_addr()
-    )
-
-
 def call_tx_add_header(state, sender_privkey, value, header):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
@@ -182,44 +197,10 @@ def call_tx_add_header(state, sender_privkey, value, header):
     )
 
 
-def call_msg_add_header(state, value, header, collator_addr):
-    return call_msg(
-        state, get_valmgr_ct(), 'add_header', [header],
-        collator_addr, get_valmgr_addr(), value, startgas=10 ** 20
-    )
-
-
-def call_get_shard_head(state, shard_id):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_shard_head', [shard_id],
-        dummy_addr, get_valmgr_addr()
-    )
-
-
-'''
-def call_get_ancestor(state, shard_id, header_hash):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor', [shard_id, header_hash],
-        dummy_addr, get_valmgr_addr()
-    )
-
-
-def call_get_ancestor_distance(state, header_hash):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_ancestor_distance', [header_hash],
-        dummy_addr, get_valmgr_addr()
-    )
-'''
-
-
-def call_get_collation_gas_limit(state):
-    dummy_addr = b'\xff' * 20
-    return call_msg(
-        state, get_valmgr_ct(), 'get_collation_gas_limit', [],
-        dummy_addr, get_valmgr_addr()
+def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data):
+    return call_tx(
+        state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, startgas, gasprice, data],
+        sender_privkey, get_valmgr_addr(), value
     )
 
 
@@ -261,3 +242,19 @@ def create_contract_tx(state, sender_privkey, bytecode, startgas=STARTGAS):
         data=bytecode
     ).sign(sender_privkey)
     return tx
+
+
+def call_valmgr(state, func, args, value=0, startgas=None, sender_addr=b'\x00' * 20):
+    if startgas is None:
+        startgas = sharding_config['CONTRACT_CALL_GAS']['VALIDATOR_MANAGER'][func]
+    return call_contract_constantly(
+        state, get_valmgr_ct(), get_valmgr_addr(), func, args,
+        value=value, startgas=startgas, sender_addr=sender_addr
+    )
+
+
+def is_valmgr_setup(state):
+    return not (b'' == state.get_code(get_valmgr_addr()) and
+        0 == state.get_nonce(get_valmgr_sender_addr())
+    )
+

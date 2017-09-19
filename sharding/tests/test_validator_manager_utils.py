@@ -7,12 +7,11 @@ from sharding.config import sharding_config
 from sharding.tools import tester as t
 from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
                                               call_deposit,
-                                              call_sample,
                                               call_validation_code,
+                                              call_valmgr,
                                               call_withdraw,
                                               call_tx_add_header,
-                                              call_msg_add_header,
-                                              call_get_shard_head,
+                                              call_tx_to_shard,
                                               get_valmgr_addr,
                                               mk_validation_code, sign,
                                               create_contract_tx)
@@ -53,14 +52,13 @@ def test_call_deposit_withdraw_sample(chain):
     tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a2)
     chain.direct_tx(tx)
     chain.mine(1)
-    assert hex(utils.big_endian_to_int(k0_valcode_addr)) == \
-        hex(utils.big_endian_to_int(call_sample(chain.head_state, 0)))
+    assert hex(utils.big_endian_to_int(k0_valcode_addr)) == call_valmgr(chain.head_state, 'sample', [0])
 
     # withdraw
     tx = call_withdraw(chain.head_state, t.k0, 0, 0, sign(WITHDRAW_HASH, t.k0))
     chain.direct_tx(tx)
     chain.mine(1)
-    assert 0 == utils.big_endian_to_int(call_sample(chain.head_state, 0))
+    assert 0 == int(call_valmgr(chain.head_state, 'sample', [0]), 16)
     assert call_validation_code(chain.head_state, k0_valcode_addr, WITHDRAW_HASH, sign(WITHDRAW_HASH, t.k0))
 
 
@@ -100,10 +98,10 @@ def test_call_add_header_get_shard_head(chain):
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
     colhdr = get_colhdr(0, shard0_genesis_colhdr_hash)
     colhdr_hash = utils.sha3(colhdr)
-    assert call_get_shard_head(chain.head_state, 0) == shard0_genesis_colhdr_hash
+    assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 
     # message call test
-    assert call_msg_add_header(chain.head_state, 0, colhdr, t.a0)
+    assert call_valmgr(chain.head_state, 'add_header', [colhdr], sender_addr=t.a0)
 
     # transaction call test
     # `add_header` verifies whether the colhdr is signed by the current
@@ -112,12 +110,19 @@ def test_call_add_header_get_shard_head(chain):
     chain.direct_tx(tx)
     chain.mine(1)
 
-    assert colhdr_hash == call_get_shard_head(chain.head_state, 0)
+    assert colhdr_hash == call_valmgr(chain.head_state, 'get_shard_head', [0])
 
 
-def test_valmgr_addr_in_sharding_config():
-    assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
-        utils.checksum_encode(get_valmgr_addr())
+def test_call_tx_to_shard(chain):
+    state = chain.head_state
+    tx = call_tx_to_shard(state, t.k0, 10, t.a1, 0, 100000, 1, b'')
+    output = chain.direct_tx(tx)
+    assert 0 == utils.big_endian_to_int(output)
+
+
+# def test_valmgr_addr_in_sharding_config():
+#     assert sharding_config['VALIDATOR_MANAGER_ADDRESS'] == \
+#         utils.checksum_encode(get_valmgr_addr())
 
 
 def test_sign():
