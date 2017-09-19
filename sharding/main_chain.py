@@ -36,6 +36,7 @@ class MainChain(Chain):
     # Call upon receiving a block
     def add_block(self, block):
         now = self.localtime
+        missing_collations = {}
         # Are we receiving the block too early?
         if block.header.timestamp > now:
             i = 0
@@ -45,7 +46,7 @@ class MainChain(Chain):
             self.time_queue.insert(i, block)
             log.info('Block received too early (%d vs %d). Delaying for %d seconds' %
                      (now, block.header.timestamp, block.header.timestamp - now))
-            return False
+            return False, {}
         # Is the block being added to the head?
         if block.header.prevhash == self.head_hash:
             log.info('Adding to head',
@@ -82,7 +83,7 @@ class MainChain(Chain):
                 log.info(
                     'Block %s with parent %s invalid, reason: %s' %
                     (encode_hex(block.header.hash[:4]), encode_hex(block.header.prevhash[:4]), str(e)))
-                return False
+                return False, {}
             deletes = temp_state.deletes
             block_score = self.get_score(block)
             changed = temp_state.changed
@@ -178,7 +179,7 @@ class MainChain(Chain):
             self.parent_queue[block.header.prevhash].append(block)
             log.info('Got block %d (%s) with prevhash %s, parent not found. Delaying for now' %
                      (block.number, encode_hex(block.hash[:4]), encode_hex(block.prevhash[:4])))
-            return False
+            return False, {}
         self.add_child(block)
         self.db.put('head_hash', self.head_hash)
         self.db.put(block.hash, rlp.encode(block))
@@ -224,7 +225,11 @@ class MainChain(Chain):
                 self.add_block(_blk)
 
                 # FIXME check_collation
-                collation_map = self.parse_add_header_logs()
+                collation_map, missing_collations_map = self.parse_add_header_logs(block)
+                for i in missing_collations_map:
+                    if i not in missing_collations:
+                        missing_collations[i] = {}
+                    missing_collations[i].update(missing_collations_map[i])
                 print('[in parent_queue] Reorganizing......')
                 for shard_id in self.shard_id_list:
                     # FIXME not this self.shard_id_list
@@ -232,7 +237,7 @@ class MainChain(Chain):
                     self.reorganize_head_collation(_blk, collation)
 
             del self.parent_queue[block.header.hash]
-        return True
+        return True, missing_collations
 
     def init_shard(self, shard_id):
         """Initialize a new ShardChain and add it to MainChain
@@ -375,10 +380,11 @@ class MainChain(Chain):
                     self.add_header_logs.append(log.data)
         self.state.log_listeners.append(header_log_listener)
 
-    def parse_add_header_logs(self):
+    def parse_add_header_logs(self, block):
         """ Parse add_header_logs, check if there are the collation headers that the validator is watching
         """
         collation_map = {}
+        missing_collations_map = {}
         for item in self.add_header_logs:
             log.info('Got log item form self.add_header_logs!')
             # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
@@ -391,11 +397,17 @@ class MainChain(Chain):
                 collation_hash = sha3(item)
                 collation = self.shards[shard_id].get_collation(collation_hash)
                 if collation is None:
-                    # FIXME
-                    log.info('Getting add_header before getting collation!')
-                collation_map[shard_id] = collation
+                    # Getting add_header before getting collation
+                    # Request for collation and put the task into waiting queue
+                    if shard_id not in missing_collations_map:
+                        missing_collations_map[shard_id] = {}
+                    missing_collations_map[shard_id][collation_hash] = block
+                    # self.request_collation(shard_id, collation_hash)
+                    # self.shard_data[shard_id].missing_collations[collation_hash] = block
+                else:
+                    collation_map[shard_id] = collation
 
         # Clear add_header_logs cache
         self.add_header_logs = []
 
-        return collation_map
+        return collation_map, missing_collations_map
