@@ -170,20 +170,21 @@ def get_shard_list(valcode_addr: address) -> bool[100]:
     cycle_seed = blockhash(cycle_start_block_number)
 
     if self.num_validators != 0:
-        for i in range(100):
-            for j in range(100):
-                # 100 possible index_in_subset
+        for shard_id in range(100):
+            # range(shard_count): , possible shard_id
+            for possible_index_in_subset in range(100):
+                # range(num_validators_per_cycle): possible index_in_subset
                 collator = zero_addr
                 for k in range(1024):
                     validator_index = num256_mod(
-                        as_num256(sha3(concat(cycle_seed, as_bytes32(i), as_bytes32(j), as_bytes32(k)))),
+                        as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(possible_index_in_subset), as_bytes32(k)))),
                         as_num256(self.get_validators_max_index()))
                     addr = self.validators[as_num128(validator_index)].validation_code_addr
                     if addr != zero_addr:
                         collator = addr
                         break
                 if collator == valcode_addr:
-                    self.shard_list[i] = True
+                    self.shard_list[shard_id] = True
                     break
     return self.shard_list
 
