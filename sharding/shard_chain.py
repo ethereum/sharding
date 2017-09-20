@@ -113,7 +113,7 @@ class ShardChain(object):
             log.info(str(e))
             return None
 
-    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation, update_head_collation_of_block=None):
+    def add_collation(self, collation, period_start_prevblock):
         """Add collation to db and update score
         """
         if collation.header.parent_collation_hash in self.env.db:
@@ -171,13 +171,16 @@ class ShardChain(object):
 
         # TODO: It seems weird to use callback function to access member of MainChain
         try:
-            handle_ignored_collation(collation)
+            self.main_chain.handle_ignored_collation(collation)
         except Exception as e:
             log.info('handle_ignored_collation exception: {}'.format(str(e)))
             return False
+        try:
+            self.main_chain.update_head_collation_of_block(collation)
+        except Exception as e:
+            log.info('update_head_collation_of_block exception: {}'.format(str(e)))
+            return False
 
-        if update_head_collation_of_block is not None:
-            update_head_collation_of_block(collation)
         return True
 
     def mk_poststate_of_collation_hash(self, collation_hash):

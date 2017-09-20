@@ -253,6 +253,7 @@ class MainChain(Chain):
         """Add an existing ShardChain to MainChain
         """
         if not self.has_shard(shard.shard_id):
+            shard.main_chain = self
             self.shards[shard.shard_id] = shard
             self.shard_id_list.add(shard.shard_id)
             return True

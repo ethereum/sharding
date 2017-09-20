@@ -72,7 +72,7 @@ def test_get_period_start_prevhash():
 
 
 def test_handle_ignored_collation():
-    """Test handle_ignored_collation(self, collation, period_start_prevblock, handle_ignored_collation)
+    """Test handle_ignored_collation(self, collation, period_start_prevblock)
     """
     shard_id = 1
     # Collator: create and apply collation sequentially
@@ -82,17 +82,17 @@ def test_handle_ignored_collation():
     # collation1
     collation1 = t1.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t1.chain.get_block(collation1.header.period_start_prevhash)
-    t1.chain.shards[shard_id].add_collation(collation1, period_start_prevblock, t1.chain.handle_ignored_collation)
+    t1.chain.shards[shard_id].add_collation(collation1, period_start_prevblock)
     assert t1.chain.shards[shard_id].get_score(collation1) == 1
     # collation2
     collation2 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, parent_collation_hash=collation1.header.hash)
     period_start_prevblock = t1.chain.get_block(collation2.header.period_start_prevhash)
-    t1.chain.shards[shard_id].add_collation(collation2, period_start_prevblock, t1.chain.handle_ignored_collation)
+    t1.chain.shards[shard_id].add_collation(collation2, period_start_prevblock)
     assert t1.chain.shards[shard_id].get_score(collation2) == 2
     # collation3
     collation3 = t1.generate_collation(shard_id=1, coinbase=tester.a2, key=tester.k2, txqueue=None, parent_collation_hash=collation2.header.hash)
     period_start_prevblock = t1.chain.get_block(collation3.header.period_start_prevhash)
-    t1.chain.shards[shard_id].add_collation(collation3, period_start_prevblock, t1.chain.handle_ignored_collation)
+    t1.chain.shards[shard_id].add_collation(collation3, period_start_prevblock)
     assert t1.chain.shards[shard_id].get_score(collation3) == 3
 
     # Validator: apply collation2, collation3 and collation1
@@ -100,11 +100,11 @@ def test_handle_ignored_collation():
     t2.chain.init_shard(shard_id)
     t2.mine(5)
     # append collation2
-    t2.chain.shards[shard_id].add_collation(collation2, period_start_prevblock, t2.chain.handle_ignored_collation)
+    t2.chain.shards[shard_id].add_collation(collation2, period_start_prevblock)
     # append collation3
-    t2.chain.shards[shard_id].add_collation(collation3, period_start_prevblock, t2.chain.handle_ignored_collation)
+    t2.chain.shards[shard_id].add_collation(collation3, period_start_prevblock)
     # append collation1 now
-    t2.chain.shards[shard_id].add_collation(collation1, period_start_prevblock, t2.chain.handle_ignored_collation)
+    t2.chain.shards[shard_id].add_collation(collation1, period_start_prevblock)
     assert t2.chain.shards[shard_id].get_score(collation1) == 1
     assert t2.chain.shards[shard_id].get_score(collation2) == 2
     assert t2.chain.shards[shard_id].get_score(collation3) == 3

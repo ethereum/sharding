@@ -2,13 +2,10 @@ import rlp
 
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
-from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate
-from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
 from sharding.validator_manager_utils import (sign, call_valmgr)
-from sharding.collation import CollationHeader
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')

@@ -3,19 +3,21 @@ import rlp
 
 from ethereum import utils
 
-from sharding.config import sharding_config
 from sharding.tools import tester as t
-from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
-                                              call_deposit,
-                                              call_validation_code,
-                                              call_valmgr,
-                                              call_withdraw,
-                                              call_tx_add_header,
-                                              call_tx_to_shard,
-                                              get_shard_list,
-                                              get_valmgr_addr,
-                                              mk_validation_code, sign,
-                                              create_contract_tx,)
+from sharding.validator_manager_utils import (
+    DEPOSIT_SIZE,
+    WITHDRAW_HASH,
+    call_deposit,
+    call_validation_code,
+    call_valmgr,
+    call_withdraw,
+    call_tx_add_header,
+    call_tx_to_shard,
+    get_shard_list,
+    mk_validation_code,
+    sign,
+    create_contract_tx,
+)
 
 
 config_string = ":info,:debug"

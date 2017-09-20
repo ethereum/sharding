@@ -1,18 +1,21 @@
 import os
 
-from ethereum import abi, utils, vm
+from ethereum import abi, utils
 from ethereum.transactions import Transaction
 from viper import compiler
 
 from sharding.config import sharding_config
-from sharding.validator_manager_utils import (GASPRICE, STARTGAS,
-                                              call_contract_constantly, call_tx,
-                                              get_tx_rawhash)
+from sharding.validator_manager_utils import (
+    GASPRICE,
+    call_contract_constantly,
+    get_tx_rawhash,
+)
 
 _urs_contracts = {}
 _urs_ct = None
 _urs_code = None
 _urs_bytecode = None
+
 
 def _setup_tx(shard_id):
     tx, addr, sender_addr = create_urs_tx(shard_id)
@@ -56,7 +59,7 @@ def get_urs_bytecode(shard_id):
 
 def create_urs_tx(shard_id, gasprice=GASPRICE):
     bytecode = get_urs_bytecode(shard_id)
-    tx = Transaction(0 , gasprice, 2000000, to=b'', value=0, data=bytecode)
+    tx = Transaction(0, gasprice, 2000000, to=b'', value=0, data=bytecode)
     tx.v = 27
     tx.r = 10000
     tx.s = shard_id + 1
@@ -79,7 +82,8 @@ def mk_initiating_txs_for_urs(sender_privkey, sender_starting_nonce, shard_id):
 
 def is_urs_setup(state, shard_id):
     urs_contract = get_urs_contract(shard_id)
-    return not (b'' == state.get_code(urs_contract['addr']) and
+    return not (
+        b'' == state.get_code(urs_contract['addr']) and
         0 == state.get_nonce(urs_contract['sender_addr'])
     )
 
@@ -106,4 +110,3 @@ def call_urs(state, shard_id, func, args, value=0, startgas=None, sender_addr=b'
         state, get_urs_ct(shard_id), get_urs_contract(shard_id)['addr'],
         func, args, value=value, startgas=startgas, sender_addr=sender_addr
     )
-

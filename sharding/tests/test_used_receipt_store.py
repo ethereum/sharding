@@ -1,14 +1,15 @@
 import pytest
 
-from ethereum import utils
-from ethereum.messages import apply_transaction
-
 from sharding.tools import tester as t
-from sharding.used_receipt_store_utils import (create_urs_tx, get_urs_ct,
-                                               get_urs_contract,
-                                               mk_initiating_txs_for_urs)
-from sharding.validator_manager_utils import (MessageFailed,
-                                             call_contract_inconstantly)
+from sharding.used_receipt_store_utils import (
+    get_urs_ct,
+    get_urs_contract,
+)
+from sharding.validator_manager_utils import (
+    MessageFailed,
+    call_contract_inconstantly,
+)
+
 
 def chain(shard_id):
     c = t.Chain(env='sharding', deploy_sharding_contracts=True)

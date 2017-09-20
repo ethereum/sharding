@@ -276,7 +276,8 @@ class Chain(object):
         # If it's on forked chain, we can't use get_blockhash_by_number.
         # So try to get period_start_prevhash by message call
         if self.is_sharding_contracts_deployed:
-            period_start_prevhash = call_valmgr(self.head_state,
+            period_start_prevhash = call_valmgr(
+                self.head_state,
                 'get_period_start_prevhash', [expected_period_number]
             )
         else:
@@ -402,7 +403,7 @@ class Chain(object):
 
         # Add collation to db
         period_start_prevblock = self.chain.get_block(self.collation[shard_id].header.period_start_prevhash)
-        assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock, self.chain.handle_ignored_collation)
+        assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock)
 
         # Create and send add_header tx
         tx = validator_manager_utils.call_tx_add_header(
@@ -435,6 +436,7 @@ class Chain(object):
         for tx in txs:
             self.direct_tx(tx, shard_id=shard_id)
         self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
+
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))

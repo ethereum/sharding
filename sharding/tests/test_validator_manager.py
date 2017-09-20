@@ -5,14 +5,15 @@ from ethereum import utils
 from sharding.tools import tester as t
 from rlp.sedes import List, binary
 
-from sharding.validator_manager_utils import (get_valmgr_addr,
-                                              get_valmgr_ct,
-                                              get_valmgr_code,
-                                              mk_initiating_contracts,
-                                              mk_validation_code,
-                                              sign,
-                                              WITHDRAW_HASH,
-                                              DEPOSIT_SIZE)
+from sharding.validator_manager_utils import (
+    get_valmgr_addr,
+    get_valmgr_ct,
+    get_valmgr_code,
+    mk_validation_code,
+    sign,
+    WITHDRAW_HASH,
+    DEPOSIT_SIZE,
+)
 
 validator_manager_code = get_valmgr_code()
 
@@ -191,4 +192,3 @@ def test_validator_manager():
     assert 2 == x.get_receipts__tx_gasprice(receipt_id1)
 
     print(utils.checksum_encode(get_valmgr_addr()))
-

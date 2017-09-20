@@ -1,7 +1,6 @@
 from ethereum.common import mk_transaction_sha, mk_receipt_sha
 from ethereum.exceptions import InsufficientBalance, BlockGasLimitReached, \
     InsufficientStartGas, InvalidNonce, UnsignedTransaction
-from ethereum.messages import apply_transaction
 from ethereum.slogging import get_logger
 from ethereum.utils import encode_hex
 

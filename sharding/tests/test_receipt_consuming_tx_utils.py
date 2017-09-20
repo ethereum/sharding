@@ -1,23 +1,35 @@
 import pytest
 
-from ethereum import utils, vm
+from ethereum import utils
 from ethereum.exceptions import InvalidTransaction
 from ethereum.slogging import configure_logging
 from ethereum.transactions import Transaction
 
 from sharding.tools import tester as t
-from sharding.receipt_consuming_tx_utils import (apply_shard_transaction,
-                                                 is_valid_receipt_consuming_tx)
-from sharding.used_receipt_store_utils import (get_urs_ct, get_urs_contract,
-                                               mk_initiating_txs_for_urs)
+from sharding.receipt_consuming_tx_utils import (
+    apply_shard_transaction,
+    is_valid_receipt_consuming_tx,
+)
+from sharding.used_receipt_store_utils import (
+    get_urs_ct,
+    get_urs_contract,
+)
 from sharding.validator_manager_utils import get_valmgr_addr, get_valmgr_ct
 
 config_string = 'sharding.rctx:debug'
 configure_logging(config_string=config_string)
 
+
 def mk_testing_receipt_consuming_tx(
-        receipt_id, to_addr, value, startgas, gasprice, data=b'', v=1, s=0):
-    tx = Transaction(0, t.GASPRICE, startgas, to_addr, value, data)
+        receipt_id,
+        to_addr,
+        value,
+        startgas,
+        gasprice,
+        data=b'',
+        v=1,
+        s=0):
+    tx = Transaction(0, gasprice, startgas, to_addr, value, data)
     tx.v, tx.r, tx.s = v, receipt_id, s
     return tx
 
@@ -59,6 +71,7 @@ def test_receipt_consuming_transaction(c):
 
     assert not urs0.get_used_receipts(receipt_id)
     c.mine(1)
+
     # test receipt-consuming-tx: wrong receipt_id
     rctx = mk_testing_receipt_consuming_tx(0, to_addr, value, 300000, 1)
     with pytest.raises(InvalidTransaction):
@@ -66,6 +79,7 @@ def test_receipt_consuming_transaction(c):
             c.head_state, shard_state, shard_id, rctx
         )
     assert not urs0.get_used_receipts(receipt_id)
+
     # test receipt-consuming-tx: to_addr is not correct
     rctx = mk_testing_receipt_consuming_tx(receipt_id, t.a9, value, 300000, 1)
     with pytest.raises(InvalidTransaction):
@@ -73,6 +87,7 @@ def test_receipt_consuming_transaction(c):
             c.head_state, shard_state, shard_id, rctx
         )
     assert not urs0.get_used_receipts(receipt_id)
+
     # test receipt-consuming-tx: value is not correct
     rctx = mk_testing_receipt_consuming_tx(receipt_id, to_addr, value - 1, 300000, 1)
     with pytest.raises(InvalidTransaction):
@@ -80,6 +95,7 @@ def test_receipt_consuming_transaction(c):
             c.head_state, shard_state, shard_id, rctx
         )
     assert not urs0.get_used_receipts(receipt_id)
+
     # test receipt-consuming-tx: correct receipt_id
     to_addr_orig_balance = shard_state.get_balance(to_addr)
     urs0_orig_balance = shard_state.get_balance(
@@ -95,16 +111,18 @@ def test_receipt_consuming_transaction(c):
     assert to_addr_orig_balance < shard_state.get_balance(to_addr)
     # There shouldn't be extra money generated in the urs0
     assert shard_state.get_balance(get_urs_contract(shard_id)['addr']) == \
-           urs0_orig_balance - (value - rctx.startgas * rctx.gasprice)
+        (urs0_orig_balance - (value - rctx.startgas * rctx.gasprice))
+
     # test receipt-consuming-tx: tx.value - tx.startgas * tx.gasprice <= 0
     receipt_id = valmgr.tx_to_shard(
         to_addr, shard_id, 260000, 2, data, sender=t.k0, value=500000
     )
     rctx = mk_testing_receipt_consuming_tx(receipt_id, to_addr, 500000, 260000, 2)
-    with pytest.raises(InvalidTransaction):
-        success, output = apply_shard_transaction(
-            c.head_state, shard_state, shard_id, rctx
-        )
+    success, output = apply_shard_transaction(
+        c.head_state, shard_state, shard_id, rctx
+    )
+    assert not success
+
     # test receipt-consuming-tx: after update gasprice, tx.value > tx.startgas * tx.gasprice
     assert valmgr.update_gasprice(receipt_id, 1, sender=t.k0)
     rctx = mk_testing_receipt_consuming_tx(receipt_id, to_addr, 500000, 260000, 1)

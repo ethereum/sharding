@@ -267,6 +267,7 @@ def call_valmgr(state, func, args, value=0, startgas=None, sender_addr=b'\x00' *
 
 
 def is_valmgr_setup(state):
-    return not (b'' == state.get_code(get_valmgr_addr()) and
+    return not (
+        b'' == state.get_code(get_valmgr_addr()) and
         0 == state.get_nonce(get_valmgr_sender_addr())
     )

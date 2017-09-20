@@ -1,12 +1,10 @@
-import pytest
-
-from ethereum import utils
-
 from sharding.tools import tester as t
 from sharding.validator_manager_utils import call_contract_inconstantly
-from sharding.used_receipt_store_utils import (call_urs,
-                                               get_urs_ct,
-                                               get_urs_contract)
+from sharding.used_receipt_store_utils import (
+    call_urs,
+    get_urs_ct,
+    get_urs_contract,
+)
 
 
 def chain(shard_id):

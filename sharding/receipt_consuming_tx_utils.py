@@ -1,5 +1,3 @@
-import pytest
-
 from ethereum import opcodes, utils, vm
 from ethereum.messages import CREATE_CONTRACT_ADDRESS, SKIP_MEDSTATES, VMExt, apply_msg, apply_transaction, mk_receipt
 from ethereum.slogging import get_logger
@@ -9,6 +7,7 @@ from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_cont
 from sharding.validator_manager_utils import call_contract_inconstantly, call_valmgr
 
 log_rctx = get_logger('sharding.rctx')
+
 
 def simplified_validate_transaction(state, tx):
     '''A simplified and modified one from
@@ -40,12 +39,13 @@ def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
     if receipt_value <= 0:
         return False
     receipt_to = call_valmgr(mainchain_state, 'get_receipts__to', [receipt_id])
-    if ((receipt_shard_id != shard_id) or
-        (receipt_startgas != tx.startgas) or
-        (receipt_gasprice != tx.gasprice) or
-        (receipt_value != tx.value) or
-        (receipt_to != hex(utils.big_endian_to_int((tx.to)))) or
-        call_urs(shard_state, shard_id, 'get_used_receipts', [receipt_id])):
+    if (
+            (receipt_shard_id != shard_id) or
+            (receipt_startgas != tx.startgas) or
+            (receipt_gasprice != tx.gasprice) or
+            (receipt_value != tx.value) or
+            (receipt_to != hex(utils.big_endian_to_int((tx.to)))) or
+            call_urs(shard_state, shard_id, 'get_used_receipts', [receipt_id])):
         return False
     return True
 
@@ -135,7 +135,6 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
 
     # Construct a receipt
     r = mk_receipt(shard_state, success, shard_state.logs)
-    _logs = list(shard_state.logs)
     shard_state.logs = []
     shard_state.add_receipt(r)
     shard_state.set_param('bloom', shard_state.bloom | r.bloom)
