@@ -57,9 +57,6 @@ add_header_log_topic: bytes32
 
 sighasher_addr: address
 
-# mapping validator_code_addr to index of validators
-validation_code_addr_to_index: num[address]
-
 # log the latest period number of the shard
 period_head: public(num[num])
 
@@ -115,13 +112,11 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     }
     self.num_validators += 1
     self.is_valcode_deposited[validation_code_addr] = True
-    self.validation_code_addr_to_index[validation_code_addr] = index
     return index
 
 
 def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     msg_hash = sha3("withdraw")
-    self.validation_code_addr_to_index[self.validators[validator_index].validation_code_addr] = 0
     result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1))
     if result:
         send(self.validators[validator_index].return_addr, self.validators[validator_index].deposit)
@@ -314,8 +309,3 @@ def update_gasprice(receipt_id: num, tx_gasprice: num) -> bool:
     assert self.receipts[receipt_id].sender == msg.sender
     self.receipts[receipt_id].tx_gasprice = tx_gasprice
     return True
-
-
-def get_index(addr: address) -> num:
-    # FIXME: one validation_code_addr may be reused
-    return self.validation_code_addr_to_index[addr]

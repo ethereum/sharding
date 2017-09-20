@@ -47,7 +47,6 @@ def test_validator_manager():
     assert c.head_state.get_balance(return_addr) == DEPOSIT_SIZE
     # test deposit: make use of empty slots
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
-    assert x.get_index(k0_valcode_addr) == 0
 
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     # test deposit: working fine in the edge condition
