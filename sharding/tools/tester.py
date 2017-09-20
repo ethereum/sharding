@@ -3,26 +3,47 @@ import rlp
 from rlp.sedes import List, binary
 
 from ethereum import utils
-from ethereum.utils import sha3, privtoaddr, int_to_addr, to_string, checksum_encode, int_to_big_endian, encode_hex
+from ethereum.utils import (
+    sha3,
+    privtoaddr,
+    int_to_addr,
+    to_string,
+    checksum_encode,
+    int_to_big_endian,
+    encode_hex,
+)
 from ethereum.genesis_helpers import mk_basic_state
 from ethereum.transactions import Transaction
 from ethereum.consensus_strategy import get_consensus_strategy
-from ethereum.config import config_homestead, config_tangerine, config_spurious, config_metropolis, default_config, Env
+from ethereum.config import (
+    config_homestead,
+    config_tangerine,
+    config_spurious,
+    config_metropolis,
+    default_config,
+    Env,
+)
 from ethereum.pow.ethpow import Miner
 from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate, set_execution_results
 from ethereum.meta import make_head_candidate
 from ethereum.abi import ContractTranslator
 
+from sharding import (
+    used_receipt_store_utils,
+    validator_manager_utils,
+)
 from sharding.main_chain import MainChain
 from sharding.shard_chain import ShardChain
 from sharding.config import sharding_config
 from sharding.collator import create_collation
 from sharding import state_transition as shard_state_transition
-from sharding import used_receipt_store_utils, validator_manager_utils
 from sharding.collation import CollationHeader
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
-from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_valmgr
+from sharding.validator_manager_utils import (
+    ADD_HEADER_TOPIC,
+    call_valmgr,
+)
 
 # Initialize accounts
 accounts = []

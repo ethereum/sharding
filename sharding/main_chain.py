@@ -7,11 +7,17 @@ from rlp.sedes import List, binary
 from ethereum.slogging import get_logger
 from ethereum.pow.chain import Chain
 from ethereum.utils import (
-    sha3, hash32,
-    big_endian_to_int, encode_hex)
+    sha3,
+    hash32,
+    big_endian_to_int,
+    encode_hex,
+)
 from ethereum import utils
 from ethereum.meta import apply_block
-from ethereum.exceptions import InvalidTransaction, VerificationFailed
+from ethereum.exceptions import (
+    InvalidTransaction,
+    VerificationFailed,
+)
 from ethereum.db import RefcountDB
 
 from sharding.shard_chain import ShardChain
@@ -280,7 +286,6 @@ class MainChain(Chain):
 
         return period_start_prevhash
 
-    # TODO: test
     def update_head_collation_of_block(self, collation):
         """Update ShardChain.head_collation_of_block
         """
@@ -300,19 +305,6 @@ class MainChain(Chain):
                     block = self.get_block(blockhash)
                     blockhash_list.extend([b.header.hash for b in self.get_children(block)])
         return True
-
-    # TODO: implement in pyethapp
-    # def handle_collation_header(self, collation_header):
-    #     """After add_block and got the collation_header
-    #     """
-    #     if self.has_shard(collation_header.shard_id):
-    #         collation = self.shards[collation_header.shard_id].get_collation(collation_header.hash)
-    #         if collation is None:
-    #             self.download_collaton(collation_header)
-    #         else:
-    #             self.reorganize_head_collation(collation)
-    #     else:
-    #         return
 
     def reorganize_head_collation(self, block, collation=None):
         """Reorganize head collation

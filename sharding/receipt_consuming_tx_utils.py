@@ -1,10 +1,28 @@
-from ethereum import opcodes, utils, vm
-from ethereum.messages import CREATE_CONTRACT_ADDRESS, SKIP_MEDSTATES, VMExt, apply_msg, apply_transaction, mk_receipt
+from ethereum import (
+    opcodes,
+    utils,
+    vm,
+)
+from ethereum.messages import (
+    CREATE_CONTRACT_ADDRESS,
+    SKIP_MEDSTATES,
+    VMExt,
+    apply_msg,
+    apply_transaction,
+    mk_receipt,
+)
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
 
-from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract
-from sharding.validator_manager_utils import call_contract_inconstantly, call_valmgr
+from sharding.used_receipt_store_utils import (
+    call_urs,
+    get_urs_ct,
+    get_urs_contract,
+)
+from sharding.validator_manager_utils import (
+    call_contract_inconstantly,
+    call_valmgr,
+)
 
 log_rctx = get_logger('sharding.rctx')
 

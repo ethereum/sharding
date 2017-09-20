@@ -1,11 +1,19 @@
 from ethereum.common import mk_transaction_sha, mk_receipt_sha
-from ethereum.exceptions import InsufficientBalance, BlockGasLimitReached, \
-    InsufficientStartGas, InvalidNonce, UnsignedTransaction
+from ethereum.exceptions import (
+    InsufficientBalance,
+    BlockGasLimitReached,
+    InsufficientStartGas,
+    InvalidNonce,
+    UnsignedTransaction,
+)
 from ethereum.slogging import get_logger
 from ethereum.utils import encode_hex
 
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
-from sharding.collation import Collation, CollationHeader
+from sharding.collation import (
+    Collation,
+    CollationHeader,
+)
 
 log = get_logger('sharding.shard_state_transition')
 

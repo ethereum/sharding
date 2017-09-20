@@ -2,17 +2,25 @@ import time
 import json
 import logging
 from collections import defaultdict
-
 import rlp
-from rlp.utils import encode_hex, decode_hex
 
-from ethereum.exceptions import InvalidTransaction, VerificationFailed
+from ethereum.exceptions import (
+    InvalidTransaction,
+    VerificationFailed,
+)
 from ethereum.slogging import get_logger
 from ethereum.config import Env
 from ethereum.state import State
 from ethereum.pow.consensus import initialize
+from ethereum.utils import (
+    encode_hex,
+    decode_hex,
+)
 
-from sharding.collation import CollationHeader, Collation
+from sharding.collation import (
+    CollationHeader,
+    Collation,
+)
 from sharding.collator import apply_collation
 from sharding.state_transition import update_collation_env_variables
 
@@ -95,7 +103,6 @@ class ShardChain(object):
     def db(self):
         return self.env.db
 
-    # TODO: use head_collation_of_block to update head collation
     @property
     def head(self):
         """head collation

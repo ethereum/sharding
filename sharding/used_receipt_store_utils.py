@@ -1,6 +1,9 @@
 import os
 
-from ethereum import abi, utils
+from ethereum import (
+    abi,
+    utils,
+)
 from ethereum.transactions import Transaction
 from viper import compiler
 

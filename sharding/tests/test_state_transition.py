@@ -5,10 +5,16 @@ from ethereum.state import State
 from ethereum.transaction_queue import TransactionQueue
 from ethereum import utils
 from ethereum.slogging import get_logger
-from ethereum.common import mk_transaction_sha, mk_receipt_sha
+from ethereum.common import (
+    mk_transaction_sha,
+    mk_receipt_sha,
+)
 from ethereum import trie
 
-from sharding.collation import Collation, CollationHeader
+from sharding.collation import (
+    Collation,
+    CollationHeader,
+)
 from sharding import state_transition
 from sharding.tools import tester
 

@@ -7,6 +7,9 @@ from sharding.tools import tester as t
 from sharding.validator_manager_utils import (
     DEPOSIT_SIZE,
     WITHDRAW_HASH,
+    create_contract_tx,
+    mk_validation_code,
+    sign,
     call_deposit,
     call_validation_code,
     call_valmgr,
@@ -14,9 +17,6 @@ from sharding.validator_manager_utils import (
     call_tx_add_header,
     call_tx_to_shard,
     get_shard_list,
-    mk_validation_code,
-    sign,
-    create_contract_tx,
 )
 
 
@@ -107,7 +107,7 @@ def test_call_add_header_get_shard_head(chain):
     chain.mine(1)
 
     # sample
-    if k0_valcode_addr == int(call_valmgr(chain.head_state, 'sample', [0]), 16):
+    if utils.big_endian_to_int(k0_valcode_addr) == int(call_valmgr(chain.head_state, 'sample', [0]), 16):
         privkey = t.k0
         collator_addr = t.a0
     else:

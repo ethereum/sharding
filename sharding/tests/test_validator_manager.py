@@ -1,18 +1,18 @@
 import pytest
 import rlp
-
-from ethereum import utils
-from sharding.tools import tester as t
 from rlp.sedes import List, binary
 
+from ethereum import utils
+
+from sharding.tools import tester as t
 from sharding.validator_manager_utils import (
+    WITHDRAW_HASH,
+    DEPOSIT_SIZE,
+    mk_validation_code,
+    sign,
     get_valmgr_addr,
     get_valmgr_ct,
     get_valmgr_code,
-    mk_validation_code,
-    sign,
-    WITHDRAW_HASH,
-    DEPOSIT_SIZE,
 )
 
 validator_manager_code = get_valmgr_code()
@@ -41,7 +41,11 @@ def test_validator_manager():
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     # test deposit: works fine
     return_addr = utils.privtoaddr(utils.sha3("return_addr"))
+    # test get_shard_list: couldn't be sampled
+    assert not x.get_shard_list(k0_valcode_addr)[0]
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    # test get_shard_list: can be sampled now
+    assert x.get_shard_list(k0_valcode_addr)[0]
     assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
     assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     # test withdraw: see if the money is returned

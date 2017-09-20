@@ -14,7 +14,10 @@ from sharding.used_receipt_store_utils import (
     get_urs_ct,
     get_urs_contract,
 )
-from sharding.validator_manager_utils import get_valmgr_addr, get_valmgr_ct
+from sharding.validator_manager_utils import (
+    get_valmgr_addr,
+    get_valmgr_ct,
+)
 
 config_string = 'sharding.rctx:debug'
 configure_logging(config_string=config_string)

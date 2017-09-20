@@ -5,7 +5,10 @@ from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.common import mk_block_from_prevstate
 
 from sharding import state_transition
-from sharding.validator_manager_utils import (sign, call_valmgr)
+from sharding.validator_manager_utils import (
+    sign,
+    call_valmgr,
+)
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')
@@ -121,5 +124,5 @@ def verify_collation_header(chain, header):
         if not result:
             raise ValueError('Calling add_header returns False')
     except Exception as e:
-        raise ValueError('Calling add_header is failed', str(e))
+        raise ValueError('Failed to call add_header', str(e))
     return True

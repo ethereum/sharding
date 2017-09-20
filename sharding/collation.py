@@ -1,9 +1,17 @@
 # -*- coding: utf-8 -*-
 import rlp
-from rlp.sedes import binary, CountableList
-from ethereum.utils import hash32, trie_root, \
-    big_endian_int, address, \
-    encode_hex, decode_hex
+from rlp.sedes import (
+    binary,
+    CountableList,
+)
+from ethereum.utils import (
+    hash32,
+    trie_root,
+    big_endian_int,
+    address,
+    encode_hex,
+    decode_hex,
+)
 from ethereum import utils
 from ethereum import trie
 from ethereum.transactions import Transaction

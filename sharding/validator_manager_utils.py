@@ -2,7 +2,11 @@ import os
 import rlp
 from viper import compiler
 
-from ethereum import abi, utils, vm
+from ethereum import (
+    abi,
+    utils,
+    vm,
+)
 from ethereum.messages import apply_message
 from ethereum.transactions import Transaction
 
@@ -203,10 +207,10 @@ def get_shard_list(state, valcode_addr):
     # return abi.decode_abi(['bool[100]'], shard_list)[0]
 
 
-def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, nonce=None, startgas=300000):
+def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, startgas=300000):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
-        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, nonce=nonce, startgas=startgas
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, startgas=startgas
     )
 
 
