@@ -37,41 +37,51 @@ def test_validator_manager():
     with pytest.raises(t.TransactionFailed):
         # gas == GASLIMIT
         x.deposit(k0_valcode_addr, k0_valcode_addr)
+
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
-    # test deposit: works fine
+
     return_addr = utils.privtoaddr(utils.sha3("return_addr"))
+
     # test get_shard_list: couldn't be sampled
     assert not x.get_shard_list(k0_valcode_addr)[0]
+
+    # test deposit: works fine
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+
     # test get_shard_list: can be sampled now
     assert x.get_shard_list(k0_valcode_addr)[0]
-    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
-    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
+
+    # test sample: correctly sample the only one validator
+    assert x.sample(0) == hex(utils.big_endian_to_int(k0_valcode_addr))
+
     # test withdraw: see if the money is returned
+    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     assert c.head_state.get_balance(return_addr) == DEPOSIT_SIZE
+
     # test deposit: make use of empty slots
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
 
+    # test deposit: other validation code address
+    assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     # test deposit: working fine in the edge condition
     assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+
     # test deposit: fails when valcode_addr is deposited before
     with pytest.raises(t.TransactionFailed):
         x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
     # test withdraw: fails when the signature is not corret
     assert not x.withdraw(1, sign(WITHDRAW_HASH, t.k0))
 
-    # test sample: correctly sample the only one validator
-    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
-    assert x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr))
     # test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
+    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     assert x.sample(0) == "0x0000000000000000000000000000000000000000"
 
-    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0):
+    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
         period_length = 5
-        expected_period_number = num_blocks // period_length
+        expected_period_number = (n_blocks + 1) // period_length
         b = c.chain.get_block_by_number(expected_period_number * period_length - 1)
         period_start_prevhash = b.header.hash
         tx_list_root = b"tx_list " * 4
@@ -84,7 +94,7 @@ def test_validator_manager():
                 post_state_root, receipt_root, number
             ])
         )
-        sig = sign(sighash, t.k0)
+        sig = sign(sighash, privkey)
         return rlp.encode([
             shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
@@ -115,17 +125,44 @@ def test_validator_manager():
 
     # test get_shard_head: returns genesis_colhdr_hash when there is no new header
     assert x.get_shard_head() == shard0_genesis_colhdr_hash
-    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
-    # test add_header: fails when there is no collator in this period
-    assert not x.add_header(h1)
+
+    # test get_num_validators: check there's no validator
+    assert x.get_num_validators() == 0
+
+    # deposit again
     assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    assert 0 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+
+    # test: check there's no empty slot
+    assert x.get_validators_max_index() == 2
+    assert x.get_num_validators() == 2
+    assert x.get_is_valcode_deposited(k0_valcode_addr)
+    assert x.get_is_valcode_deposited(k1_valcode_addr)
+
+    # test: get collator
+    if x.sample(0) == hex(utils.big_endian_to_int(k0_valcode_addr)):
+        privkey = t.k0
+    elif x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr)):
+        privkey = t.k1
+    else:
+        raise Exception("Failed to sample")
+
     # test add_header: works normally with parent_collation_hash == GENESIS
-    h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
+    h1 = get_colhdr(
+        shard_id,
+        shard0_genesis_colhdr_hash,
+        1,
+        collation_coinbase=utils.privtoaddr(privkey),
+        privkey=privkey,
+        n_blocks=c.chain.head.number
+    )
     assert x.add_header(h1)
+
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
         x.add_header(h1)
+
     # test add_header: fails when the parent_collation_hash is not added before
     with pytest.raises(t.TransactionFailed):
         h2 = get_colhdr(shard_id, utils.sha3("123"), 2)

@@ -45,7 +45,7 @@ shuffling_cycle_length: num
 sig_gas_limit: num
 
 # is a valcode addr deposited now?
-is_valcode_deposited: bool[address]
+is_valcode_deposited: public(bool[address])
 
 period_length: num
 
