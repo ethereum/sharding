@@ -179,19 +179,19 @@ def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gaspr
     return tx
 
 
-def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr, gasprice=GASPRICE):
+def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr, gasprice=GASPRICE, nonce=None):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
-        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, nonce=nonce
     )
 
 
-def call_withdraw(state, sender_privkey, value, validator_index, signature, gasprice=GASPRICE):
+def call_withdraw(state, sender_privkey, value, validator_index, signature, gasprice=GASPRICE, nonce=None):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'withdraw', [validator_index, signature],
-        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, nonce=nonce
     )
 
 
@@ -207,17 +207,17 @@ def get_shard_list(state, valcode_addr):
     # return abi.decode_abi(['bool[100]'], shard_list)[0]
 
 
-def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, startgas=300000):
+def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, startgas=300000, nonce=None):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
-        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, startgas=startgas
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, startgas=startgas, nonce=nonce
     )
 
 
-def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data):
+def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data, nonce=None):
     return call_tx(
         state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, startgas, gasprice, data],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, nonce=nonce
     )
 
 
