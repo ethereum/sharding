@@ -19,6 +19,8 @@ from sharding.validator_manager_utils import (
 from sharding.config import sharding_config
 
 validator_manager_code = get_valmgr_code()
+deposit_logs = []
+tx_to_shard_logs = []
 
 
 def test_validator_manager():
@@ -51,9 +53,29 @@ def test_validator_manager():
     # test get_shard_list: couldn't be sampled
     assert not x.get_shard_list(k0_valcode_addr, is_constant=True)[0]
 
+    # test deposit log
+    global deposit_logs
+    deposit_logs = []
+    as_bytes_32_addr = b'\x00' * 12 + k0_valcode_addr
+    depoist_topic = utils.big_endian_to_int(
+        utils.sha3(
+            'deposit()'.encode() + as_bytes_32_addr
+        )
+    )
+
+    def deposit_event_watcher(log):
+        # print the last log and store the recent received one
+        if log.topics[0] == depoist_topic:
+            global deposit_logs
+            deposit_logs.append(log.data)
+
     # test deposit: works fine
+    c.head_state.log_listeners.append(deposit_event_watcher)
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
     c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+
+    # test deposit: log is right
+    assert utils.big_endian_to_int(deposit_logs[-1]) == 0
 
     # test get_shard_list: can be sampled now
     # assert x.get_shard_list(k0_valcode_addr)[0]
@@ -241,6 +263,29 @@ def test_validator_manager():
 
     assert 1 == receipt_id1
     assert 101 == x.get_receipts__value(receipt_id1, is_constant=True)
+
+    # test tx_to_shard log
+    global tx_to_shard_logs
+    tx_to_shard_logs = []
+    as_bytes_32_addr = b'\x00' * 12 + to_addr
+    tx_to_shard_topic = utils.big_endian_to_int(
+        utils.sha3(
+            'tx_to_shard()'.encode() + as_bytes_32_addr
+        )
+    )
+
+    def tx_to_shard_event_watcher(log):
+        # print the last log and store the recent received one
+        print('log: {}'.format(log))
+        if log.topics[0] == tx_to_shard_topic:
+            global tx_to_shard_logs
+            tx_to_shard_logs.append(log.data)
+
+    c.head_state.log_listeners.append(tx_to_shard_event_watcher)
+    assert x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=102) == 2
+    c.mine(1)
+    # test deposit: log is right
+    assert utils.big_endian_to_int(tx_to_shard_logs[-1]) == 2
 
     # test update_gasprice: fails when msg.sender doesn't match
     with pytest.raises(t.TransactionFailed):
