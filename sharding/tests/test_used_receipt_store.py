@@ -5,7 +5,7 @@ from sharding.used_receipt_store_utils import (
     get_urs_ct,
     get_urs_contract,
 )
-from sharding.validator_manager_utils import (
+from sharding.contract_utils import (
     MessageFailed,
     call_contract_inconstantly,
 )

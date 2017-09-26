@@ -7,6 +7,7 @@ from ethereum.utils import encode_hex
 from sharding.tools import tester
 from sharding.shard_chain import ShardChain
 from sharding.collation import Collation
+from sharding.config import sharding_config
 
 log = get_logger('test.shard_chain')
 log.setLevel(logging.DEBUG)
@@ -121,7 +122,7 @@ def chain(shard_id, k0_deposit=True):
     if k0_deposit:
         # deposit
         c.sharding_deposit(privkey, valcode_addr)
-        c.mine(1)
+        c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
     c.add_test_shard(shard_id)
     return c
 
@@ -165,7 +166,7 @@ def test_longest_chain_rule():
     log.info('[block 2\'] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
     log.info('[block 2\'] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
     assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 1
-    assert t.chain.get_score(t.chain.head) == 13
+    assert t.chain.get_score(t.chain.head) == 37
 
     # [block 3']: includes collation B -> C
     # Clear tester
@@ -180,7 +181,7 @@ def test_longest_chain_rule():
     log.info('[block 3\'] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
     log.info('[block 3\'] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
     assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 2
-    assert t.chain.get_score(t.chain.head) == 18
+    assert t.chain.get_score(t.chain.head) == 42
     assert t.chain.shards[shard_id].head_hash == collation_BC.hash
 
     # [block 3]: doesn't include collation
@@ -190,7 +191,7 @@ def test_longest_chain_rule():
     log.info('[block 3] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
     log.info('[block 3] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
     assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 2
-    assert t.chain.get_score(t.chain.head) == 18
+    assert t.chain.get_score(t.chain.head) == 42
     assert t.chain.shards[shard_id].head_hash == collation_BC.hash
 
     # [block 4]: doesn't include collation
@@ -198,5 +199,5 @@ def test_longest_chain_rule():
     log.info('[block 4] CURRENT BLOCK HEAD:{}'.format(encode_hex(t.chain.head_hash)))
     log.info('[block 4] CURRENT SHARD HEAD:{}'.format(encode_hex(t.chain.shards[shard_id].head_hash)))
     assert t.chain.shards[shard_id].get_score(t.chain.shards[shard_id].head) == 1
-    assert t.chain.get_score(t.chain.head) == 23
+    assert t.chain.get_score(t.chain.head) == 47
     assert t.chain.shards[shard_id].head_hash == collation_AB.hash

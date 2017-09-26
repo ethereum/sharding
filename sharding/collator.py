@@ -5,10 +5,8 @@ from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.common import mk_block_from_prevstate
 
 from sharding import state_transition
-from sharding.validator_manager_utils import (
-    sign,
-    call_valmgr,
-)
+from sharding.contract_utils import sign
+from sharding.validator_manager_utils import call_valmgr
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')

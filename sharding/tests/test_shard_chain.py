@@ -27,7 +27,7 @@ def chain(shard_id, k0_deposit=True):
     if k0_deposit:
         # deposit
         c.sharding_deposit(privkey, valcode_addr)
-        c.mine(1)
+        c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
     c.add_test_shard(shard_id)
     return c
 

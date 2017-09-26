@@ -13,14 +13,13 @@ from ethereum.messages import (
 )
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
-
+from sharding.contract_utils import call_contract_inconstantly
 from sharding.used_receipt_store_utils import (
     call_urs,
     get_urs_ct,
     get_urs_contract,
 )
 from sharding.validator_manager_utils import (
-    call_contract_inconstantly,
     call_valmgr,
 )
 

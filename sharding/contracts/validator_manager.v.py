@@ -6,6 +6,8 @@ validators: public({
     validation_code_addr: address,
     # Addess to withdraw to
     return_addr: address,
+    # The cycle number which the validator would be included after
+    cycle: num,
 }[num])
 
 collation_headers: public({
@@ -65,7 +67,7 @@ def __init__():
     self.empty_slots_stack_top = 0
     # 10 ** 20 wei = 100 ETH
     self.deposit_size = 100000000000000000000
-    self.shuffling_cycle_length = 2500
+    self.shuffling_cycle_length = 25
     self.sig_gas_limit = 400000
     self.period_length = 5
     self.num_validators_per_cycle = 100
@@ -91,7 +93,19 @@ def stack_pop() -> num:
 
 
 def get_validators_max_index() -> num:
-    return self.num_validators + self.empty_slots_stack_top
+    zero_addr = 0x0000000000000000000000000000000000000000
+    activate_validator_num = 0
+    current_cycle = floor(decimal(block.number / self.shuffling_cycle_length))
+    all_validator_slots_num = self.num_validators + self.empty_slots_stack_top
+
+    # TODO: any better way to iterate the mapping?
+    for i in range(1024):
+        if i >= all_validator_slots_num:
+            break
+        if (self.validators[i].validation_code_addr != zero_addr and
+            self.validators[i].cycle <= current_cycle):
+            activate_validator_num += 1
+    return activate_validator_num + self.empty_slots_stack_top
 
 
 @payable
@@ -99,14 +113,17 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     assert not self.is_valcode_deposited[validation_code_addr]
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
+    next_cycle = 0
     if not self.is_stack_empty():
         index = self.stack_pop()
     else:
         index = self.num_validators
+        next_cycle = floor(decimal(block.number / self.shuffling_cycle_length)) + 1
     self.validators[index] = {
         deposit: msg.value,
         validation_code_addr: validation_code_addr,
-        return_addr: return_addr
+        return_addr: return_addr,
+        cycle: next_cycle
     }
     self.num_validators += 1
     self.is_valcode_deposited[validation_code_addr] = True
@@ -122,7 +139,8 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
         self.validators[validator_index] = {
             deposit: 0,
             validation_code_addr: None,
-            return_addr: None
+            return_addr: None,
+            cycle: 0
         }
         self.stack_push(validator_index)
         self.num_validators -= 1
@@ -131,7 +149,6 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
 @constant
 def sample(shard_id: num) -> address:
-
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
     cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
     if cycle_start_block_number < 0:
@@ -146,9 +163,10 @@ def sample(shard_id: num) -> address:
                                  as_num256(self.num_validators_per_cycle))
     validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
                                  as_num256(self.get_validators_max_index()))
-    addr = self.validators[as_num128(validator_index)].validation_code_addr
-
-    return addr
+    if self.validators[as_num128(validator_index)].cycle > cycle:
+        return 0x0000000000000000000000000000000000000000
+    else:
+        return self.validators[as_num128(validator_index)].validation_code_addr
 
 
 # Get all possible shard ids that the given valcode_addr
@@ -161,6 +179,7 @@ def get_shard_list(valcode_addr: address) -> bool[100]:
     if cycle_start_block_number < 0:
         cycle_start_block_number = 0
     cycle_seed = blockhash(cycle_start_block_number)
+    validators_max_index = self.get_validators_max_index()
     if self.num_validators != 0:
         for shard_id in range(100):
             shard_list[shard_id] = False
@@ -176,10 +195,9 @@ def get_shard_list(valcode_addr: address) -> bool[100]:
                                 as_bytes32(possible_index_in_subset))
                             )
                     ),
-                    as_num256(self.get_validators_max_index())
+                    as_num256(validators_max_index)
                 )
-                addr = self.validators[as_num128(validator_index)].validation_code_addr
-                if addr == valcode_addr:
+                if valcode_addr == self.validators[as_num128(validator_index)].validation_code_addr:
                     shard_list[shard_id] = True
                     break
     return shard_list

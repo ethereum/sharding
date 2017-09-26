@@ -20,7 +20,7 @@ sharding_config['SIG_GASLIMIT'] = 40000
 sharding_config['COLLATOR_REWARD'] = 0.002 * utils.denoms.ether
 sharding_config['SIG_GASLIMIT'] = 40000
 sharding_config['PERIOD_LENGTH'] = 5                 # blocks
-sharding_config['SHUFFLING_CYCLE'] = 2500            # blocks
+sharding_config['SHUFFLING_CYCLE_LENGTH'] = 25              # blocks, TODO: 25 is for testing, the reasonable number is 2500
 sharding_config['DEPOSIT_SIZE'] = 10 ** 20
 sharding_config['CONTRACT_CALL_GAS'] = {
     'VALIDATOR_MANAGER': defaultdict(lambda: 200000, {

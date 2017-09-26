@@ -5,15 +5,18 @@ from rlp.sedes import List, binary
 from ethereum import utils
 
 from sharding.tools import tester as t
+from sharding.contract_utils import (
+    sign,
+)
 from sharding.validator_manager_utils import (
     WITHDRAW_HASH,
     DEPOSIT_SIZE,
     mk_validation_code,
-    sign,
     get_valmgr_addr,
     get_valmgr_ct,
     get_valmgr_code,
 )
+from sharding.config import sharding_config
 
 validator_manager_code = get_valmgr_code()
 
@@ -37,23 +40,26 @@ def test_validator_manager():
     with pytest.raises(t.TransactionFailed):
         # gas == GASLIMIT
         x.deposit(k0_valcode_addr, k0_valcode_addr)
+    c.mine(1)
 
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
+    c.mine(1)
 
     return_addr = utils.privtoaddr(utils.sha3("return_addr"))
 
     # test get_shard_list: couldn't be sampled
-    assert not x.get_shard_list(k0_valcode_addr)[0]
+    assert not x.get_shard_list(k0_valcode_addr, is_constant=True)[0]
 
     # test deposit: works fine
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
 
     # test get_shard_list: can be sampled now
-    assert x.get_shard_list(k0_valcode_addr)[0]
+    # assert x.get_shard_list(k0_valcode_addr)[0]
 
     # test sample: correctly sample the only one validator
-    assert x.sample(0) == hex(utils.big_endian_to_int(k0_valcode_addr))
+    assert x.sample(0, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))
 
     # test withdraw: see if the money is returned
     assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
@@ -61,9 +67,9 @@ def test_validator_manager():
 
     # test deposit: make use of empty slots
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
-
     # test deposit: other validation code address
     assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
     # test deposit: working fine in the edge condition
     assert 1 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
@@ -71,13 +77,17 @@ def test_validator_manager():
     # test deposit: fails when valcode_addr is deposited before
     with pytest.raises(t.TransactionFailed):
         x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+
+    c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+
     # test withdraw: fails when the signature is not corret
     assert not x.withdraw(1, sign(WITHDRAW_HASH, t.k0))
 
     # test sample: sample returns zero_addr (i.e. 0x00) when there is no depositing validator
     assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     assert x.withdraw(1, sign(WITHDRAW_HASH, t.k1))
-    assert x.sample(0) == "0x0000000000000000000000000000000000000000"
+    c.mine(1)
+    assert x.sample(0, is_constant=True) == "0x0000000000000000000000000000000000000000"
 
     def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
         period_length = 5
@@ -124,25 +134,26 @@ def test_validator_manager():
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
 
     # test get_shard_head: returns genesis_colhdr_hash when there is no new header
-    assert x.get_shard_head() == shard0_genesis_colhdr_hash
+    assert x.get_shard_head(is_constant=True) == shard0_genesis_colhdr_hash
 
     # test get_num_validators: check there's no validator
-    assert x.get_num_validators() == 0
+    assert x.get_num_validators(is_constant=True) == 0
 
     # deposit again
     assert 1 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
     assert 0 == x.deposit(k1_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k1)
+    c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
 
     # test: check there's no empty slot
-    assert x.get_validators_max_index() == 2
-    assert x.get_num_validators() == 2
+    assert x.get_validators_max_index(is_constant=True) == 2
+    assert x.get_num_validators(is_constant=True) == 2
     assert x.get_is_valcode_deposited(k0_valcode_addr)
     assert x.get_is_valcode_deposited(k1_valcode_addr)
 
     # test: get collator
-    if x.sample(0) == hex(utils.big_endian_to_int(k0_valcode_addr)):
+    if x.sample(0, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr)):
         privkey = t.k0
-    elif x.sample(0) == hex(utils.big_endian_to_int(k1_valcode_addr)):
+    elif x.sample(0, is_constant=True) == hex(utils.big_endian_to_int(k1_valcode_addr)):
         privkey = t.k1
     else:
         raise Exception("Failed to sample")
@@ -157,16 +168,20 @@ def test_validator_manager():
         n_blocks=c.chain.head.number
     )
     assert x.add_header(h1)
+    c.mine(1)
 
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
         x.add_header(h1)
+    c.mine(1)
 
     # test add_header: fails when the parent_collation_hash is not added before
     with pytest.raises(t.TransactionFailed):
         h2 = get_colhdr(shard_id, utils.sha3("123"), 2)
         x.add_header(h2)
+    c.mine(1)
+
     # test add_header: the log is generated normally
 
     # TODO: The following tests need to mine before calling add_header,
@@ -222,14 +237,18 @@ def test_validator_manager():
     # test tx_to_shard: see if receipt_id is incrementing when called
     # multiple times
     receipt_id1 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=101)
+    c.mine(1)
+
     assert 1 == receipt_id1
-    assert 101 == x.get_receipts__value(receipt_id1)
+    assert 101 == x.get_receipts__value(receipt_id1, is_constant=True)
 
     # test update_gasprice: fails when msg.sender doesn't match
     with pytest.raises(t.TransactionFailed):
         x.update_gasprice(receipt_id1, 2, sender=t.k0)
+    c.mine(1)
     # test update_gasprice: see if the gasprice updated successfully
     assert x.update_gasprice(receipt_id1, 2, sender=t.k1)
-    assert 2 == x.get_receipts__tx_gasprice(receipt_id1)
+    c.mine(1)
+    assert 2 == x.get_receipts__tx_gasprice(receipt_id1, is_constant=True)
 
     print(utils.checksum_encode(get_valmgr_addr()))

@@ -8,7 +8,7 @@ from ethereum.transactions import Transaction
 from viper import compiler
 
 from sharding.config import sharding_config
-from sharding.validator_manager_utils import (
+from sharding.contract_utils import (
     GASPRICE,
     call_contract_constantly,
     get_tx_rawhash,
