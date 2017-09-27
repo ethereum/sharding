@@ -360,7 +360,7 @@ class MainChain(Chain):
         if collation.header.hash in self.shards[collation.shard_id].parent_queue:
             for _collation in self.shards[collation.shard_id].parent_queue[collation.header.hash]:
                 _period_start_prevblock = self.get_block(collation.header.period_start_prevhash)
-                self.shards[collation.shard_id].add_collation(_collation, _period_start_prevblock, self.handle_ignored_collation, self.update_head_collation_of_block)
+                self.shards[collation.shard_id].add_collation(_collation, _period_start_prevblock)
                 del self.shards[collation.shard_id].parent_queue[collation.header.hash]
 
     def append_log_listener(self):
