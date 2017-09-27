@@ -56,16 +56,13 @@ def test_validator_manager():
     # test deposit log
     global deposit_logs
     deposit_logs = []
-    as_bytes_32_addr = b'\x00' * 12 + k0_valcode_addr
-    depoist_topic = utils.big_endian_to_int(
-        utils.sha3(
-            'deposit()'.encode() + as_bytes_32_addr
-        )
-    )
+    as_bytes32_addr = utils.big_endian_to_int(b'\x00' * 12 + k0_valcode_addr)
+    depoist_topic = utils.big_endian_to_int(utils.sha3('deposit()'))
 
     def deposit_event_watcher(log):
         # print the last log and store the recent received one
-        if log.topics[0] == depoist_topic:
+        print('log: {}'.format(log))
+        if log.topics[0] == depoist_topic and log.topics[1] == as_bytes32_addr:
             global deposit_logs
             deposit_logs.append(log.data)
 
@@ -173,9 +170,9 @@ def test_validator_manager():
     assert x.get_is_valcode_deposited(k1_valcode_addr)
 
     # test: get collator
-    if x.sample(0, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr)):
+    if x.sample(shard_id, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr)):
         privkey = t.k0
-    elif x.sample(0, is_constant=True) == hex(utils.big_endian_to_int(k1_valcode_addr)):
+    elif x.sample(shard_id, is_constant=True) == hex(utils.big_endian_to_int(k1_valcode_addr)):
         privkey = t.k1
     else:
         raise Exception("Failed to sample")
@@ -254,11 +251,11 @@ def test_validator_manager():
     to_addr = utils.privtoaddr(utils.sha3("to_addr"))
     startgas = 100000
     gasprice = 1
-    receipt_id0 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k0, value=100)
+    receipt_id0 = x.tx_to_shard(to_addr, shard_id, startgas, gasprice, b'', sender=t.k0, value=100)
     assert 0 == receipt_id0
     # test tx_to_shard: see if receipt_id is incrementing when called
     # multiple times
-    receipt_id1 = x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=101)
+    receipt_id1 = x.tx_to_shard(to_addr, shard_id, startgas, gasprice, b'', sender=t.k1, value=101)
     c.mine(1)
 
     assert 1 == receipt_id1
@@ -267,25 +264,22 @@ def test_validator_manager():
     # test tx_to_shard log
     global tx_to_shard_logs
     tx_to_shard_logs = []
-    as_bytes_32_addr = b'\x00' * 12 + to_addr
-    tx_to_shard_topic = utils.big_endian_to_int(
-        utils.sha3(
-            'tx_to_shard()'.encode() + as_bytes_32_addr
-        )
-    )
+    tx_to_shard_topic = utils.big_endian_to_int(utils.sha3("tx_to_shard()"))
+    as_bytes32_addr = utils.big_endian_to_int(b'\x00' * 12 + to_addr)
 
     def tx_to_shard_event_watcher(log):
         # print the last log and store the recent received one
         print('log: {}'.format(log))
-        if log.topics[0] == tx_to_shard_topic:
+        if log.topics[0] == tx_to_shard_topic and log.topics[1] == as_bytes32_addr:
             global tx_to_shard_logs
-            tx_to_shard_logs.append(log.data)
+            tx_to_shard_logs.append(log)
 
     c.head_state.log_listeners.append(tx_to_shard_event_watcher)
-    assert x.tx_to_shard(to_addr, 0, startgas, gasprice, b'', sender=t.k1, value=102) == 2
+    assert x.tx_to_shard(to_addr, shard_id, startgas, gasprice, b'', sender=t.k1, value=102) == 2
     c.mine(1)
     # test deposit: log is right
-    assert utils.big_endian_to_int(tx_to_shard_logs[-1]) == 2
+    assert utils.big_endian_to_int(tx_to_shard_logs[-1].data) == 2
+    assert tx_to_shard_logs[-1].topics[2] == shard_id
 
     # test update_gasprice: fails when msg.sender doesn't match
     with pytest.raises(t.TransactionFailed):

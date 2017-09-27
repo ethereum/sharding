@@ -129,9 +129,7 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     self.is_valcode_deposited[validation_code_addr] = True
 
     raw_log(
-        # [sha3("deposit()")],
-        # [sha3(as_bytes32(validation_code_addr))],
-        [sha3(concat("deposit()", as_bytes32(validation_code_addr)))],
+        [sha3("deposit()"), as_bytes32(validation_code_addr)],
         concat('', as_bytes32(index))
     )
 
@@ -329,7 +327,7 @@ def tx_to_shard(to: address, shard_id: num, tx_startgas: num, tx_gasprice: num, 
     self.num_receipts += 1
 
     raw_log(
-        [sha3(concat("tx_to_shard()", as_bytes32(to)))],
+        [sha3("tx_to_shard()"), as_bytes32(to), as_bytes32(shard_id)],
         concat('', as_bytes32(receipt_id))
     )
 
