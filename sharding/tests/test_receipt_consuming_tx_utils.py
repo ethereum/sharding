@@ -8,7 +8,7 @@ from ethereum.transactions import Transaction
 from sharding.tools import tester as t
 from sharding.receipt_consuming_tx_utils import (
     apply_shard_transaction,
-    is_valid_receipt_consuming_tx,
+    validate_receipt_consuming_tx,
 )
 from sharding.used_receipt_store_utils import (
     get_urs_ct,
@@ -134,8 +134,9 @@ def test_receipt_consuming_transaction(c):
     )
     assert success
 
-    # test is_valid_receipt_consuming_tx: ban tx.to == b''
+    # test validate_receipt_consuming_tx: ban tx.to == b''
     rctx = mk_testing_receipt_consuming_tx(0, b'', value, 300000, 1)
-    assert not is_valid_receipt_consuming_tx(
-        c.head_state, shard_state, shard_id, rctx
-    )
+    with pytest.raises(InvalidTransaction):
+        validate_receipt_consuming_tx(
+            c.head_state, shard_state, shard_id, rctx
+        )

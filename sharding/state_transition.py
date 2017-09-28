@@ -5,11 +5,16 @@ from ethereum.exceptions import (
     InsufficientStartGas,
     InvalidNonce,
     UnsignedTransaction,
+    InvalidTransaction,
 )
 from ethereum.slogging import get_logger
 from ethereum.utils import encode_hex
 
-from sharding.receipt_consuming_tx_utils import apply_shard_transaction
+from sharding.receipt_consuming_tx_utils import (
+    apply_shard_transaction,
+    is_receipt_consuming_tx,
+    validate_receipt_consuming_tx,
+)
 from sharding.collation import (
     Collation,
     CollationHeader,
@@ -46,6 +51,15 @@ def add_transactions(shard_state, collation, txqueue, shard_id, min_gasprice=0, 
         )
         if tx is None:
             break
+
+        # Discard invalid receipt-consuming-tx
+        if is_receipt_consuming_tx(tx):
+            try:
+                validate_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)
+            except (InvalidTransaction, InsufficientStartGas) as e:
+                log.info(str(e))
+                continue
+
         try:
             apply_shard_transaction(mainchain_state, shard_state, shard_id, tx)
             collation.transactions.append(tx)
