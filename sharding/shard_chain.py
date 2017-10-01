@@ -2,17 +2,25 @@ import time
 import json
 import logging
 from collections import defaultdict
-
 import rlp
-from rlp.utils import encode_hex
 
-from ethereum.exceptions import InvalidTransaction, VerificationFailed
+from ethereum.exceptions import (
+    InvalidTransaction,
+    VerificationFailed,
+)
 from ethereum.slogging import get_logger
 from ethereum.config import Env
 from ethereum.state import State
 from ethereum.pow.consensus import initialize
+from ethereum.utils import (
+    encode_hex,
+    decode_hex,
+)
 
-from sharding.collation import CollationHeader, Collation
+from sharding.collation import (
+    CollationHeader,
+    Collation,
+)
 from sharding.collator import apply_collation
 from sharding.state_transition import update_collation_env_variables
 
@@ -20,14 +28,15 @@ log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
 
 
-def initialize_genesis_keys(state, genesis):
+def initialize_genesis_keys(state, genesis, shard_id):
     """Rewrite ethereum.genesis_helpers.initialize_genesis_keys
     """
     db = state.db
+    prefix = 'SHARD_' + str(shard_id) + '_'
     # db.put('GENESIS_NUMBER', str(genesis.header.number))
-    db.put('GENESIS_HASH', str(genesis.header.hash))
-    db.put('GENESIS_STATE', json.dumps(state.to_snapshot()))
-    db.put('GENESIS_RLP', rlp.encode(genesis))
+    db.put(prefix + 'GENESIS_HASH', str(genesis.header.hash))
+    db.put(prefix + 'GENESIS_STATE', json.dumps(state.to_snapshot()))
+    db.put(prefix + 'GENESIS_RLP', rlp.encode(genesis))
     db.put(b'score:' + genesis.header.hash, "0")
     db.put(b'state:' + genesis.header.hash, state.trie.root_hash)
     db.put(genesis.header.hash, 'GENESIS')
@@ -40,6 +49,8 @@ class ShardChain(object):
                  initial_state=None, main_chain=None, **kwargs):
         self.env = env or Env()
         self.shard_id = shard_id
+        self.active = False
+        self.is_syncing = True
 
         self.collation_blockhash_lists = defaultdict(list)    # M1: collation_header_hash -> list[blockhash]
         self.head_collation_of_block = {}   # M2: blockhash -> head_collation
@@ -81,7 +92,7 @@ class ShardChain(object):
         self.new_head_cb = new_head_cb
 
         if reset_genesis:
-            initialize_genesis_keys(self.state, Collation(CollationHeader()))
+            initialize_genesis_keys(self.state, Collation(CollationHeader()), self.shard_id)
 
         self.time_queue = []
         self.parent_queue = {}
@@ -92,7 +103,6 @@ class ShardChain(object):
     def db(self):
         return self.env.db
 
-    # TODO: use head_collation_of_block to update head collation
     @property
     def head(self):
         """head collation
@@ -110,7 +120,7 @@ class ShardChain(object):
             log.info(str(e))
             return None
 
-    def add_collation(self, collation, period_start_prevblock, handle_ignored_collation):
+    def add_collation(self, collation, period_start_prevblock):
         """Add collation to db and update score
         """
         if collation.header.parent_collation_hash in self.env.db:
@@ -168,9 +178,14 @@ class ShardChain(object):
 
         # TODO: It seems weird to use callback function to access member of MainChain
         try:
-            handle_ignored_collation(collation)
+            self.main_chain.handle_ignored_collation(collation)
         except Exception as e:
             log.info('handle_ignored_collation exception: {}'.format(str(e)))
+            return False
+        try:
+            self.main_chain.update_head_collation_of_block(collation)
+        except Exception as e:
+            log.info('update_head_collation_of_block exception: {}'.format(str(e)))
             return False
 
         return True
@@ -183,7 +198,7 @@ class ShardChain(object):
 
         collation_rlp = self.db.get(collation_hash)
         if collation_rlp == 'GENESIS':
-            return State.from_snapshot(json.loads(self.db.get('GENESIS_STATE')), self.env)
+            return State.from_snapshot(json.loads(self.db.get('SHARD_' + str(self.shard_id) + '_GENESIS_STATE')), self.env)
         collation = rlp.decode(collation_rlp, Collation)
 
         state = State(env=self.env)
@@ -260,3 +275,50 @@ class ShardChain(object):
         """Check if the given collation is the first collation of this shard
         """
         return collation.header.parent_collation_hash == self.env.config['GENESIS_PREVHASH']
+
+    def activate(self):
+        self.active = True
+
+    def deactivate(self):
+        self.active = False
+
+    def sync(self, state_data, collation, score, collation_blockhash_lists, head_collation_of_block):
+        self.state = State.from_snapshot(state_data, self.env, executing_on_head=True)
+        """ A lazy sync for simulation
+        """
+        self.head_hash = collation.hash
+        self.db.put(collation.header.hash, rlp.encode(collation))
+        self.db.put(b'score:' + collation.header.hash, score)
+        # self.collation_blockhash_lists = self.collation_blockhash_lists_from_dict(collation_blockhash_lists)
+        for collhash, b_list in collation_blockhash_lists.items():
+            if collhash not in collation_blockhash_lists:
+                self.collation_blockhash_lists[collhash] = []
+            self.collation_blockhash_lists[collhash].extend(b_list)
+            self.collation_blockhash_lists[collhash] = list(set(self.collation_blockhash_lists[collhash]))
+        # self.head_collation_of_block = self.head_collation_of_block_from_dict(head_collation_of_block)
+        for blockhash, collhash in head_collation_of_block.items():
+            self.head_collation_of_block[blockhash] = collhash
+
+    def collation_blockhash_lists_to_dict(self):
+        output = {}
+        for collhash, b_list in self.collation_blockhash_lists.items():
+            output[encode_hex(collhash)] = [encode_hex(b) for b in b_list]
+        return output
+
+    def head_collation_of_block_to_dict(self):
+        output = {}
+        for blockhash, collhash in self.head_collation_of_block.items():
+            output[encode_hex(blockhash)] = encode_hex(collhash)
+        return output
+
+    def collation_blockhash_lists_from_dict(self, collation_blockhash_lists):
+        output = {}
+        for collhash, b_list in collation_blockhash_lists.items():
+            output[decode_hex(collhash)] = [decode_hex(b) for b in b_list]
+        return output
+
+    def head_collation_of_block_from_dict(self, head_collation_of_block):
+        output = {}
+        for blockhash, collhash in head_collation_of_block.items():
+            output[decode_hex(blockhash)] = decode_hex(collhash)
+        return output

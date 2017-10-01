@@ -1,9 +1,17 @@
 # -*- coding: utf-8 -*-
 import rlp
-from rlp.sedes import binary, CountableList
-from ethereum.utils import hash32, trie_root, \
-    big_endian_int, address, \
-    encode_hex, decode_hex
+from rlp.sedes import (
+    binary,
+    CountableList,
+)
+from ethereum.utils import (
+    hash32,
+    trie_root,
+    big_endian_int,
+    address,
+    encode_hex,
+    decode_hex,
+)
 from ethereum import utils
 from ethereum import trie
 from ethereum.transactions import Transaction
@@ -22,6 +30,7 @@ class CollationHeader(rlp.Serializable):
     coinbase: address,
     post_state_root: bytes32,
     receipts_root: bytes32,
+    number: uint256,
     sig: bytes
     ]
     """
@@ -35,6 +44,7 @@ class CollationHeader(rlp.Serializable):
         ('coinbase', address),
         ('post_state_root', trie_root),
         ('receipts_root', trie_root),
+        ('number', big_endian_int),
         ('sig', binary)
     ]
 
@@ -47,6 +57,7 @@ class CollationHeader(rlp.Serializable):
                  coinbase=sharding_config['GENESIS_COINBASE'],
                  post_state_root=trie.BLANK_ROOT,
                  receipts_root=trie.BLANK_ROOT,
+                 number=0,
                  sig=''):
         fields = {k: v for k, v in locals().items() if k != 'self'}
         if len(fields['coinbase']) == 40:
@@ -82,7 +93,7 @@ class CollationHeader(rlp.Serializable):
                       'post_state_root', 'receipts_root', 'sig'):
             d[field] = encode_hex(getattr(self, field))
 
-        for field in ('shard_id', 'expected_period_number'):
+        for field in ('shard_id', 'expected_period_number', 'number'):
             d[field] = utils.to_string(getattr(self, field))
 
         assert len(d) == len(CollationHeader.fields)

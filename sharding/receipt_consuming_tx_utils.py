@@ -1,14 +1,35 @@
-import pytest
-
-from ethereum import opcodes, utils, vm
-from ethereum.messages import CREATE_CONTRACT_ADDRESS, SKIP_MEDSTATES, VMExt, apply_msg, apply_transaction, mk_receipt
+from ethereum import (
+    opcodes,
+    utils,
+    vm,
+)
+from ethereum.messages import (
+    CREATE_CONTRACT_ADDRESS,
+    SKIP_MEDSTATES,
+    VMExt,
+    apply_msg,
+    apply_transaction,
+    mk_receipt,
+)
 from ethereum.slogging import get_logger
 from ethereum.transactions import Transaction
+from ethereum.exceptions import (
+    InvalidTransaction,
+    InsufficientStartGas,
+)
 
-from sharding.used_receipt_store_utils import call_urs, get_urs_ct, get_urs_contract
-from sharding.validator_manager_utils import call_contract_inconstantly, call_valmgr
+from sharding.contract_utils import call_contract_inconstantly
+from sharding.used_receipt_store_utils import (
+    call_urs,
+    get_urs_ct,
+    get_urs_contract,
+)
+from sharding.validator_manager_utils import (
+    call_valmgr,
+)
 
 log_rctx = get_logger('sharding.rctx')
+
 
 def simplified_validate_transaction(state, tx):
     '''A simplified and modified one from
@@ -16,37 +37,49 @@ def simplified_validate_transaction(state, tx):
        Every check involved in tx.sender is removed.
     '''
     if state.gas_used + tx.startgas > state.gas_limit:
-        return False
+        raise InsufficientStartGas()
     # TODO: limit the data size to zero. Still need to confirm the limit of
     #       `tx.data` size
     if len(tx.data) != 0:
-        return False
-
+        raise InvalidTransaction('length  of tx.data is not 0')
     return True
 
 
-def is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
-    if (tx.v != 1) or (tx.s != 0) or not isinstance(tx.r, int):
-        return False
+def is_receipt_consuming_tx(tx):
+    return (
+        tx.v == 1 and
+        tx.s == 0 and
+        isinstance(tx.r, int)
+    )
+
+
+def validate_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx):
     if not tx.to or tx.to == CREATE_CONTRACT_ADDRESS:
-        return False
-    if not simplified_validate_transaction(shard_state, tx):
-        return False
+        raise InvalidTransaction('tx.to is invalid: {}'.format(utils.encode_hex(tx.to)))
+
+    simplified_validate_transaction(shard_state, tx)
+
     receipt_id = tx.r
     receipt_shard_id = call_valmgr(mainchain_state, 'get_receipts__shard_id', [receipt_id])
     receipt_startgas = call_valmgr(mainchain_state, 'get_receipts__tx_startgas', [receipt_id])
     receipt_gasprice = call_valmgr(mainchain_state, 'get_receipts__tx_gasprice', [receipt_id])
     receipt_value = call_valmgr(mainchain_state, 'get_receipts__value', [receipt_id])
     if receipt_value <= 0:
-        return False
+        raise InvalidTransaction('receipt_value <= 0')
     receipt_to = call_valmgr(mainchain_state, 'get_receipts__to', [receipt_id])
-    if ((receipt_shard_id != shard_id) or
-        (receipt_startgas != tx.startgas) or
-        (receipt_gasprice != tx.gasprice) or
-        (receipt_value != tx.value) or
-        (receipt_to != hex(utils.big_endian_to_int((tx.to)))) or
-        call_urs(shard_state, shard_id, 'get_used_receipts', [receipt_id])):
-        return False
+    if receipt_shard_id != shard_id:
+        raise InvalidTransaction('receipt_shard_id({}) != shard_id({})'.format(receipt_shard_id, shard_id))
+    if receipt_startgas != tx.startgas:
+        raise InvalidTransaction('receipt_startgas({}) != tx.startgas({})'.format(receipt_startgas, tx.startgas))
+    if receipt_gasprice != tx.gasprice:
+        raise InvalidTransaction('receipt_gasprice({}) != tx.gasprice({})'.format(receipt_gasprice, tx.gasprice))
+    if receipt_value != tx.value:
+        raise InvalidTransaction('receipt_value({}) != tx.value({})'.format(receipt_value, tx.value))
+    if receipt_to != hex(utils.big_endian_to_int((tx.to))):
+        raise InvalidTransaction('receipt_to({}) != tx.to({})'.format(receipt_to, hex(utils.big_endian_to_int((tx.to)))))
+    if call_urs(shard_state, shard_id, 'get_used_receipts', [receipt_id]):
+        raise InvalidTransaction('The receipt_id {} of shard {} has been used'.format(receipt_id, shard_id))
+
     return True
 
 
@@ -60,6 +93,8 @@ def send_msg_add_used_receipt(state, shard_id, receipt_id):
 
 
 def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
+    validate_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)
+
     urs_addr = get_urs_contract(shard_id)['addr']
     log_rctx.debug("Begin: urs.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
 
@@ -135,7 +170,6 @@ def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
 
     # Construct a receipt
     r = mk_receipt(shard_state, success, shard_state.logs)
-    _logs = list(shard_state.logs)
     shard_state.logs = []
     shard_state.add_receipt(r)
     shard_state.set_param('bloom', shard_state.bloom | r.bloom)
@@ -148,8 +182,9 @@ def apply_shard_transaction(mainchain_state, shard_state, shard_id, tx):
     """Apply shard transactions, including both receipt-consuming and normal
     transactions.
     """
-    if ((mainchain_state is not None) and (shard_id is not None) and
-            is_valid_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)):
+    if (mainchain_state is not None and
+            shard_id is not None and
+            is_receipt_consuming_tx(tx)):
         success, output = send_msg_transfer_value(
             mainchain_state, shard_state, shard_id, tx
         )

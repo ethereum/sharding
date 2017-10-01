@@ -3,18 +3,27 @@ import rlp
 
 from ethereum import utils
 
-from sharding.config import sharding_config
 from sharding.tools import tester as t
-from sharding.validator_manager_utils import (DEPOSIT_SIZE, WITHDRAW_HASH,
-                                              call_deposit,
-                                              call_validation_code,
-                                              call_valmgr,
-                                              call_withdraw,
-                                              call_tx_add_header,
-                                              call_tx_to_shard,
-                                              get_valmgr_addr,
-                                              mk_validation_code, sign,
-                                              create_contract_tx)
+from sharding.contract_utils import (
+    sign,
+    create_contract_tx,
+)
+from sharding.validator_manager_utils import (
+    DEPOSIT_SIZE,
+    WITHDRAW_HASH,
+    mk_validation_code,
+    call_deposit,
+    call_validation_code,
+    call_valmgr,
+    call_withdraw,
+    call_tx_add_header,
+    call_tx_to_shard,
+    call_contract_constantly,
+    get_shard_list,
+    get_valmgr_addr,
+    get_valmgr_ct
+)
+from sharding.config import sharding_config
 
 
 config_string = ":info,:debug"
@@ -51,8 +60,11 @@ def test_call_deposit_withdraw_sample(chain):
     # deposit
     tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a2)
     chain.direct_tx(tx)
-    chain.mine(1)
+    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
     assert hex(utils.big_endian_to_int(k0_valcode_addr)) == call_valmgr(chain.head_state, 'sample', [0])
+
+    shard_list = get_shard_list(chain.head_state, k0_valcode_addr)
+    assert shard_list[0]
 
     # withdraw
     tx = call_withdraw(chain.head_state, t.k0, 0, 0, sign(WITHDRAW_HASH, t.k0))
@@ -63,9 +75,9 @@ def test_call_deposit_withdraw_sample(chain):
 
 
 def test_call_add_header_get_shard_head(chain):
-    def get_colhdr(shard_id, parent_collation_hash, collation_coinbase=t.a0):
+    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
         period_length = 5
-        expected_period_number = num_blocks // period_length
+        expected_period_number = (n_blocks + 1) // period_length
         b = chain.chain.get_block_by_number(expected_period_number * period_length - 1)
         period_start_prevhash = b.header.hash
         tx_list_root = b"tx_list " * 4
@@ -75,28 +87,42 @@ def test_call_add_header_get_shard_head(chain):
             rlp.encode([
                 shard_id, expected_period_number, period_start_prevhash,
                 parent_collation_hash, tx_list_root, collation_coinbase,
-                post_state_root, receipt_root
+                post_state_root, receipt_root, number
             ])
         )
-        sig = sign(sighash, t.k0)
+        sig = sign(sighash, privkey)
         return rlp.encode([
             shard_id, expected_period_number, period_start_prevhash,
             parent_collation_hash, tx_list_root, collation_coinbase,
-            post_state_root, receipt_root, sig
+            post_state_root, receipt_root, number, sig
         ])
 
     # register t.k0 as the validators
     tx = create_contract_tx(chain.head_state, t.k0, mk_validation_code(t.a0))
     k0_valcode_addr = chain.direct_tx(tx)
     chain.mine(1)
+    tx2 = create_contract_tx(chain.head_state, t.k1, mk_validation_code(t.a1))
+    k1_valcode_addr = chain.direct_tx(tx2)
+    chain.mine(1)
 
     tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a0)
     chain.direct_tx(tx)
-    chain.mine(1)
+    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+    tx = call_deposit(chain.head_state, t.k1, DEPOSIT_SIZE, k1_valcode_addr, t.a1)
+    chain.direct_tx(tx)
+    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+
+    # sample
+    if utils.big_endian_to_int(k0_valcode_addr) == int(call_valmgr(chain.head_state, 'sample', [0]), 16):
+        privkey = t.k0
+        collator_addr = t.a0
+    else:
+        privkey = t.k1
+        collator_addr = t.a1
 
     # create collation header
     shard0_genesis_colhdr_hash = utils.encode_int32(0)
-    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash)
+    colhdr = get_colhdr(0, shard0_genesis_colhdr_hash, 1, collation_coinbase=collator_addr, privkey=privkey, n_blocks=chain.chain.head.number)
     colhdr_hash = utils.sha3(colhdr)
     assert call_valmgr(chain.head_state, 'get_shard_head', [0]) == shard0_genesis_colhdr_hash
 
@@ -106,7 +132,7 @@ def test_call_add_header_get_shard_head(chain):
     # transaction call test
     # `add_header` verifies whether the colhdr is signed by the current
     # selected validator, using `sample`
-    tx = call_tx_add_header(chain.head_state, t.k0, 0, colhdr)
+    tx = call_tx_add_header(chain.head_state, privkey, 0, colhdr)
     chain.direct_tx(tx)
     chain.mine(1)
 
@@ -134,3 +160,44 @@ def test_sign():
 
     msg_hash2 = utils.sha3('world')
     assert sign(msg_hash2, privkey) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1b\x10\xcf\xacjd\xa9@\xf44\xd5K[A\xbb\xde&0\xc3V\xe4\x9f\xe9+\xf6\'\x0eVbQtYf"5\x04\x85\xc8\x1dB\x92\xd9\xc9r\xed\x9a\x08\xfet\xce@\xa2\x1bm\x88\xc2\x875\xff\x99\xc5oN\xac\xa4'
+
+
+def test_get_validators_max_index(chain):
+    k0_valcode = mk_validation_code(t.a0)
+    k1_valcode = mk_validation_code(t.a1)
+    tx = create_contract_tx(chain.head_state, t.k0, k0_valcode)
+    k0_valcode_addr = chain.direct_tx(tx)
+    tx = create_contract_tx(chain.head_state, t.k1, k1_valcode)
+    k1_valcode_addr = chain.direct_tx(tx)
+    chain.mine(1)
+
+    tx = call_deposit(chain.head_state, t.k0, DEPOSIT_SIZE, k0_valcode_addr, t.a0)
+    chain.direct_tx(tx)
+
+    validators_max_index = call_contract_constantly(
+        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
+        value=0, startgas=10 ** 20, sender_addr=t.a0
+    )
+    assert validators_max_index == 0
+
+    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+    validators_max_index = call_contract_constantly(
+        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
+        value=0, startgas=10 ** 20, sender_addr=t.a0
+    )
+    assert validators_max_index == 1
+
+    tx = call_deposit(chain.head_state, t.k1, DEPOSIT_SIZE, k1_valcode_addr, t.a1)
+    chain.direct_tx(tx)
+    validators_max_index = call_contract_constantly(
+        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
+        value=0, startgas=10 ** 20, sender_addr=t.a0
+    )
+    assert validators_max_index == 1
+
+    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+    validators_max_index = call_contract_constantly(
+        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
+        value=0, startgas=10 ** 20, sender_addr=t.a0
+    )
+    assert validators_max_index == 2

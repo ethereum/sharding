@@ -1,5 +1,8 @@
 from ethereum.utils import encode_hex
-from sharding.collation import CollationHeader, Collation
+from sharding.collation import (
+    CollationHeader,
+    Collation,
+)
 
 
 def test_collation_init():

@@ -3,11 +3,26 @@ import rlp
 from rlp.sedes import List, binary
 
 from ethereum import utils
-from ethereum.utils import sha3, privtoaddr, int_to_addr, to_string, checksum_encode, int_to_big_endian, encode_hex
+from ethereum.utils import (
+    sha3,
+    privtoaddr,
+    int_to_addr,
+    to_string,
+    checksum_encode,
+    int_to_big_endian,
+    encode_hex,
+)
 from ethereum.genesis_helpers import mk_basic_state
 from ethereum.transactions import Transaction
 from ethereum.consensus_strategy import get_consensus_strategy
-from ethereum.config import config_homestead, config_tangerine, config_spurious, config_metropolis, default_config, Env
+from ethereum.config import (
+    config_homestead,
+    config_tangerine,
+    config_spurious,
+    config_metropolis,
+    default_config,
+    Env,
+)
 from ethereum.pow.ethpow import Miner
 from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate, set_execution_results
@@ -19,10 +34,25 @@ from sharding.shard_chain import ShardChain
 from sharding.config import sharding_config
 from sharding.collator import create_collation
 from sharding import state_transition as shard_state_transition
-from sharding import used_receipt_store_utils, validator_manager_utils
 from sharding.collation import CollationHeader
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
-from sharding.validator_manager_utils import ADD_HEADER_TOPIC, call_valmgr
+from sharding.contract_utils import (
+    sign,
+    create_contract_tx,
+)
+from sharding.validator_manager_utils import (
+    ADD_HEADER_TOPIC,
+    DEPOSIT_SIZE,
+    WITHDRAW_HASH,
+    mk_validation_code,
+    mk_initiating_contracts,
+    call_valmgr,
+    call_contract_constantly,
+    call_deposit,
+    call_withdraw,
+    call_tx_add_header,
+)
+from sharding import used_receipt_store_utils
 
 # Initialize accounts
 accounts = []
@@ -82,37 +112,74 @@ class ABIContract(object):  # pylint: disable=too-few-public-methods
             abi_translator = ContractTranslator(_abi)
 
         self.translator = abi_translator
+        self.shard_id = shard_id
 
         for function_name in self.translator.function_data:
-            function = self.method_factory(_chain, function_name, shard_id)
+            function = self.method_factory(_chain, function_name)
             method = types.MethodType(function, self)
             setattr(self, function_name, method)
 
     @staticmethod
-    def method_factory(test_chain, function_name, shard_id=None):
+    def method_factory(test_chain, function_name):
         """ Return a proxy for calling a contract method with automatic encoding of
         argument and decoding of results.
         """
 
         def kall(self, *args, **kwargs):
             key = kwargs.get('sender', k0)
+            is_constant = kwargs.get('is_constant', False)
 
-            result = test_chain.tx(  # pylint: disable=protected-access
-                sender=key,
-                to=self.address,
-                value=kwargs.get('value', 0),
-                data=self.translator.encode(function_name, args),
-                startgas=kwargs.get('startgas', STARTGAS),
-                shard_id=shard_id
-            )
+            if is_constant:
+                return self.handle_constant_call(test_chain, function_name, key, args, kwargs)
+            else:
+                result = test_chain.tx(  # pylint: disable=protected-access
+                    sender=key,
+                    to=self.address,
+                    value=kwargs.get('value', 0),
+                    data=self.translator.encode(function_name, args),
+                    startgas=kwargs.get('startgas', STARTGAS),
+                    shard_id=self.shard_id
+                )
 
-            if result is False:
-                return result
-            if result == b'':
-                return None
-            o = self.translator.decode(function_name, result)
-            return o[0] if len(o) == 1 else o
+                if result is False:
+                    return result
+                if result == b'':
+                    return None
+                o = self.translator.decode(function_name, result)
+                return o[0] if len(o) == 1 else o
         return kall
+
+    def handle_constant_call(self, test_chain, function_name, key, args, kwargs):
+        if self.shard_id:
+            assert test_chain.chain.has_shard(self.shard_id)
+            expected_period_number = test_chain.chain.get_expected_period_number()
+            period_start_prevhash = test_chain.get_period_start_prevhash(expected_period_number)
+            parent_collation_hash = test_chain.chain.shards[self.shard_id].head_hash
+            state = get_shard_head_state(
+                test_chain,
+                self.shard_id,
+                expected_period_number,
+                period_start_prevhash,
+                parent_collation_hash,
+            )
+        else:
+            state = test_chain.chain.mk_poststate_of_blockhash(test_chain.chain.head_hash)
+            block = mk_block_from_prevstate(test_chain.chain, state, timestamp=state.timestamp, coinbase=key)
+            test_chain.cs.initialize(state, block)
+
+        result = call_contract_constantly(
+            state,
+            self.translator,
+            self.address,
+            function_name,
+            args,
+            value=kwargs.get('value', 0),
+            startgas=kwargs.get('startgas', STARTGAS),
+            sender_addr=privtoaddr(key)
+        )
+        if result == b'':
+            return None
+        return result
 
 
 def get_env(env):
@@ -218,9 +285,8 @@ class Chain(object):
         collation = None
         # Check add_header_logs
         for item in self.add_header_logs:
-            # [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes]
             # use sedes to prevent integer 0 from being decoded as b''
-            sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, binary])
+            sedes = List([utils.big_endian_int, utils.big_endian_int, utils.hash32, utils.hash32, utils.hash32, utils.address, utils.hash32, utils.hash32, utils.big_endian_int, binary])
             values = rlp.decode(item, sedes)
             shard_id = values[0]
             if shard_id in self.chain.shard_id_list:
@@ -240,7 +306,7 @@ class Chain(object):
         return b
 
     def change_head(self, parent, coinbase=a0):
-        self.head_state = self.chain.mk_poststate_of_blockhash(parent).ephemeral_clone()
+        self.head_state = self.chain.mk_poststate_of_blockhash(parent)
         self.block = mk_block_from_prevstate(self.chain, self.head_state, timestamp=self.chain.state.timestamp, coinbase=coinbase)
         self.head_state.log_listeners = self.chain.state.log_listeners
         self.cs.initialize(self.head_state, self.block)
@@ -273,11 +339,12 @@ class Chain(object):
                 self.add_header_logs.append(log.data)
         self.head_state.log_listeners.append(header_event_watcher)
 
-    def _get_period_start_prevhash(self, expected_period_number):
+    def get_period_start_prevhash(self, expected_period_number):
         # If it's on forked chain, we can't use get_blockhash_by_number.
         # So try to get period_start_prevhash by message call
         if self.is_sharding_contracts_deployed:
-            period_start_prevhash = call_valmgr(self.head_state,
+            period_start_prevhash = call_valmgr(
+                self.head_state,
                 'get_period_start_prevhash', [expected_period_number]
             )
         else:
@@ -291,21 +358,27 @@ class Chain(object):
         Set `self.collation` fields
         """
         assert self.chain.has_shard(shard_id)
-        if parent_collation_hash is None:
-            parent_collation_hash = self.chain.shards[shard_id].head_hash
+        period_start_prevhash = self.get_period_start_prevhash(expected_period_number)
+        parent_collation_hash = self.chain.shards[shard_id].head_hash if parent_collation_hash is None else parent_collation_hash
 
-        # Initialize state: clear and update self.shard_head_state[shard_id] with period_start_prevblock env variables
-        self.shard_head_state[shard_id] = self.chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash).ephemeral_clone()
-        period_start_prevhash = self._get_period_start_prevhash(expected_period_number)
-        period_start_prevblock = self.chain.get_block(period_start_prevhash)
-        assert period_start_prevblock is not None
-        self.cs.initialize(self.shard_head_state[shard_id], period_start_prevblock)
-        collation = shard_state_transition.mk_collation_from_prevstate(self.chain.shards[shard_id], self.shard_head_state[shard_id], coinbase=coinbase)
+        self.shard_head_state[shard_id] = get_shard_head_state(
+            self,
+            shard_id,
+            expected_period_number,
+            period_start_prevhash,
+            parent_collation_hash,
+        )
+        collation = shard_state_transition.mk_collation_from_prevstate(
+            self.chain.shards[shard_id],
+            self.shard_head_state[shard_id],
+            coinbase=coinbase
+        )
 
         # Initialize collation, set expected_period_number, period_start_prevhash and parent_collation_hash
         collation.header.expected_period_number = expected_period_number
         collation.header.period_start_prevhash = period_start_prevhash
         collation.header.parent_collation_hash = parent_collation_hash
+        collation.header.number = self.chain.shards[shard_id].get_collation(parent_collation_hash).number + 1
         self.collation[shard_id] = collation
 
     def add_test_shard(self, shard_id, setup_urs_contracts=True, alloc=None):
@@ -356,8 +429,8 @@ class Chain(object):
         """Generate validation code address
         """
         addr = privtoaddr(privkey)
-        valcode = validator_manager_utils.mk_validation_code(addr)
-        tx = validator_manager_utils.create_contract_tx(self.head_state, privkey, valcode)
+        valcode = mk_validation_code(addr)
+        tx = create_contract_tx(self.head_state, privkey, valcode)
         valcode_addr = self.direct_tx(tx)
         self.last_sender = privkey
         return valcode_addr
@@ -365,9 +438,9 @@ class Chain(object):
     def sharding_deposit(self, privkey, validation_code_addr):
         """Deposit
         """
-        tx = validator_manager_utils.call_deposit(
+        tx = call_deposit(
             self.head_state, privkey,
-            validator_manager_utils.DEPOSIT_SIZE,
+            DEPOSIT_SIZE,
             validation_code_addr,
             utils.privtoaddr(privkey))
         self.direct_tx(tx)
@@ -376,8 +449,8 @@ class Chain(object):
     def sharding_withdraw(self, privkey, validator_index):
         """Withdraw
         """
-        signature = validator_manager_utils.sign(validator_manager_utils.WITHDRAW_HASH, privkey)
-        tx = validator_manager_utils.call_withdraw(
+        signature = sign(WITHDRAW_HASH, privkey)
+        tx = call_withdraw(
             self.head_state,
             privkey,
             0,
@@ -397,14 +470,14 @@ class Chain(object):
 
         # Sign the collation
         collation = self.collation[shard_id]
-        collation.header.sig = validator_manager_utils.sign(collation.signing_hash, privkey)
+        collation.header.sig = sign(collation.signing_hash, privkey)
 
         # Add collation to db
         period_start_prevblock = self.chain.get_block(self.collation[shard_id].header.period_start_prevhash)
-        assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock, self.chain.handle_ignored_collation)
+        assert self.chain.shards[shard_id].add_collation(collation, period_start_prevblock)
 
         # Create and send add_header tx
-        tx = validator_manager_utils.call_tx_add_header(
+        tx = call_tx_add_header(
             self.head_state, privkey, 0, rlp.encode(CollationHeader.serialize(collation.header)))
         self.direct_tx(tx)
         self.last_sender = privkey
@@ -415,7 +488,7 @@ class Chain(object):
         """Deploy rlp_decoder, sighasher and validator_manager contracts
         """
         sender_addr = utils.privtoaddr(sender_privkey)
-        txs = validator_manager_utils.mk_initiating_contracts(sender_privkey, self.head_state.get_nonce(sender_addr))
+        txs = mk_initiating_contracts(sender_privkey, self.head_state.get_nonce(sender_addr))
         for tx in txs:
             self.direct_tx(tx)
 
@@ -434,6 +507,7 @@ class Chain(object):
         for tx in txs:
             self.direct_tx(tx, shard_id=shard_id)
         self.shard_last_tx[shard_id], self.shard_last_sender[shard_id] = txs[-1], None
+
 
 def int_to_0x_hex(v):
     o = encode_hex(int_to_big_endian(v))
@@ -489,3 +563,19 @@ def mk_state_test_postfill(c, prefill, filler_mode=False):
     else:
         o["expect"] = [{"indexes": {"data": 0, "gas": 0, "value": 0}, "network": ["Metropolis"], "result": c.head_state.to_dict()}]
     return o
+
+
+def get_shard_head_state(
+        test_chain,
+        shard_id,
+        expected_period_number,
+        period_start_prevhash,
+        parent_collation_hash):
+    shard_head_state = test_chain.chain.shards[shard_id].mk_poststate_of_collation_hash(parent_collation_hash)
+    period_start_prevhash = test_chain.get_period_start_prevhash(expected_period_number)
+    period_start_prevblock = test_chain.chain.get_block(period_start_prevhash)
+    assert period_start_prevblock is not None
+    assert period_start_prevblock.number == expected_period_number * test_chain.chain.config['PERIOD_LENGTH'] - 1
+    test_chain.cs.initialize(shard_head_state, period_start_prevblock)
+
+    return shard_head_state

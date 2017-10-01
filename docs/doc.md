@@ -22,7 +22,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `SIG_GASLIMIT`: 40000
 -   `COLLATOR_REWARD`: 0.002
 -   `PERIOD_LENGTH`: 5 blocks
--   `SHUFFLING_CYCLE`: 2500 blocks
+-   `SHUFFLING_CYCLE_LENGTH`: 2500 blocks
 
 ### Specification
 
@@ -90,13 +90,13 @@ The transaction has an additional side effect of saving a record in `USED_RECEIP
 
 ### Details of `sample`
 
-The `sample` function should be coded in such a way that any given validator randomly gets allocated to some number of shards every `SHUFFLING_CYCLE`, where the expected number of shards is proportional to the validator's balance. During that cycle, `sample(shard_id)` can only return that validator if the `shard_id` is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.
+The `sample` function should be coded in such a way that any given validator randomly gets allocated to some number of shards every `SHUFFLING_CYCLE_LENGTH`, where the expected number of shards is proportional to the validator's balance. During that cycle, `sample(shard_id)` can only return that validator if the `shard_id` is one of the shards that they were assigned to. The purpose of this is to give validators time to download the state of the specific shards that they are allocated to.
 
 Here is one possible implementation of `sample`, assuming for simplicity of illustration that all validators have the same deposit size:
 
     def sample(shard_id: num) -> address:
-        cycle = floor(block.number / SHUFFLING_CYCLE)
-        cycle_seed = blockhash(cycle * SHUFFLING_CYCLE)
+        cycle = floor(block.number / SHUFFLING_CYCLE_LENGTH)
+        cycle_seed = blockhash(cycle * SHUFFLING_CYCLE_LENGTH)
         seed = blockhash(block.number - (block.number % PERIOD_LENGTH))
         index_in_subset = num256_mod(as_num256(sha3(concat(seed, as_bytes32(shard_id)))),
                                      100)
@@ -110,7 +110,7 @@ This picks out 100 validators for each shard during each cycle, and then during 
 
 We generally expect collation headers to be produced and propagated as follows.
 
-* Every time a new `SHUFFLING_CYCLE` starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)
+* Every time a new `SHUFFLING_CYCLE_LENGTH` starts, every validator computes the set of 100 validators for every shard that they were assigned to, and sees which shards they are eligible to validate in. The validator then downloads the state for that shard (using fast sync)
 * The validator keeps track of the head of the chain for all shards they are currently assigned to. It is each validator's responsibility to reject invalid or unavailable collations, and refuse to build on such blocks, even if those blocks get accepted by the main chain validator manager contract.
 * If a validator is currently eligible to validate in some shard `i`, they download the full collation association with any collation header that is included into block headers for shard `i`.
 * When on the current global main chain a new period starts, the validator calls `sample(i)` to determine if they are eligible to create a collation; if they are, then they do so.

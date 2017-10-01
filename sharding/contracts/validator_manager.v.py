@@ -6,6 +6,8 @@ validators: public({
     validation_code_addr: address,
     # Addess to withdraw to
     return_addr: address,
+    # The cycle number which the validator would be included after
+    cycle: num,
 }[num])
 
 collation_headers: public({
@@ -45,7 +47,7 @@ shuffling_cycle_length: num
 sig_gas_limit: num
 
 # is a valcode addr deposited now?
-is_valcode_deposited: bool[address]
+is_valcode_deposited: public(bool[address])
 
 period_length: num
 
@@ -57,12 +59,15 @@ add_header_log_topic: bytes32
 
 sighasher_addr: address
 
+# log the latest period number of the shard
+period_head: public(num[num])
+
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
     # 10 ** 20 wei = 100 ETH
     self.deposit_size = 100000000000000000000
-    self.shuffling_cycle_length = 2500
+    self.shuffling_cycle_length = 25
     self.sig_gas_limit = 400000
     self.period_length = 5
     self.num_validators_per_cycle = 100
@@ -88,7 +93,19 @@ def stack_pop() -> num:
 
 
 def get_validators_max_index() -> num:
-    return self.num_validators + self.empty_slots_stack_top
+    zero_addr = 0x0000000000000000000000000000000000000000
+    activate_validator_num = 0
+    current_cycle = floor(decimal(block.number / self.shuffling_cycle_length))
+    all_validator_slots_num = self.num_validators + self.empty_slots_stack_top
+
+    # TODO: any better way to iterate the mapping?
+    for i in range(1024):
+        if i >= all_validator_slots_num:
+            break
+        if (self.validators[i].validation_code_addr != zero_addr and
+            self.validators[i].cycle <= current_cycle):
+            activate_validator_num += 1
+    return activate_validator_num + self.empty_slots_stack_top
 
 
 @payable
@@ -96,17 +113,26 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     assert not self.is_valcode_deposited[validation_code_addr]
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
+    next_cycle = 0
     if not self.is_stack_empty():
         index = self.stack_pop()
     else:
         index = self.num_validators
+        next_cycle = floor(decimal(block.number / self.shuffling_cycle_length)) + 1
     self.validators[index] = {
         deposit: msg.value,
         validation_code_addr: validation_code_addr,
-        return_addr: return_addr
+        return_addr: return_addr,
+        cycle: next_cycle
     }
     self.num_validators += 1
     self.is_valcode_deposited[validation_code_addr] = True
+
+    raw_log(
+        [sha3("deposit()"), as_bytes32(validation_code_addr)],
+        concat('', as_bytes32(index))
+    )
+
     return index
 
 
@@ -119,7 +145,8 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
         self.validators[validator_index] = {
             deposit: 0,
             validation_code_addr: None,
-            return_addr: None
+            return_addr: None,
+            cycle: 0
         }
         self.stack_push(validator_index)
         self.num_validators -= 1
@@ -128,7 +155,6 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
 
 @constant
 def sample(shard_id: num) -> address:
-
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
     cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
     if cycle_start_block_number < 0:
@@ -143,16 +169,51 @@ def sample(shard_id: num) -> address:
                                  as_num256(self.num_validators_per_cycle))
     validator_index = num256_mod(as_num256(sha3(concat(cycle_seed, as_bytes32(shard_id), as_bytes32(index_in_subset)))),
                                  as_num256(self.get_validators_max_index()))
-    addr = self.validators[as_num128(validator_index)].validation_code_addr
+    if self.validators[as_num128(validator_index)].cycle > cycle:
+        return 0x0000000000000000000000000000000000000000
+    else:
+        return self.validators[as_num128(validator_index)].validation_code_addr
 
-    return addr
+
+# Get all possible shard ids that the given valcode_addr
+# may be sampled in the current cycle
+@constant
+def get_shard_list(valcode_addr: address) -> bool[100]:
+    shard_list: bool[100]
+    cycle = floor(decimal(block.number / self.shuffling_cycle_length))
+    cycle_start_block_number = cycle * self.shuffling_cycle_length - 1
+    if cycle_start_block_number < 0:
+        cycle_start_block_number = 0
+    cycle_seed = blockhash(cycle_start_block_number)
+    validators_max_index = self.get_validators_max_index()
+    if self.num_validators != 0:
+        for shard_id in range(100):
+            shard_list[shard_id] = False
+            # range(shard_count): , possible shard_id
+            for possible_index_in_subset in range(100):
+                # range(num_validators_per_cycle): possible index_in_subset
+                validator_index = num256_mod(
+                    as_num256(
+                        sha3(
+                            concat(
+                                cycle_seed,
+                                as_bytes32(shard_id),
+                                as_bytes32(possible_index_in_subset))
+                            )
+                    ),
+                    as_num256(validators_max_index)
+                )
+                if valcode_addr == self.validators[as_num128(validator_index)].validation_code_addr:
+                    shard_list[shard_id] = True
+                    break
+    return shard_list
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
 def add_header(header: bytes <= 4096) -> bool:
     zero_addr = 0x0000000000000000000000000000000000000000
 
-    values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, bytes])
+    values = RLPList(header, [num, num, bytes32, bytes32, bytes32, address, bytes32, bytes32, num, bytes])
     shard_id = values[0]
     expected_period_number = values[1]
     period_start_prevhash = values[2]
@@ -161,7 +222,8 @@ def add_header(header: bytes <= 4096) -> bool:
     collation_coinbase = values[5]
     post_state_root = values[6]
     receipt_root = values[7]
-    sig = values[8]
+    collation_number = values[8]
+    sig = values[9]
 
     # Check if the header is valid
     assert (shard_id >= 0) and (shard_id < self.shard_count)
@@ -178,6 +240,9 @@ def add_header(header: bytes <= 4096) -> bool:
     # then there is no need to check.
     if parent_collation_hash != as_bytes32(0):
         assert (parent_collation_hash == as_bytes32(0)) or (self.collation_headers[shard_id][parent_collation_hash].score > 0)
+    # Check if only one colllation in one period
+    assert self.period_head[shard_id] < expected_period_number
+
     # Check the signature with validation_code_addr
     collator_valcode_addr = self.sample(shard_id)
     if collator_valcode_addr == zero_addr:
@@ -185,12 +250,17 @@ def add_header(header: bytes <= 4096) -> bool:
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
     assert extract32(raw_call(collator_valcode_addr, concat(sighash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1)
 
-    # Add the header
+    # Check score == collation_number
     _score = self.collation_headers[shard_id][parent_collation_hash].score + 1
+    assert collation_number == _score
+
+    # Add the header
     self.collation_headers[shard_id][entire_header_hash] = {
         parent_collation_hash: parent_collation_hash,
         score: _score
     }
+    # Update the latest period number
+    self.period_head[shard_id] = expected_period_number
 
     # Determine the head
     if _score > self.collation_headers[shard_id][self.shard_head[shard_id]].score:
@@ -255,6 +325,12 @@ def tx_to_shard(to: address, shard_id: num, tx_startgas: num, tx_gasprice: num, 
     }
     receipt_id = self.num_receipts
     self.num_receipts += 1
+
+    raw_log(
+        [sha3("tx_to_shard()"), as_bytes32(to), as_bytes32(shard_id)],
+        concat('', as_bytes32(receipt_id))
+    )
+
     return receipt_id
 
 

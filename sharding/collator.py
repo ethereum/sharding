@@ -2,13 +2,11 @@ import rlp
 
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
-from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate
-from ethereum.utils import big_endian_to_int
 
 from sharding import state_transition
-from sharding.validator_manager_utils import (sign, call_valmgr)
-from sharding.collation import CollationHeader
+from sharding.contract_utils import sign
+from sharding.validator_manager_utils import call_valmgr
 from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 
 log = get_logger('sharding.collator')
@@ -46,7 +44,8 @@ def create_collation(
         expected_period_number,
         coinbase,
         key,
-        txqueue=None):
+        txqueue=None,
+        period_start_prevhash=None):
     """Create a collation
 
     chain: MainChain
@@ -65,8 +64,9 @@ def create_collation(
     cs = get_consensus_strategy(temp_state.config)
 
     # Set period_start_prevblock info
-    period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
-    assert period_start_prevhash is not None
+    if period_start_prevhash is None:
+        period_start_prevhash = chain.get_period_start_prevhash(expected_period_number)
+        assert period_start_prevhash is not None
     period_start_prevblock = chain.get_block(period_start_prevhash)
     # Call the initialize state transition function
     cs.initialize(temp_state, period_start_prevblock)
@@ -83,6 +83,7 @@ def create_collation(
     collation.header.parent_collation_hash = parent_collation_hash
     collation.header.expected_period_number = expected_period_number
     collation.header.period_start_prevhash = period_start_prevhash
+    collation.header.number = chain.shards[shard_id].get_collation(parent_collation_hash).number + 1
 
     try:
         sig = sign(collation.signing_hash, key)
@@ -118,9 +119,8 @@ def verify_collation_header(chain, header):
             [rlp.encode(header)],
             sender_addr=header.coinbase
         )
-        print('result:{}'.format(result))
         if not result:
             raise ValueError('Calling add_header returns False')
-    except:
-        raise ValueError('Calling add_header failed')
+    except Exception as e:
+        raise ValueError('Failed to call add_header', str(e))
     return True

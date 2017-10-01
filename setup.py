@@ -29,8 +29,7 @@ if os.environ.get("USE_PYETHEREUM_DEVELOP"):
     ]
 
 # Force installation of specific commits of viper.
-# viper_ref = 'fd7529e7faa6d3aebd8e0e893a42e43c562a56f5'  # Jul 30, 2017
-viper_ref = 'fb7333abd7e6460a0ebfea1ecc8a24d2e0f478d2'  # Aug 14, 2017
+viper_ref = '12847483f571505cef72fcb725e6557db15bce29'  # Sep 12, 2017
 DEPENDENCY_LINKS.append('http://github.com/ethereum/viper/tarball/%s#egg=viper-9.99.9' % viper_ref)
 
 # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.

@@ -1,15 +1,24 @@
 import os
 import rlp
-import viper
+from viper import compiler
 
-from ethereum import abi, utils, vm
+from ethereum import (
+    abi,
+    utils,
+    vm,
+)
 from ethereum.messages import apply_message
 from ethereum.transactions import Transaction
 
 from sharding.config import sharding_config
+from sharding.contract_utils import (
+    GASPRICE,
+    extract_sender_from_tx,
+    call_contract_constantly,
+    call_tx,
+)
 
-STARTGAS = 3141592   # TODO: use config
-GASPRICE = 1         # TODO: use config
+
 DEPOSIT_SIZE = sharding_config['DEPOSIT_SIZE']
 WITHDRAW_HASH = utils.sha3("withdraw")
 ADD_HEADER_TOPIC = utils.sha3("add_header()")
@@ -50,17 +59,11 @@ return(~mload(0) == {})
     return validation_code_bytecode
 
 
-def sign(msg_hash, privkey):
-    v, r, s = utils.ecsign(msg_hash, privkey)
-    signature = utils.encode_int32(v) + utils.encode_int32(r) + utils.encode_int32(s)
-    return signature
-
-
 def get_valmgr_ct():
     global _valmgr_ct, _valmgr_code
     if not _valmgr_ct:
         _valmgr_ct = abi.ContractTranslator(
-            viper.compiler.mk_full_signature(get_valmgr_code())
+            compiler.mk_full_signature(get_valmgr_code())
         )
     return _valmgr_ct
 
@@ -77,7 +80,7 @@ def get_valmgr_code():
 def get_valmgr_bytecode():
     global _valmgr_bytecode
     if not _valmgr_bytecode:
-        _valmgr_bytecode = viper.compiler.compile(get_valmgr_code())
+        _valmgr_bytecode = compiler.compile(get_valmgr_code())
     return _valmgr_bytecode
 
 
@@ -102,26 +105,6 @@ def get_valmgr_tx():
     return _valmgr_tx
 
 
-def get_tx_rawhash(tx, network_id=None):
-    """Get a tx's rawhash.
-       Copied from ethereum.transactions.Transaction.sign
-    """
-    if network_id is None:
-        rawhash = utils.sha3(rlp.encode(tx, Transaction.exclude(['v', 'r', 's'])))
-    else:
-        assert 1 <= network_id < 2**63 - 18
-        rlpdata = rlp.encode(rlp.infer_sedes(tx).serialize(tx)[:-3] + [network_id, b'', b''])
-        rawhash = utils.sha3(rlpdata)
-    return rawhash
-
-
-def extract_sender_from_tx(tx):
-    tx_rawhash = get_tx_rawhash(tx)
-    return utils.sha3(
-        utils.ecrecover_to_pub(tx_rawhash, tx.v, tx.r, tx.s)
-    )[-20:]
-
-
 def create_valmgr_tx(gasprice=GASPRICE):
     global _valmgr_sender_addr, _valmgr_addr, _valmgr_tx
     bytecode = get_valmgr_bytecode()
@@ -136,71 +119,45 @@ def create_valmgr_tx(gasprice=GASPRICE):
     _valmgr_tx = tx
 
 
-def call_msg(state, ct, func, args, sender_addr, to, value=0, startgas=STARTGAS):
-    abidata = vm.CallData([utils.safe_ord(x) for x in ct.encode_function_call(func, args)])
-    msg = vm.Message(sender_addr, to, value, startgas, abidata)
-    result = apply_message(state, msg)
-    if result is None:
-        raise MessageFailed("Msg failed")
-    if result is False:
-        return result
-    if result == b'':
-        return None
-    o = ct.decode(func, result)
-    return o[0] if len(o) == 1 else o
-
-
-def call_contract_constantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
-    return call_msg(
-        state.ephemeral_clone(), ct, func, args,
-        sender_addr, contract_addr, value, startgas
-    )
-
-
-def call_contract_inconstantly(state, ct, contract_addr, func, args, value=0, startgas=200000, sender_addr=b'\x00' * 20):
-    result = call_msg(
-        state, ct, func, args, sender_addr, contract_addr, value, startgas
-    )
-    state.commit()
-    return result
-
-
-def call_tx(state, ct, func, args, sender, to, value=0, startgas=STARTGAS, gasprice=GASPRICE):
-    # Transaction(nonce, gasprice, startgas, to, value, data, v=0, r=0, s=0)
-    tx = Transaction(
-        state.get_nonce(utils.privtoaddr(sender)), gasprice, startgas, to, value,
-        ct.encode_function_call(func, args)
-    ).sign(sender)
-    return tx
-
-
-def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr):
+def call_deposit(state, sender_privkey, value, validation_code_addr, return_addr, gasprice=GASPRICE, nonce=None):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'deposit', [validation_code_addr, return_addr],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, nonce=nonce
     )
 
 
-def call_withdraw(state, sender_privkey, value, validator_index, signature):
+def call_withdraw(state, sender_privkey, value, validator_index, signature, gasprice=GASPRICE, nonce=None):
     ct = get_valmgr_ct()
     return call_tx(
         state, ct, 'withdraw', [validator_index, signature],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, nonce=nonce
     )
 
 
-def call_tx_add_header(state, sender_privkey, value, header):
+def get_shard_list(state, valcode_addr):
+    ct = get_valmgr_ct()
+    dummy_addr = b'\xff' * 20
+    shard_list = call_contract_constantly(
+        state, ct, get_valmgr_addr(), 'get_shard_list', [valcode_addr],
+        value=0, startgas=10 ** 20, sender_addr=dummy_addr
+    )
+    return shard_list
+    # assert len(shard_list) == 100
+    # return abi.decode_abi(['bool[100]'], shard_list)[0]
+
+
+def call_tx_add_header(state, sender_privkey, value, header, gasprice=GASPRICE, startgas=300000, nonce=None):
     return call_tx(
         state, get_valmgr_ct(), 'add_header', [header],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, gasprice=gasprice, startgas=startgas, nonce=nonce
     )
 
 
-def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data):
+def call_tx_to_shard(state, sender_privkey, value, to, shard_id, startgas, gasprice, data, nonce=None):
     return call_tx(
         state, get_valmgr_ct(), 'tx_to_shard', [to, shard_id, startgas, gasprice, data],
-        sender_privkey, get_valmgr_addr(), value
+        sender_privkey, get_valmgr_addr(), value, nonce=nonce
     )
 
 
@@ -233,17 +190,6 @@ def mk_initiating_contracts(sender_privkey, sender_starting_nonce):
     return o
 
 
-def create_contract_tx(state, sender_privkey, bytecode, startgas=STARTGAS):
-    """Generate create contract transaction
-    """
-    tx = Transaction(
-        state.get_nonce(utils.privtoaddr(sender_privkey)),
-        GASPRICE, startgas, to=b'', value=0,
-        data=bytecode
-    ).sign(sender_privkey)
-    return tx
-
-
 def call_valmgr(state, func, args, value=0, startgas=None, sender_addr=b'\x00' * 20):
     if startgas is None:
         startgas = sharding_config['CONTRACT_CALL_GAS']['VALIDATOR_MANAGER'][func]
@@ -254,7 +200,7 @@ def call_valmgr(state, func, args, value=0, startgas=None, sender_addr=b'\x00' *
 
 
 def is_valmgr_setup(state):
-    return not (b'' == state.get_code(get_valmgr_addr()) and
+    return not (
+        b'' == state.get_code(get_valmgr_addr()) and
         0 == state.get_nonce(get_valmgr_sender_addr())
     )
-
