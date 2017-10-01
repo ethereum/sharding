@@ -64,7 +64,7 @@ class MainChain(Chain):
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:
                 log.info('Block %d (%s) with parent %s invalid, reason: %s' %
                          (block.number, encode_hex(block.header.hash[:4]), encode_hex(block.header.prevhash[:4]), str(e)))
-                return False
+                return False, {}
             self.db.put(b'block:%d' % block.header.number, block.header.hash)
             # side effect: put 'score:' cache in db
             block_score = self.get_score(block)

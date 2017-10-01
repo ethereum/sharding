@@ -93,7 +93,7 @@ def send_msg_add_used_receipt(state, shard_id, receipt_id):
 
 
 def send_msg_transfer_value(mainchain_state, shard_state, shard_id, tx):
-    assert validate_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)
+    validate_receipt_consuming_tx(mainchain_state, shard_state, shard_id, tx)
 
     urs_addr = get_urs_contract(shard_id)['addr']
     log_rctx.debug("Begin: urs.balance={}, tx.to.balance={}".format(shard_state.get_balance(urs_addr), shard_state.get_balance(tx.to)))
