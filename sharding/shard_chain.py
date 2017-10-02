@@ -22,7 +22,11 @@ from sharding.collation import (
     Collation,
 )
 from sharding.collator import apply_collation
-from sharding.state_transition import update_collation_env_variables
+from sharding.state_transition import (
+    update_collation_env_variables,
+    set_collation_gas_limit,
+)
+from sharding.validator_manager_utils import call_valmgr
 
 log = get_logger('sharding.shard_chain')
 log.setLevel(logging.DEBUG)
@@ -89,6 +93,9 @@ class ShardChain(object):
         assert self.env.db == self.state.db
 
         initialize(self.state)
+        # Collation Gas Limit
+        gas_limit = call_valmgr(self.main_chain.state, 'get_collation_gas_limit', [])
+        set_collation_gas_limit(self.state, gas_limit)
         self.new_head_cb = new_head_cb
 
         if reset_genesis:
@@ -132,8 +139,10 @@ class ShardChain(object):
             temp_state = self.mk_poststate_of_collation_hash(collation.header.parent_collation_hash)
             try:
                 apply_collation(
-                    temp_state, collation, period_start_prevblock,
-                    None if self.main_chain is None else self.main_chain.state,
+                    temp_state,
+                    collation,
+                    period_start_prevblock,
+                    self.main_chain.state,
                     self.shard_id
                 )
             except (AssertionError, KeyError, ValueError, InvalidTransaction, VerificationFailed) as e:

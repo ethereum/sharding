@@ -36,9 +36,7 @@ def test_add_collation():
     """Test add_collation(self, collation, period_start_prevblock)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    t.chain.init_shard(shard_id)
-    t.mine(5)
+    t = chain(shard_id)
 
     # parent = empty
     collation1 = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
@@ -66,9 +64,7 @@ def test_add_collation_error():
     """Test add_collation(self, collation, period_start_prevblock)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    t.chain.init_shard(shard_id)
-    t.mine(5)
+    t = chain(shard_id)
 
     # parent = empty
     collation1 = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
@@ -89,10 +85,8 @@ def test_handle_ignored_collation():
     """Test handle_ignored_collation(self, collation, period_start_prevblock)
     """
     shard_id = 1
-    # Collator: create and apply collation sequentially
-    t1 = tester.Chain(env='sharding')
-    t1.chain.init_shard(shard_id)
-    t1.mine(5)
+    t1 = chain(shard_id)
+
     # collation1
     collation1 = t1.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t1.chain.get_block(collation1.header.period_start_prevhash)
@@ -110,9 +104,7 @@ def test_handle_ignored_collation():
     assert t1.chain.shards[shard_id].get_score(collation3) == 3
 
     # Validator: apply collation2, collation3 and collation1
-    t2 = tester.Chain(env='sharding')
-    t2.chain.init_shard(shard_id)
-    t2.mine(5)
+    t2 = chain(shard_id)
     # append collation2
     t2.chain.shards[shard_id].add_collation(collation2, period_start_prevblock)
     # append collation3
@@ -162,10 +154,7 @@ def test_get_collation():
     """Test get_parent(self, collation)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-
-    t.chain.init_shard(shard_id)
-    t.mine(5)
+    t = chain(shard_id)
 
     collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
@@ -177,10 +166,8 @@ def test_get_collation():
 def test_get_parent():
     """Test get_parent(self, collation)
     """
-    t = tester.Chain(env='sharding')
     shard_id = 1
-    t.chain.init_shard(shard_id)
-    t.mine(5)
+    t = chain(shard_id)
 
     collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
@@ -231,8 +218,8 @@ def test_sync():
 
 def test_cb_function():
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    shard = ShardChain(shard_id=shard_id, new_head_cb=cb_function, env=t.chain.env)
+    t = tester.Chain(env='sharding', deploy_sharding_contracts=True)
+    shard = ShardChain(shard_id=shard_id, new_head_cb=cb_function, env=t.chain.env, main_chain=t.chain)
 
     assert t.chain.add_shard(shard)
     t.mine(5)

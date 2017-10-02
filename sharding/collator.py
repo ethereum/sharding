@@ -12,7 +12,7 @@ from sharding.receipt_consuming_tx_utils import apply_shard_transaction
 log = get_logger('sharding.collator')
 
 
-def apply_collation(state, collation, period_start_prevblock, mainchain_state=None, shard_id=None):
+def apply_collation(state, collation, period_start_prevblock, mainchain_state, shard_id=None):
     """Apply collation
     """
     snapshot = state.snapshot()
@@ -21,6 +21,9 @@ def apply_collation(state, collation, period_start_prevblock, mainchain_state=No
     try:
         # Call the initialize state transition function
         cs.initialize(state, period_start_prevblock)
+        # Collation Gas Limit
+        gas_limit = call_valmgr(mainchain_state, 'get_collation_gas_limit', [])
+        state_transition.set_collation_gas_limit(state, gas_limit)
         # assert cs.check_seal(state, period_start_prevblock.header)
         # Validate tx_list_root in collation first
         assert state_transition.validate_transaction_tree(collation)
@@ -70,10 +73,13 @@ def create_collation(
     period_start_prevblock = chain.get_block(period_start_prevhash)
     # Call the initialize state transition function
     cs.initialize(temp_state, period_start_prevblock)
+    # Collation Gas Limit
+    gas_limit = call_valmgr(chain.state, 'get_collation_gas_limit', [])
+    state_transition.set_collation_gas_limit(temp_state, gas_limit)
     # Initialize a collation with the given previous state and current coinbase
     collation = state_transition.mk_collation_from_prevstate(chain.shards[shard_id], temp_state, coinbase)
     # Add transactions
-    state_transition.add_transactions(temp_state, collation, txqueue, shard_id, mainchain_state=chain.state)
+    state_transition.add_transactions(temp_state, collation, txqueue, chain.state, shard_id)
     # Call the finalize state transition function
     state_transition.finalize(temp_state, collation.header.coinbase)
     # Set state root, receipt root, etc
@@ -112,7 +118,9 @@ def verify_collation_header(chain, header):
     block = mk_block_from_prevstate(chain, timestamp=chain.state.timestamp + 14)
     cs = get_consensus_strategy(state.config)
     cs.initialize(state, block)
-
+    # Collation Gas Limit
+    gas_limit = call_valmgr(chain.state, 'get_collation_gas_limit', [])
+    state_transition.set_collation_gas_limit(state, gas_limit)
     try:
         result = call_valmgr(
             state, 'add_header',

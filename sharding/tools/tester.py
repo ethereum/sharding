@@ -394,7 +394,7 @@ class Chain(object):
             (10 ** 9) * utils.denoms.ether
         )
         initial_state.commit()
-        shard = ShardChain(shard_id=shard_id, initial_state=initial_state)
+        shard = ShardChain(shard_id=shard_id, initial_state=initial_state, main_chain=self.chain)
         self.chain.add_shard(shard)
         self.__init_shard_var(shard_id)
         if setup_urs_contracts:
@@ -577,5 +577,9 @@ def get_shard_head_state(
     assert period_start_prevblock is not None
     assert period_start_prevblock.number == expected_period_number * test_chain.chain.config['PERIOD_LENGTH'] - 1
     test_chain.cs.initialize(shard_head_state, period_start_prevblock)
+
+    # Collation Gas Limit
+    gas_limit = call_valmgr(test_chain.chain.state, 'get_collation_gas_limit', [])
+    shard_state_transition.set_collation_gas_limit(shard_head_state, gas_limit)
 
     return shard_head_state
