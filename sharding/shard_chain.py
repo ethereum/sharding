@@ -291,22 +291,18 @@ class ShardChain(object):
     def deactivate(self):
         self.active = False
 
-    def sync(self, state_data, collation, score, collation_blockhash_lists, head_collation_of_block):
-        self.state = State.from_snapshot(state_data, self.env, executing_on_head=True)
-        """ A lazy sync for simulation
+    def set_head(self, state, collation):
+        """ Set head state and collation
         """
-        self.head_hash = collation.hash
-        self.db.put(collation.header.hash, rlp.encode(collation))
-        self.db.put(b'score:' + collation.header.hash, score)
-        # self.collation_blockhash_lists = self.collation_blockhash_lists_from_dict(collation_blockhash_lists)
-        for collhash, b_list in collation_blockhash_lists.items():
-            if collhash not in collation_blockhash_lists:
-                self.collation_blockhash_lists[collhash] = []
-            self.collation_blockhash_lists[collhash].extend(b_list)
-            self.collation_blockhash_lists[collhash] = list(set(self.collation_blockhash_lists[collhash]))
-        # self.head_collation_of_block = self.head_collation_of_block_from_dict(head_collation_of_block)
-        for blockhash, collhash in head_collation_of_block.items():
-            self.head_collation_of_block[blockhash] = collhash
+        try:
+            self.state = state
+            self.head_hash = collation.hash
+            self.db.put(collation.hash, rlp.encode(collation))
+            self.db.put(b'score:' + collation.hash, collation.number)
+        except (AttributeError, TypeError) as e:
+            log.info('Failed to sync shard data: {}'.format(str(e)))
+            return False
+        return True
 
     def collation_blockhash_lists_to_dict(self):
         output = {}

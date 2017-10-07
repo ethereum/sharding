@@ -3,6 +3,8 @@ import rlp
 from ethereum.slogging import get_logger
 from ethereum.consensus_strategy import get_consensus_strategy
 from ethereum.common import mk_block_from_prevstate
+from ethereum.state import State
+from ethereum.exceptions import VerificationFailed
 
 from sharding import state_transition
 from sharding.contract_utils import sign
@@ -58,6 +60,7 @@ def create_collation(
     coinbase: coinbase
     key: key for sig
     txqueue: transaction queue
+    period_start_prevhash: the block hash of block PERIOD_LENGTH * expected_period_number - 1
     """
     log.info('Creating a collation')
 
@@ -131,4 +134,85 @@ def verify_collation_header(chain, header):
             raise ValueError('Calling add_header returns False')
     except Exception as e:
         raise ValueError('Failed to call add_header', str(e))
+    return True
+
+
+def get_deep_collation_hash(chain, shard_id, depth):
+    """ Get the deep collation hash from validator manager contract
+
+    chain: MainChain
+    shard_id: id of ShardChain
+    depth: the depth between the head collation to the ancestor collation
+    """
+    collhash = call_valmgr(chain.state, 'get_shard_head', [shard_id])
+
+    for _ in range(depth):
+        temp_collhash = call_valmgr(
+            chain.state,
+            'get_collation_headers__parent_collation_hash',
+            [shard_id, collhash]
+        )
+        if temp_collhash == b'\x00' * 32:
+            break
+        else:
+            collhash = temp_collhash
+
+    return collhash
+
+
+def mk_fast_sync_state(chain, shard_id, collation_hash):
+    """ Make the fast sync state
+
+    chain: MainChain
+    shard_id: id of ShardChain
+    collation_hash: the collation hash of the pivot point collation
+    """
+    collation = chain.shards[shard_id].get_collation(collation_hash)
+
+    if collation is not None:
+        state_root = collation.post_state_root
+        state = State(env=chain.shards[shard_id].env, root=state_root)
+        return state
+    else:
+        return None
+
+
+def verify_fast_sync_data(chain, shard_id, received_state, received_collation_header, depth=100):
+    """ Verify the fast sync data
+
+    chain: MainChain
+    received_state: the given shard state from peer
+    received_collation_header: the given collation header
+    depth: the required depth between the given collation and the head collation on validator manager contract
+    """
+    # Check if the given collation exsits in validator manager contract
+    received_collation_score = call_valmgr(
+        chain.state,
+        'get_collation_headers__score',
+        [shard_id, received_collation_header.hash]
+    )
+    if received_collation_score <= 0:
+        raise VerificationFailed('FastSync: received_collation_score {} <= 0'.format(received_collation_score))
+
+    # Check if the state root is right
+    if received_state.trie.root_hash != received_collation_header.post_state_root:
+        raise VerificationFailed('FastSync: state roots don\'t match, received state: {}, received_collation_header.post_state_root: {}.'.format(
+            received_state.trie.root_hash,
+            received_collation_header.post_state_root
+        ))
+
+    # Check if the given collation is deep enough (likely finalized)
+    head_collation_hash = call_valmgr(chain.state, 'get_shard_head', [shard_id])
+    head_collation_score = call_valmgr(
+        chain.state,
+        'get_collation_headers__score',
+        [shard_id, head_collation_hash]
+    )
+    if head_collation_score > received_collation_score + depth:
+        raise VerificationFailed('FastSync: head_collation_score({}) > received_collation_score({}) + depth({})'.format(
+            head_collation_score,
+            received_collation_score,
+            depth
+        ))
+
     return True
