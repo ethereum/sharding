@@ -18,6 +18,10 @@
 * The `CREATE` opcode is removed; only `CREATE2` is available. We also add `CREATE_COPY`, which is equal to `CREATE2` with one modification: it expects as output exactly 32 bytes (throwing an exception if return data size is not 32 bytes), of which the last 20 are parsed as an address, and code is copied from this address. 0 gas is charged at return time for creating the contract.
 * Introduces an opcode SCOPY (similar in form to CALLDATACOPY except copying memory to storage), which costs the same as `SSTORE` minus 3 gas, but adding 3 gas per 32 bytes copied (rounding up to the nearest 32 if the size is not an even multiple). `EXPANSION_COST` is equal to 0 if `SCOPY` copies zero bytes or if the copy operation copies into storage space that already exists; otherwise it is equal to `EXPAND_BYTE_GAS * (new_storage_length - old_storage_length)`
 
+#### Option B
+
+All accounts' RLP is now [nonce, balance, code, storage]; the hash indirection is completely removed. This simplifies the design further, making the state truly a pure key-value map.
+
 ### Rationale
 
 This design introduces several important benefits:
