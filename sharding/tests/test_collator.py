@@ -280,7 +280,7 @@ def test_verify_fast_sync_data():
         shard_id,
         received_state,
         received_collation,
-        depth=5
+        depth=5,
     )
 
     assert success
@@ -292,7 +292,7 @@ def test_verify_fast_sync_data():
             shard_id,
             State(),
             received_collation,
-            depth=5
+            depth=5,
         )
 
     # if received_collation_score <= 0
@@ -302,7 +302,7 @@ def test_verify_fast_sync_data():
             shard_id,
             received_state,
             Collation(CollationHeader()),
-            depth=5
+            depth=5,
         )
 
     # if head_collation_score > received_collation_score + depth:
@@ -312,5 +312,5 @@ def test_verify_fast_sync_data():
             shard_id,
             received_state,
             received_collation,
-            depth=1
+            depth=1,
         )

@@ -200,7 +200,7 @@ def test_set_state():
     state = State.from_snapshot(snapshot, other_shard.env, executing_on_head=True)
     success = other_shard.set_head(
         state,
-        shard.head
+        shard.head,
     )
     assert success
 

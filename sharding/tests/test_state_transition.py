@@ -115,7 +115,7 @@ def test_validate_transaction_tree():
 def test_finalize():
     """Test finalize(state, coinbase)
     """
-    coinbase = '\x35'*20
+    coinbase = '\x35' * 20
     t = chain(shard_id)
     state = t.chain.shards[shard_id].state
     state_transition.finalize(state, coinbase)

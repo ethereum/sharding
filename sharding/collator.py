@@ -150,7 +150,7 @@ def get_deep_collation_hash(chain, shard_id, depth):
         temp_collhash = call_valmgr(
             chain.state,
             'get_collation_headers__parent_collation_hash',
-            [shard_id, collhash]
+            [shard_id, collhash],
         )
         if temp_collhash == b'\x00' * 32:
             break
@@ -192,27 +192,37 @@ def verify_fast_sync_data(chain, shard_id, received_state, received_collation_he
         [shard_id, received_collation_header.hash]
     )
     if received_collation_score <= 0:
-        raise VerificationFailed('FastSync: received_collation_score {} <= 0'.format(received_collation_score))
+        raise VerificationFailed(
+            'FastSync: received_collation_score {} <= 0'.format(
+                received_collation_score
+            )
+        )
 
     # Check if the state root is right
     if received_state.trie.root_hash != received_collation_header.post_state_root:
-        raise VerificationFailed('FastSync: state roots don\'t match, received state: {}, received_collation_header.post_state_root: {}.'.format(
-            received_state.trie.root_hash,
-            received_collation_header.post_state_root
-        ))
+        raise VerificationFailed(
+            'FastSync: state roots don\'t match, received state: {}, \
+            received_collation_header.post_state_root: {}.'.format(
+                received_state.trie.root_hash,
+                received_collation_header.post_state_root
+            )
+        )
 
     # Check if the given collation is deep enough (likely finalized)
     head_collation_hash = call_valmgr(chain.state, 'get_shard_head', [shard_id])
     head_collation_score = call_valmgr(
         chain.state,
         'get_collation_headers__score',
-        [shard_id, head_collation_hash]
+        [shard_id, head_collation_hash],
     )
     if head_collation_score > received_collation_score + depth:
-        raise VerificationFailed('FastSync: head_collation_score({}) > received_collation_score({}) + depth({})'.format(
-            head_collation_score,
-            received_collation_score,
-            depth
-        ))
+        raise VerificationFailed(
+            'FastSync: head_collation_score({}) > \
+            received_collation_score({}) + depth({})'.format(
+                head_collation_score,
+                received_collation_score,
+                depth,
+            )
+        )
 
     return True

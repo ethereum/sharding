@@ -167,9 +167,9 @@ class ShardChain(object):
             return False
         self.db.put(collation.header.hash, rlp.encode(collation))
 
-        self.db.put(b'changed:'+collation.hash, b''.join(list(changed.keys())))
+        self.db.put(b'changed:' + collation.hash, b''.join(list(changed.keys())))
         # log.debug('Saved %d address change logs' % len(changed.keys()))
-        self.db.put(b'deletes:'+collation.hash, b''.join(deletes))
+        self.db.put(b'deletes:' + collation.hash, b''.join(deletes))
         # log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
 
         # TODO: Delete old junk data
