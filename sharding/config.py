@@ -38,6 +38,8 @@ sharding_config['CONTRACT_CALL_GAS'] = {
         'get_receipts__tx_startgas': 40000,
         'get_receipts__tx_gasprice': 40000,
         'get_collation_gas_limit': 40000,
+        'get_collation_headers__parent_collation_hash': 40000,
+        'get_collation_headers__score': 40000,
     }),
     'USED_RECEIPT_STORE': defaultdict(lambda: 200000, {
         'get_used_receipts': 40000,

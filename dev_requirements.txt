@@ -2,4 +2,3 @@ pytest>=2.9.0
 pytest-catchlog==1.2.2
 pytest-timeout==1.0.0
 pytest-cov>=2.5.1
-https://github.com/ethereum/serpent/tarball/develop

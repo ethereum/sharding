@@ -28,6 +28,7 @@ from ethereum.messages import apply_transaction
 from ethereum.common import mk_block_from_prevstate, set_execution_results
 from ethereum.meta import make_head_candidate
 from ethereum.abi import ContractTranslator
+from ethereum.tools._solidity import get_solidity
 
 from sharding.main_chain import MainChain
 from sharding.shard_chain import ShardChain
@@ -77,7 +78,6 @@ minimal_alloc[accounts[0]] = {'balance': 1 * utils.denoms.ether}
 # Initialize languages
 languages = {}
 
-from ethereum.tools._solidity import get_solidity
 _solidity = get_solidity()
 if _solidity:
     languages['solidity'] = _solidity
@@ -524,7 +524,7 @@ def mk_state_test_prefill(c):
         "currentGasLimit": int_to_0x_hex(c.head_state.gas_limit),
         "currentNumber": int_to_0x_hex(c.head_state.block_number),
         "currentTimestamp": int_to_0x_hex(c.head_state.timestamp),
-        "previousHash": "0x"+encode_hex(c.head_state.prev_headers[0].hash),
+        "previousHash": "0x" + encode_hex(c.head_state.prev_headers[0].hash),
     }
     pre = c.head_state.to_dict()
     return {"env": env, "pre": pre}

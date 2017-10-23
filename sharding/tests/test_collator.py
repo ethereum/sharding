@@ -5,8 +5,11 @@ from ethereum.slogging import get_logger
 from ethereum.transaction_queue import TransactionQueue
 from ethereum import utils
 from ethereum import trie
+from ethereum.exceptions import VerificationFailed
+from ethereum.state import State
 
 from sharding import collator
+from sharding.collation import Collation, CollationHeader
 from sharding.tools import tester
 from sharding.config import sharding_config
 
@@ -211,3 +214,103 @@ def test_verify_collation_header():
     collation.header.sig = utils.sha3('hello')
     with pytest.raises(ValueError):
         collator.verify_collation_header(t.chain, collation.header)
+
+
+def test_get_deep_collation_hash_and_mk_fast_sync_state():
+    shard_id = 1
+    t = chain(shard_id)
+
+    collhash_map = []
+    for i in range(6):
+        collate_one(t, shard_id)
+        collhash_map.append(t.chain.shards[shard_id].head.hash)
+        # Set the pivot point
+        if i == 4:
+            temp_state_root = t.chain.shards[shard_id].state.trie.root_hash
+            temp_a0_balance = t.chain.shards[shard_id].state.get_balance(tester.a0)
+            t.tx(shard_id=shard_id, sender=tester.k0, value=100)
+
+    assert t.chain.shards[shard_id].head.number == 6
+
+    assert collator.get_deep_collation_hash(t.chain, shard_id, 1) == collhash_map[4]
+    assert collator.get_deep_collation_hash(t.chain, shard_id, 5) == collhash_map[0]
+    assert collator.get_deep_collation_hash(t.chain, shard_id, 6) == collhash_map[0]
+
+    state = collator.mk_fast_sync_state(t.chain, shard_id, collhash_map[4])
+    assert state.trie.root_hash != t.chain.shards[shard_id].state.trie.root_hash
+    assert state.trie.root_hash == temp_state_root
+    assert t.chain.shards[shard_id].state.get_balance(tester.a0) != temp_a0_balance
+    assert state.get_balance(tester.a0) == temp_a0_balance
+
+
+def collate_one(testchain, shard_id):
+    expected_period_number = testchain.chain.get_expected_period_number()
+    testchain.set_collation(shard_id, expected_period_number)
+    testchain.collate(shard_id, tester.k0)
+    testchain.mine(5)
+
+
+def test_verify_fast_sync_data():
+    # t1: Sender
+    shard_id = 1
+    t1 = chain(shard_id)
+    collate_one(t1, shard_id)
+
+    received_collation = t1.chain.shards[shard_id].head
+    received_state_snapshot = t1.chain.shards[shard_id].state.to_snapshot()
+    received_state = State.from_snapshot(received_state_snapshot, t1.chain.env, executing_on_head=True)
+
+    for _ in range(5):
+        collate_one(t1, shard_id)
+
+    # t2: Receiver
+    t2 = chain(shard_id)
+    for _ in range(6):
+        collate_one(t2, shard_id)
+
+    assert t2.head_state.trie.root_hash == t1.head_state.trie.root_hash
+    assert received_collation.post_state_root == received_state.trie.root_hash
+
+    # Set that t2 doesn't have shard 1 data
+    del(t2.chain.shards[shard_id])
+    t2.chain.shard_id_list.remove(shard_id)
+
+    success = collator.verify_fast_sync_data(
+        t2.chain,
+        shard_id,
+        received_state,
+        received_collation,
+        depth=5,
+    )
+
+    assert success
+
+    # if shard_state.trie.root_hash != received_collation.post_state_root
+    with pytest.raises(VerificationFailed):
+        success = collator.verify_fast_sync_data(
+            t2.chain,
+            shard_id,
+            State(),
+            received_collation,
+            depth=5,
+        )
+
+    # if received_collation_score <= 0
+    with pytest.raises(VerificationFailed):
+        success = collator.verify_fast_sync_data(
+            t2.chain,
+            shard_id,
+            received_state,
+            Collation(CollationHeader()),
+            depth=5,
+        )
+
+    # if head_collation_score > received_collation_score + depth:
+    with pytest.raises(VerificationFailed):
+        success = collator.verify_fast_sync_data(
+            t2.chain,
+            shard_id,
+            received_state,
+            received_collation,
+            depth=1,
+        )

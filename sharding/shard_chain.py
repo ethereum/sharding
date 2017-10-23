@@ -15,6 +15,7 @@ from ethereum.pow.consensus import initialize
 from ethereum.utils import (
     encode_hex,
     decode_hex,
+    to_string,
 )
 
 from sharding.collation import (
@@ -36,14 +37,14 @@ def initialize_genesis_keys(state, genesis, shard_id):
     """Rewrite ethereum.genesis_helpers.initialize_genesis_keys
     """
     db = state.db
-    prefix = 'SHARD_' + str(shard_id) + '_'
-    # db.put('GENESIS_NUMBER', str(genesis.header.number))
-    db.put(prefix + 'GENESIS_HASH', str(genesis.header.hash))
-    db.put(prefix + 'GENESIS_STATE', json.dumps(state.to_snapshot()))
-    db.put(prefix + 'GENESIS_RLP', rlp.encode(genesis))
-    db.put(b'score:' + genesis.header.hash, "0")
+    prefix = b'SHARD_' + to_string(shard_id) + b'_'
+    # db.put(b'GENESIS_NUMBER', to_string(genesis.header.number))
+    db.put(prefix + b'GENESIS_HASH', to_string(genesis.header.hash))
+    db.put(prefix + b'GENESIS_STATE', json.dumps(state.to_snapshot()))
+    db.put(prefix + b'GENESIS_RLP', rlp.encode(genesis))
+    db.put(b'score:' + genesis.header.hash, to_string(0))
     db.put(b'state:' + genesis.header.hash, state.trie.root_hash)
-    db.put(genesis.header.hash, 'GENESIS')
+    db.put(genesis.header.hash, b'GENESIS')
     db.commit()
 
 
@@ -61,7 +62,7 @@ class ShardChain(object):
         self.main_chain = main_chain
 
         # Initialize the state
-        head_hash_key = 'shard_' + str(shard_id) + '_head_hash'
+        head_hash_key = b'shard_' + to_string(shard_id) + b'_head_hash'
         if head_hash_key in self.db:  # new head tag
             self.state = self.mk_poststate_of_collation_hash(self.db.get(head_hash_key))
             log.info(
@@ -81,12 +82,12 @@ class ShardChain(object):
                 self.last_state = self.state.to_snapshot()
 
             self.head_hash = self.env.config['GENESIS_PREVHASH']
-            self.db.put(self.head_hash, 'GENESIS')
+            self.db.put(self.head_hash, b'GENESIS')
             self.db.put(head_hash_key, self.head_hash)
 
             # initial score
             key = b'score:' + self.head_hash
-            self.db.put(key, str(0))
+            self.db.put(key, to_string(0))
             self.db.commit()
             reset_genesis = True
 
@@ -167,9 +168,9 @@ class ShardChain(object):
             return False
         self.db.put(collation.header.hash, rlp.encode(collation))
 
-        self.db.put(b'changed:'+collation.hash, b''.join(list(changed.keys())))
+        self.db.put(b'changed:' + collation.hash, b''.join(list(changed.keys())))
         # log.debug('Saved %d address change logs' % len(changed.keys()))
-        self.db.put(b'deletes:'+collation.hash, b''.join(deletes))
+        self.db.put(b'deletes:' + collation.hash, b''.join(deletes))
         # log.debug('Saved %d trie node deletes for collation (%s)' % (len(deletes), encode_hex(collation.hash)))
 
         # TODO: Delete old junk data
@@ -206,8 +207,8 @@ class ShardChain(object):
             raise Exception("Collation hash %s not found" % encode_hex(collation_hash))
 
         collation_rlp = self.db.get(collation_hash)
-        if collation_rlp == 'GENESIS':
-            return State.from_snapshot(json.loads(self.db.get('SHARD_' + str(self.shard_id) + '_GENESIS_STATE')), self.env)
+        if collation_rlp == b'GENESIS':
+            return State.from_snapshot(json.loads(self.db.get(b'SHARD_' + to_string(self.shard_id) + b'_GENESIS_STATE')), self.env)
         collation = rlp.decode(collation_rlp, Collation)
 
         state = State(env=self.env)
@@ -234,10 +235,10 @@ class ShardChain(object):
         """
         try:
             collation_rlp = self.db.get(collation_hash)
-            if collation_rlp == 'GENESIS':
+            if collation_rlp == b'GENESIS':
                 return Collation(CollationHeader())
                 # if not hasattr(self, 'genesis'):
-                #     self.genesis = rlp.decode(self.db.get('GENESIS_RLP'), sedes=Block)
+                #     self.genesis = rlp.decode(self.db.get(b'GENESIS_RLP'), sedes=Block)
                 # return self.genesis
             else:
                 return rlp.decode(collation_rlp, Collation)
@@ -267,7 +268,7 @@ class ShardChain(object):
         for h in fills:
             key = b'score:' + h
             score += 1
-            self.db.put(key, str(score))
+            self.db.put(key, to_string(score))
 
         return score
 
@@ -291,22 +292,18 @@ class ShardChain(object):
     def deactivate(self):
         self.active = False
 
-    def sync(self, state_data, collation, score, collation_blockhash_lists, head_collation_of_block):
-        self.state = State.from_snapshot(state_data, self.env, executing_on_head=True)
-        """ A lazy sync for simulation
+    def set_head(self, state, collation):
+        """ Set head state and collation
         """
-        self.head_hash = collation.hash
-        self.db.put(collation.header.hash, rlp.encode(collation))
-        self.db.put(b'score:' + collation.header.hash, score)
-        # self.collation_blockhash_lists = self.collation_blockhash_lists_from_dict(collation_blockhash_lists)
-        for collhash, b_list in collation_blockhash_lists.items():
-            if collhash not in collation_blockhash_lists:
-                self.collation_blockhash_lists[collhash] = []
-            self.collation_blockhash_lists[collhash].extend(b_list)
-            self.collation_blockhash_lists[collhash] = list(set(self.collation_blockhash_lists[collhash]))
-        # self.head_collation_of_block = self.head_collation_of_block_from_dict(head_collation_of_block)
-        for blockhash, collhash in head_collation_of_block.items():
-            self.head_collation_of_block[blockhash] = collhash
+        try:
+            self.state = state
+            self.head_hash = collation.hash
+            self.db.put(collation.hash, rlp.encode(collation))
+            self.db.put(b'score:' + collation.hash, collation.number)
+        except (AttributeError, TypeError) as e:
+            log.info('Failed to sync shard data: {}'.format(str(e)))
+            return False
+        return True
 
     def collation_blockhash_lists_to_dict(self):
         output = {}

@@ -7,6 +7,7 @@ from ethereum.transaction_queue import TransactionQueue
 from ethereum import utils
 from ethereum import trie
 from ethereum.config import Env
+from ethereum.state import State
 
 from sharding.tools import tester
 from sharding.shard_chain import ShardChain
@@ -182,7 +183,7 @@ def test_get_parent():
     assert t.chain.shards[shard_id].get_parent(collation).header.hash == collation.header.parent_collation_hash
 
 
-def test_sync():
+def test_set_state():
     shard_id = 1
     t = chain(shard_id)
     t.chain.init_shard(shard_id)
@@ -192,20 +193,19 @@ def test_sync():
     s1 = shard.state.trie.root_hash
     h1 = shard.head.hash
 
-    cbl = shard.collation_blockhash_lists_to_dict()
-    hcb = shard.head_collation_of_block_to_dict()
-
     other_shard = ShardChain(shard_id, env=Env(config=sharding_config), main_chain=t.chain)
-    other_shard.sync(
-        state_data=shard.state.to_snapshot(),
-        collation=shard.head,
-        score=shard.get_score(shard.head),
-        collation_blockhash_lists=cbl,
-        head_collation_of_block=hcb
+
+    # test snapshot
+    snapshot = shard.state.to_snapshot()
+    state = State.from_snapshot(snapshot, other_shard.env, executing_on_head=True)
+    success = other_shard.set_head(
+        state,
+        shard.head,
     )
+    assert success
+
     s2 = other_shard.state.trie.root_hash
     h2 = other_shard.head.hash
-
     assert s1 == s2
     assert h1 == h2
 
