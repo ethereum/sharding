@@ -98,7 +98,7 @@ class MainChain(Chain):
                 b = block
                 new_chain = {}
                 # Find common ancestor
-                while b.header.number >= int(self.db.get('GENESIS_NUMBER')):
+                while b.header.number >= int(self.db.get(b'GENESIS_NUMBER')):
                     new_chain[b.header.number] = b
                     key = b'block:%d' % b.header.number
                     orig_at_height = self.db.get(
@@ -106,7 +106,7 @@ class MainChain(Chain):
                     if orig_at_height == b.header.hash:
                         break
                     if b.prevhash not in self.db or self.db.get(
-                            b.prevhash) == 'GENESIS':
+                            b.prevhash) == b'GENESIS':
                         break
                     b = self.get_parent(b)
                 replace_from = b.header.number
@@ -187,7 +187,7 @@ class MainChain(Chain):
                      (block.number, encode_hex(block.hash[:4]), encode_hex(block.prevhash[:4])))
             return False, {}
         self.add_child(block)
-        self.db.put('head_hash', self.head_hash)
+        self.db.put(b'head_hash', self.head_hash)
         self.db.put(block.hash, rlp.encode(block))
         self.db.put(b'changed:' + block.hash,
                     b''.join([k.encode() if isinstance(k,
