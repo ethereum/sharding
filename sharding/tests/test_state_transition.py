@@ -10,6 +10,7 @@ from ethereum.common import (
     mk_receipt_sha,
 )
 from ethereum import trie
+from ethereum.exceptions import BlockGasLimitReached
 
 from sharding.collation import (
     Collation,
@@ -17,6 +18,7 @@ from sharding.collation import (
 )
 from sharding import state_transition
 from sharding.tools import tester
+from sharding.validator_manager_utils import call_valmgr
 
 log = get_logger('test.shard_chain')
 log.setLevel(logging.DEBUG)
@@ -26,7 +28,7 @@ shard_id = 1
 
 @pytest.fixture(scope='function')
 def chain(shard_id):
-    t = tester.Chain(env='sharding')
+    t = tester.Chain(env='sharding', deploy_sharding_contracts=True)
     t.mine(5)
     t.add_test_shard(shard_id)
     return t
@@ -61,14 +63,14 @@ def test_add_transactions():
     state = t.chain.shards[shard_id].state.ephemeral_clone()
     collation = state_transition.mk_collation_from_prevstate(t.chain.shards[shard_id], state, coinbase)
 
-    state_transition.add_transactions(state, collation, txqueue, shard_id, mainchain_state=t.head_state)
+    state_transition.add_transactions(state, collation, txqueue, t.head_state, shard_id)
     assert collation.transaction_count == 2
     assert state.get_balance(tester.a4) == 1000 * utils.denoms.ether + int(0.03 * utils.denoms.ether)
 
     # InsufficientBalance -> don't include this transaction
     tx3 = t.generate_shard_tx(shard_id, tester.k2, tester.a4, int(100000000000 * utils.denoms.ether))
     txqueue.add_transaction(tx3)
-    state_transition.add_transactions(state, collation, txqueue, shard_id, mainchain_state=t.head_state)
+    state_transition.add_transactions(state, collation, txqueue, t.head_state, shard_id)
     assert collation.transaction_count == 2
 
 
@@ -118,3 +120,35 @@ def test_finalize():
     state = t.chain.shards[shard_id].state
     state_transition.finalize(state, coinbase)
     assert state.get_balance(coinbase) == int(state.config['COLLATOR_REWARD'])
+
+
+def test_collation_gas_limit():
+    t = chain(shard_id)
+    gas_limit = call_valmgr(t.head_state, 'get_collation_gas_limit', [])
+
+    x = t.contract("""
+hello: public(num)
+def __init__():
+    self.hello = 100
+def do_some_thing():
+    for i in range(100):
+        a = (
+            concat(
+                '',
+                sha3('hoooooooooooo')
+            )
+        )
+    """, language='viper', shard_id=shard_id)
+
+    t.mine(1)
+
+    counter = 0
+    while 1:
+        try:
+            x.do_some_thing()
+            counter += 1
+            print('counter: {}'.format(counter))
+            assert t.chain.shards[shard_id].state.gas_limit == gas_limit
+            assert t.shard_head_state[shard_id].gas_limit == gas_limit
+        except BlockGasLimitReached as e:
+            break

@@ -13,6 +13,22 @@ log = get_logger('test.shard_chain')
 log.setLevel(logging.DEBUG)
 
 
+@pytest.fixture(scope='function')
+def chain(shard_id, k0_deposit=True):
+    c = tester.Chain(env='sharding', deploy_sharding_contracts=True)
+    c.mine(5)
+
+    # make validation code
+    privkey = tester.k0
+    valcode_addr = c.sharding_valcode_addr(privkey)
+    if k0_deposit:
+        # deposit
+        c.sharding_deposit(privkey, valcode_addr)
+        c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
+    c.add_test_shard(shard_id)
+    return c
+
+
 def test_init_shard():
     """Test init_shard(self, shard_id)
     """
@@ -31,8 +47,8 @@ def test_add_shard():
     """Test add_shard(self, shard)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    shard = ShardChain(shard_id=shard_id)
+    t = tester.Chain(env='sharding', deploy_sharding_contracts=True)
+    shard = ShardChain(shard_id=shard_id, main_chain=t.chain)
 
     assert t.chain.add_shard(shard)
     assert len(t.chain.shard_id_list) == 1
@@ -44,42 +60,33 @@ def test_get_expected_period_number():
     """Test get_expected_period_number(self)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    t.chain.init_shard(shard_id)
+    t = chain(shard_id)
 
-    t.mine(5)  # block number = 5
-    assert t.chain.get_expected_period_number() == 1
+    assert t.chain.get_expected_period_number() == 6
 
-    t.mine(4)  # block number = 9
-    assert t.chain.get_expected_period_number() == 2
+    t.mine(2)  # head block number = 33
+    assert t.chain.get_expected_period_number() == 6
 
-    t.mine(1)  # block number = 10
-    assert t.chain.get_expected_period_number() == 2
+    t.mine(1)  # head block number = 34
+    assert t.chain.get_expected_period_number() == 7
 
 
 def test_get_period_start_prevhash():
     """Test get_period_start_prevhash(self, expected_period_number)
     """
     shard_id = 1
-    t = tester.Chain(env='sharding')
-    t.chain.init_shard(shard_id)
-    t.mine(5)
+    t = chain(shard_id)
 
     expected_period_number = 1
     assert t.chain.get_period_start_prevhash(expected_period_number) == t.chain.get_block_by_number(4).hash
-
-    expected_period_number = 2
-    assert t.chain.get_period_start_prevhash(expected_period_number) is None
 
 
 def test_handle_ignored_collation():
     """Test handle_ignored_collation(self, collation, period_start_prevblock)
     """
     shard_id = 1
-    # Collator: create and apply collation sequentially
-    t1 = tester.Chain(env='sharding')
-    t1.chain.init_shard(shard_id)
-    t1.mine(5)
+    t1 = chain(shard_id)
+
     # collation1
     collation1 = t1.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=None)
     period_start_prevblock = t1.chain.get_block(collation1.header.period_start_prevhash)
@@ -97,9 +104,7 @@ def test_handle_ignored_collation():
     assert t1.chain.shards[shard_id].get_score(collation3) == 3
 
     # Validator: apply collation2, collation3 and collation1
-    t2 = tester.Chain(env='sharding')
-    t2.chain.init_shard(shard_id)
-    t2.mine(5)
+    t2 = chain(shard_id)
     # append collation2
     t2.chain.shards[shard_id].add_collation(collation2, period_start_prevblock)
     # append collation3
@@ -109,22 +114,6 @@ def test_handle_ignored_collation():
     assert t2.chain.shards[shard_id].get_score(collation1) == 1
     assert t2.chain.shards[shard_id].get_score(collation2) == 2
     assert t2.chain.shards[shard_id].get_score(collation3) == 3
-
-
-@pytest.fixture(scope='function')
-def chain(shard_id, k0_deposit=True):
-    c = tester.Chain(env='sharding', deploy_sharding_contracts=True)
-    c.mine(5)
-
-    # make validation code
-    privkey = tester.k0
-    valcode_addr = c.sharding_valcode_addr(privkey)
-    if k0_deposit:
-        # deposit
-        c.sharding_deposit(privkey, valcode_addr)
-        c.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
-    c.add_test_shard(shard_id)
-    return c
 
 
 def test_longest_chain_rule():

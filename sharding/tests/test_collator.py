@@ -107,7 +107,7 @@ def test_apply_collation():
     collation = t.generate_collation(shard_id=1, coinbase=tester.a1, key=tester.k1, txqueue=txqueue)
     period_start_prevblock = t.chain.get_block(collation.header.period_start_prevhash)
 
-    collator.apply_collation(state, collation, period_start_prevblock)
+    collator.apply_collation(state, collation, period_start_prevblock, t.chain.state)
 
     assert state.trie.root_hash != prev_state_root
     assert collation.header.post_state_root == state.trie.root_hash
@@ -132,7 +132,7 @@ def test_apply_collation_wrong_root():
     # Set wrong root
     collation.header.post_state_root = trie.BLANK_ROOT
     with pytest.raises(ValueError):
-        collator.apply_collation(state, collation, period_start_prevblock)
+        collator.apply_collation(state, collation, period_start_prevblock, t.chain.state)
 
     # test 2 - arrange
     state = t.chain.shards[shard_id].state
@@ -145,7 +145,7 @@ def test_apply_collation_wrong_root():
     # Set wrong root
     collation.header.receipts_root = trie.BLANK_ROOT
     with pytest.raises(ValueError):
-        collator.apply_collation(state, collation, period_start_prevblock)
+        collator.apply_collation(state, collation, period_start_prevblock, t.chain.state)
 
     # test 3 - arrange
     state = t.chain.shards[shard_id].state
@@ -158,7 +158,7 @@ def test_apply_collation_wrong_root():
     # Set wrong root
     collation.header.tx_list_root = trie.BLANK_ROOT
     with pytest.raises(ValueError):
-        collator.apply_collation(state, collation, period_start_prevblock)
+        collator.apply_collation(state, collation, period_start_prevblock, t.chain.state)
 
 
 def test_verify_collation_header():

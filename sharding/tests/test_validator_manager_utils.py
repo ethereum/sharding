@@ -201,3 +201,8 @@ def test_get_validators_max_index(chain):
         value=0, startgas=10 ** 20, sender_addr=t.a0
     )
     assert validators_max_index == 2
+
+
+def test_call_get_collation_gas_limit(chain):
+    output = call_valmgr(chain.head_state, 'get_collation_gas_limit', [])
+    assert output == 10000000

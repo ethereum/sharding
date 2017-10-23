@@ -10,6 +10,7 @@ from ethereum.exceptions import (
 from ethereum.slogging import get_logger
 from ethereum.utils import encode_hex
 
+from sharding.validator_manager_utils import call_valmgr
 from sharding.receipt_consuming_tx_utils import (
     apply_shard_transaction,
     is_receipt_consuming_tx,
@@ -36,7 +37,7 @@ def mk_collation_from_prevstate(shard_chain, state, coinbase):
     return collation
 
 
-def add_transactions(shard_state, collation, txqueue, shard_id, min_gasprice=0, mainchain_state=None):
+def add_transactions(shard_state, collation, txqueue, mainchain_state, shard_id, min_gasprice=0):
     """Add transactions to a collation
     (refer to ethereum.common.add_transactions)
     """
@@ -44,6 +45,10 @@ def add_transactions(shard_state, collation, txqueue, shard_id, min_gasprice=0, 
         return
     pre_txs = len(collation.transactions)
     log.info('Adding transactions, %d in txqueue, %d dunkles' % (len(txqueue.txs), pre_txs))
+
+    # Collation Gas Limit
+    shard_state.gas_limit = call_valmgr(mainchain_state, 'get_collation_gas_limit', [])
+
     while 1:
         tx = txqueue.pop_transaction(
             max_gas=shard_state.gas_limit - shard_state.gas_used,
@@ -123,6 +128,11 @@ def verify_execution_results(state, collation):
                           state.gas_used, len(state.receipts)))
 
     return True
+
+
+def set_collation_gas_limit(state, gas_limit):
+    # Collation gas limit
+    state.gas_limit = gas_limit
 
 
 def finalize(state, coinbase):
