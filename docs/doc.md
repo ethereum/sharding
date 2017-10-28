@@ -10,7 +10,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `getAncestor(bytes32 hash)`: returns the 10000th ancestor of this hash.
 -   `getAncestorDistance(bytes32 hash)`: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.
 -   `getCollationGasLimit()`: returns the gas limit that collations can currently have (by default make this function always answer 10 million).
--   `txToShard(address to, uint256 shardId, uint256 tx_startgas, uint256 tx_gasprice, bytes data) returns uint256`: records a request to deposit `msg.value` ETH to address `to` in shard `shardId` during a future collation, with `startgas=tx_gasprice` and `gasprice=tx_gasprice`.  Saves a receipt ID for this request, also saving `msg.value`, `to`, `shardId`, `tx_startgas`, `tx_gasprice`, `data` and `msg.sender`.
+-   `txToShard(address to, uint256 shardId, uint256 tx_startgas, uint256 tx_gasprice, bytes data) returns uint256`: records a request to deposit `msg.value` ETH to address `to` in shard `shardId` during a future collation, with `startgas=tx_startgas` and `gasprice=tx_gasprice`.  Saves a receipt ID for this request, also saving `msg.value`, `to`, `shardId`, `tx_startgas`, `tx_gasprice`, `data` and `msg.sender`.
 -   `update_gasprice(uint256 receipt_id, uint256 tx_gasprice) returns bool`: updates the `tx_gasprice` in receipt `receipt_id`, and returns True on success.
 
 ### Parameters
