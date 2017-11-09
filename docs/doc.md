@@ -99,7 +99,7 @@ The transaction has an additional side effect of saving a record in `USED_RECEIP
 
 Here is one simple implementation in Viper:
 
-```
+```python
 def getEligibleProposer(shardId: num, period: num) -> num:
     assert period * PERIOD_LENGTH < block.number + 20
     h = as_num256(blockhash(period * PERIOD_LENGTH - 20))
@@ -110,10 +110,10 @@ def getEligibleProposer(shardId: num, period: num) -> num:
 
 A client would have a config of the following form:
 
-```
+```python
 {
     validator_address: "0x..." OR null,
-    watching: [list of shard numbers],
+    watching: [list of shard ids],
     ...
 }
 ```
@@ -125,7 +125,7 @@ For every shard `i` in the `watching` list, every time a new collation header ap
 ### GET_HEAD
 
 Pseudocode here:
-```
+```python
 h = validator_manager_contract.getShardHead(i)
 if h in self.validHeaders:
     return h
@@ -139,13 +139,13 @@ while 1:
     s -= 1
 ```
 
-Basically, see if the head provided by the validator_manager_contract is valid first, and if not, then walk down checking collation headers with progressively lower scores until you find one that is; accept that one.
+Basically, see if the head provided by the `validator_manager_contract` is valid first, and if not, then walk down checking collation headers with progressively lower scores until you find one that is; accept that one.
 
 ### MAKE_BLOCK
 
 This process has three parts. The first part can be called `GUESS_HEAD(s)`, with pseudocode here:
 
-```
+```python
 def main():
     cur_head_guess = validator_manager_contract.get_head()
     depth = 4
@@ -168,7 +168,7 @@ def main():
         cur_head_guess = best_collation_hash
         depth *= 2
 
-def get_collations_with_scores_at_least(low, high):
+def get_collations_with_scores_in_range(low, high):
     o = []
     for i in range(low, high+1):
         o.extend(get_collations_with_score(i))
@@ -186,7 +186,7 @@ We then define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_
 
 For illustration, here is full pseudocode for the transaction-getting part of `CREATE_COLLATION`:
 
-```
+```python
 # Sort by descending order of gasprice
 txpool = sorted(copy(available_transactions), key=-tx.gasprice)
 collation = new Collation(...)
