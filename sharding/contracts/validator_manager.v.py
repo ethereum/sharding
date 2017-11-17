@@ -55,6 +55,8 @@ num_validators_per_cycle: num
 
 shard_count: num
 
+lookahead_periods: num
+
 add_header_log_topic: bytes32
 
 sighasher_addr: address
@@ -72,6 +74,7 @@ def __init__():
     self.period_length = 5
     self.num_validators_per_cycle = 100
     self.shard_count = 100
+    self.lookahead_periods = 4
     self.add_header_log_topic = sha3("add_header()")
     self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
 
@@ -173,6 +176,29 @@ def sample(shard_id: num) -> address:
         return 0x0000000000000000000000000000000000000000
     else:
         return self.validators[as_num128(validator_index)].validation_code_addr
+
+
+@constant
+def get_eligible_proposer(shard_id: num, period: num) -> address:
+    assert period >= self.lookahead_periods
+    assert (period - self.lookahead_periods) * self.period_length < block.number
+    assert self.num_validators > 0
+
+    return self.validators[
+        as_num128(
+            num256_mod(
+                as_num256(
+                    sha3(
+                        concat(
+                            blockhash((period - self.lookahead_periods) * self.period_length),
+                            as_bytes32(shard_id)
+                        )
+                    )
+                ),
+                as_num256(self.num_validators)
+            )
+        )
+    ].validation_code_addr
 
 
 # Get all possible shard ids that the given valcode_addr
