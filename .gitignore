@@ -23,3 +23,5 @@ logging.conf
 .cache
 .env
 .idea
+.venv*
+.build
