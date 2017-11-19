@@ -52,6 +52,13 @@ is_valcode_deposited: public(bool[address])
 # log the latest period number of the shard
 period_head: public(num[num])
 
+# collations with score
+# [shard_id][score][num_collation] -> collation_hash
+collations_with_score: public(bytes32[num][num][num])
+
+# number of collations_with_score
+num_collations_with_score: public(num[num][num])
+
 
 # Configuration Parameter
 
@@ -299,7 +306,7 @@ def add_header(header: bytes <= 4096) -> bool:
     assert self.period_head[shard_id] < expected_period_number
 
     # Check the signature with validation_code_addr
-    collator_valcode_addr = self.sample(shard_id)
+    collator_valcode_addr = self.get_eligible_proposer(shard_id, block.number / self.period_length)
     if collator_valcode_addr == zero_addr:
         return False
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
@@ -314,6 +321,11 @@ def add_header(header: bytes <= 4096) -> bool:
         parent_collation_hash: parent_collation_hash,
         score: _score
     }
+
+    # Update collations_with_score
+    self.collations_with_score[shard_id][_score][self.num_collations_with_score[shard_id][_score]] = entire_header_hash
+    self.num_collations_with_score[shard_id][_score] = self.num_collations_with_score[shard_id][_score] + 1
+
     # Update the latest period number
     self.period_head[shard_id] = expected_period_number
 

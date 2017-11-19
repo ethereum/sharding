@@ -193,6 +193,9 @@ def test_validator_manager():
     assert x.add_header(h1)
     c.mine(1)
 
+    assert x.get_num_collations_with_score(0, 1) == 1
+    assert x.get_collations_with_score(0, 1, 0) != utils.encode_int32(0)
+
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
         h1 = get_colhdr(shard_id, shard0_genesis_colhdr_hash, 1)
