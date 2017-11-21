@@ -28,7 +28,7 @@ There are also the following public variables:
 -   `SIG_GASLIMIT`: 40000
 -   `COLLATOR_REWARD`: 0.001
 -   `PERIOD_LENGTH`: 5 blocks
--   `LOOKAHEAD_PERIODS`: 3
+-   `LOOKAHEAD_PERIODS`: 4
 
 ### Specification
 

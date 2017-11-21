@@ -7,7 +7,7 @@ from ethereum import utils
 from sharding.tools import tester as t
 from sharding.contract_utils import (
     sign,
-    MessageFailed
+    MessageFailed,
 )
 from sharding.validator_manager_utils import (
     WITHDRAW_HASH,

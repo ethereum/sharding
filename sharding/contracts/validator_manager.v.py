@@ -1,4 +1,4 @@
-# information about validators
+# Information about validators
 validators: public({
     # Amount of wei the validator holds
     deposit: wei_value,
@@ -11,16 +11,16 @@ validators: public({
     cycle: num,
 }[num])
 
-# number of validators
+# Number of validators
 num_validators: public(num)
 
-# collation headers
+# Collation headers
 collation_headers: public({
     parent_collation_hash: bytes32,
     score: num,
 }[bytes32][num])
 
-# receipt data
+# Receipt data
 receipts: public({
     shard_id: num,
     tx_startgas: num,
@@ -31,62 +31,62 @@ receipts: public({
     data: bytes <= 4096
 }[num])
 
-# current head of each shard
+# Current head of each shard
 shard_head: public(bytes32[num])
 
-# number of receipts
+# Number of receipts
 num_receipts: num
 
-# indexs of empty slots caused by the function `withdraw`
+# Indexs of empty slots caused by the function `withdraw`
 empty_slots_stack: num[num]
 
-# the top index of the stack in empty_slots_stack
+# The top index of the stack in empty_slots_stack
 empty_slots_stack_top: num
 
-# gas limit of the signature validation code
+# Gas limit of the signature validation code
 sig_gas_limit: num
 
-# is a valcode addr deposited now?
+# Is a valcode addr deposited now?
 is_valcode_deposited: public(bool[address])
 
-# log the latest period number of the shard
+# Log the latest period number of the shard
 period_head: public(num[num])
 
-# collations with score
+# Collations with score
 # [shard_id][score][num_collation] -> collation_hash
 collations_with_score: public(bytes32[num][num][num])
 
-# number of collations_with_score
+# Number of collations_with_score
 num_collations_with_score: public(num[num][num])
 
 
 # Configuration Parameter
 
-# the exact deposit size which you have to deposit to become a validator
+# The exact deposit size which you have to deposit to become a validator
 deposit_size: wei_value
 
-# any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
-# will be [DEPRECATED] for stateless client
+# Any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
+# Will be [DEPRECATED] for stateless client
 shuffling_cycle_length: num
 
-# number of blocks in one period
+# Number of blocks in one period
 period_length: num
 
-# number of validators of each cycle
+# Number of validators of each cycle
 # will be [DEPRECATED] for stateless client
 num_validators_per_cycle: num
 
-# number of shards
+# Number of shards
 shard_count: num
 
-# number of periods ahead of current period, which the contract
+# Number of periods ahead of current period, which the contract
 # is able to return the collator of that period
 lookahead_periods: num
 
 
 # Constant
 
-# the address of sighasher contract
+# The address of sighasher contract
 sighasher_addr: address
 
 
@@ -237,8 +237,8 @@ def get_eligible_proposer(shard_id: num, period: num) -> address:
     ].validation_code_addr
 
 
-# Get all possible shard ids that the given valcode_addr
-# may be sampled in the current cycle
+# Get all possible shard ids that the given valcode_addr may be sampled in the current cycle
+# Will be [DEPRECATED] for stateless client
 @constant
 def get_shard_list(valcode_addr: address) -> bool[100]:
     shard_list: bool[100]
