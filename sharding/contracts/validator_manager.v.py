@@ -7,14 +7,20 @@ validators: public({
     # Addess to withdraw to
     return_addr: address,
     # The cycle number which the validator would be included after
+    # Will be [DEPRECATED] for stateless client
     cycle: num,
 }[num])
 
+# Number of validators
+num_validators: public(num)
+
+# Collation headers
 collation_headers: public({
     parent_collation_hash: bytes32,
     score: num,
 }[bytes32][num])
 
+# Receipt data
 receipts: public({
     shard_id: num,
     tx_startgas: num,
@@ -25,42 +31,64 @@ receipts: public({
     data: bytes <= 4096
 }[num])
 
+# Current head of each shard
 shard_head: public(bytes32[num])
 
-num_validators: public(num)
-
+# Number of receipts
 num_receipts: num
 
-# indexs of empty slots caused by the function `withdraw`
+# Indexs of empty slots caused by the function `withdraw`
 empty_slots_stack: num[num]
 
-# the top index of the stack in empty_slots_stack
+# The top index of the stack in empty_slots_stack
 empty_slots_stack_top: num
 
-# the exact deposit size which you have to deposit to become a validator
-deposit_size: wei_value
-
-# any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
-shuffling_cycle_length: num
-
-# gas limit of the signature validation code
+# Gas limit of the signature validation code
 sig_gas_limit: num
 
-# is a valcode addr deposited now?
+# Is a valcode addr deposited now?
 is_valcode_deposited: public(bool[address])
 
+# Log the latest period number of the shard
+period_head: public(num[num])
+
+# Collations with score
+# [shard_id][score][num_collation] -> collation_hash
+collations_with_score: public(bytes32[num][num][num])
+
+# Number of collations_with_score
+num_collations_with_score: public(num[num][num])
+
+
+# Configuration Parameter
+
+# The exact deposit size which you have to deposit to become a validator
+deposit_size: wei_value
+
+# Any given validator randomly gets allocated to some number of shards every SHUFFLING_CYCLE
+# Will be [DEPRECATED] for stateless client
+shuffling_cycle_length: num
+
+# Number of blocks in one period
 period_length: num
 
+# Number of validators of each cycle
+# will be [DEPRECATED] for stateless client
 num_validators_per_cycle: num
 
+# Number of shards
 shard_count: num
 
-add_header_log_topic: bytes32
+# Number of periods ahead of current period, which the contract
+# is able to return the collator of that period
+lookahead_periods: num
 
+
+# Constant
+
+# The address of sighasher contract
 sighasher_addr: address
 
-# log the latest period number of the shard
-period_head: public(num[num])
 
 def __init__():
     self.num_validators = 0
@@ -72,19 +100,22 @@ def __init__():
     self.period_length = 5
     self.num_validators_per_cycle = 100
     self.shard_count = 100
-    self.add_header_log_topic = sha3("add_header()")
+    self.lookahead_periods = 4
     self.sighasher_addr = 0xDFFD41E18F04Ad8810c83B14FD1426a82E625A7D
 
 
+# Checks if empty_slots_stack_top is empty
 def is_stack_empty() -> bool:
     return (self.empty_slots_stack_top == 0)
 
 
+# Pushes one num to empty_slots_stack
 def stack_push(index: num):
     self.empty_slots_stack[self.empty_slots_stack_top] = index
     self.empty_slots_stack_top += 1
 
 
+# Pops one num out of empty_slots_stack
 def stack_pop() -> num:
     if self.is_stack_empty():
         return -1
@@ -92,38 +123,39 @@ def stack_pop() -> num:
     return self.empty_slots_stack[self.empty_slots_stack_top]
 
 
+# Returns the current maximum index for validators mapping
 def get_validators_max_index() -> num:
     zero_addr = 0x0000000000000000000000000000000000000000
     activate_validator_num = 0
-    current_cycle = floor(decimal(block.number / self.shuffling_cycle_length))
     all_validator_slots_num = self.num_validators + self.empty_slots_stack_top
 
     # TODO: any better way to iterate the mapping?
     for i in range(1024):
         if i >= all_validator_slots_num:
             break
-        if (self.validators[i].validation_code_addr != zero_addr and
-            self.validators[i].cycle <= current_cycle):
+        if self.validators[i].validation_code_addr != zero_addr:
             activate_validator_num += 1
     return activate_validator_num + self.empty_slots_stack_top
 
 
+# Adds a validator to the validator set, with the validator's size being the msg.value
+# (ie. amount of ETH deposited) in the function call. Returns the validator index.
+# validationCodeAddr stores the address of the validation code; the function fails
+# if this address's code has not been purity-verified.
 @payable
 def deposit(validation_code_addr: address, return_addr: address) -> num:
     assert not self.is_valcode_deposited[validation_code_addr]
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
-    next_cycle = 0
     if not self.is_stack_empty():
         index = self.stack_pop()
     else:
         index = self.num_validators
-        next_cycle = floor(decimal(block.number / self.shuffling_cycle_length)) + 1
     self.validators[index] = {
         deposit: msg.value,
         validation_code_addr: validation_code_addr,
         return_addr: return_addr,
-        cycle: next_cycle
+        cycle: 0
     }
     self.num_validators += 1
     self.is_valcode_deposited[validation_code_addr] = True
@@ -136,6 +168,9 @@ def deposit(validation_code_addr: address, return_addr: address) -> num:
     return index
 
 
+# Verifies that the signature is correct (ie. a call with 200000 gas, validationCodeAddr as
+# destination, 0 value and sha3("withdraw") + sig as data returns 1), and if it is removes
+# the validator from the validator set and refunds the deposited ETH.
 def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     msg_hash = sha3("withdraw")
     result = (extract32(raw_call(self.validators[validator_index].validation_code_addr, concat(msg_hash, sig), gas=self.sig_gas_limit, outsize=32), 0) == as_bytes32(1))
@@ -153,6 +188,7 @@ def withdraw(validator_index: num, sig: bytes <= 1000) -> bool:
     return result
 
 
+# Will be [DEPRECATED] for stateless client
 @constant
 def sample(shard_id: num) -> address:
     cycle = floor(decimal(block.number / self.shuffling_cycle_length))
@@ -175,8 +211,34 @@ def sample(shard_id: num) -> address:
         return self.validators[as_num128(validator_index)].validation_code_addr
 
 
-# Get all possible shard ids that the given valcode_addr
-# may be sampled in the current cycle
+# Uses a block hash as a seed to pseudorandomly select a signer from the validator set.
+# [TODO] Chance of being selected should be proportional to the validator's deposit.
+# Should be able to return a value for the current period or any future period up to.
+@constant
+def get_eligible_proposer(shard_id: num, period: num) -> address:
+    assert period >= self.lookahead_periods
+    assert (period - self.lookahead_periods) * self.period_length < block.number
+    assert self.num_validators > 0
+
+    return self.validators[
+        as_num128(
+            num256_mod(
+                as_num256(
+                    sha3(
+                        concat(
+                            blockhash((period - self.lookahead_periods) * self.period_length),
+                            as_bytes32(shard_id)
+                        )
+                    )
+                ),
+                as_num256(self.get_validators_max_index())
+            )
+        )
+    ].validation_code_addr
+
+
+# Get all possible shard ids that the given valcode_addr may be sampled in the current cycle
+# Will be [DEPRECATED] for stateless client
 @constant
 def get_shard_list(valcode_addr: address) -> bool[100]:
     shard_list: bool[100]
@@ -244,7 +306,7 @@ def add_header(header: bytes <= 4096) -> bool:
     assert self.period_head[shard_id] < expected_period_number
 
     # Check the signature with validation_code_addr
-    collator_valcode_addr = self.sample(shard_id)
+    collator_valcode_addr = self.get_eligible_proposer(shard_id, block.number / self.period_length)
     if collator_valcode_addr == zero_addr:
         return False
     sighash = extract32(raw_call(self.sighasher_addr, header, gas=200000, outsize=32), 0)
@@ -259,6 +321,11 @@ def add_header(header: bytes <= 4096) -> bool:
         parent_collation_hash: parent_collation_hash,
         score: _score
     }
+
+    # Update collations_with_score
+    self.collations_with_score[shard_id][_score][self.num_collations_with_score[shard_id][_score]] = entire_header_hash
+    self.num_collations_with_score[shard_id][_score] = self.num_collations_with_score[shard_id][_score] + 1
+
     # Update the latest period number
     self.period_head[shard_id] = expected_period_number
 
@@ -267,11 +334,12 @@ def add_header(header: bytes <= 4096) -> bool:
         self.shard_head[shard_id] = entire_header_hash
 
     # Emit log
-    raw_log([self.add_header_log_topic], header)
+    raw_log([sha3("add_header()")], header)
 
     return True
 
 
+# Returns the block hash of block `PERIOD_LENGTH * expected_period_number - 1`
 @constant
 def get_period_start_prevhash(expected_period_number: num) -> bytes32:
     block_number = expected_period_number * self.period_length - 1
@@ -334,6 +402,7 @@ def tx_to_shard(to: address, shard_id: num, tx_startgas: num, tx_gasprice: num, 
     return receipt_id
 
 
+# Updates the tx_gasprice in receipt receipt_id, and returns True on success.
 @payable
 def update_gasprice(receipt_id: num, tx_gasprice: num) -> bool:
     assert self.receipts[receipt_id].sender == msg.sender

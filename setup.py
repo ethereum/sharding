@@ -23,7 +23,7 @@ INSTALL_REQUIRES = list(set(INSTALL_REQUIRES))
 DEPENDENCY_LINKS = []
 if os.environ.get("USE_PYETHEREUM_DEVELOP"):
     # Force installation of specific commits of pyethereum.
-    pyethereum_ref = 'ed66e318b8dc34af925096846a77133b201d64b4'   # Oct 22, 2017
+    pyethereum_ref = '31b552ae6535cb7aebf4af4183085808b7c97157'   # Oct 20, 2017
     DEPENDENCY_LINKS = [
         'http://github.com/ethereum/pyethereum/tarball/%s#egg=ethereum-9.99.9' % pyethereum_ref
     ]

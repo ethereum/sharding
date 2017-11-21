@@ -7,6 +7,7 @@ from ethereum import utils
 from sharding.tools import tester as t
 from sharding.contract_utils import (
     sign,
+    MessageFailed,
 )
 from sharding.validator_manager_utils import (
     WITHDRAW_HASH,
@@ -21,22 +22,27 @@ from sharding.config import sharding_config
 validator_manager_code = get_valmgr_code()
 deposit_logs = []
 tx_to_shard_logs = []
+return_addr = utils.privtoaddr(utils.sha3("return_addr"))
 
 
-def test_validator_manager():
-    # Must pay 100 ETH to become a validator
-
+@pytest.fixture(scope='function')
+def get_chain_with_vmc():
     c = t.Chain(env='sharding', deploy_sharding_contracts=True)
 
-    k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
-    k1_valcode_addr = c.tx(t.k1, '', 0, mk_validation_code(t.a1))
-
-    num_blocks = 11
-    c.mine(num_blocks - 1, coinbase=t.a0)
+    # Must pay 100 ETH to become a validator
     c.head_state.gas_limit = 10 ** 12
 
     # deploy valmgr and its prerequisite contracts and transactions
     x = t.ABIContract(c, get_valmgr_ct(), get_valmgr_addr())
+
+    return c, x
+
+
+def test_validator_manager():
+    c, x = get_chain_with_vmc()
+
+    k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
+    k1_valcode_addr = c.tx(t.k1, '', 0, mk_validation_code(t.a1))
 
     # test deposit: fails when msg.value != DEPOSIT_SIZE
     with pytest.raises(t.TransactionFailed):
@@ -47,8 +53,6 @@ def test_validator_manager():
     # test withdraw: fails when no validator record
     assert not x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
     c.mine(1)
-
-    return_addr = utils.privtoaddr(utils.sha3("return_addr"))
 
     # test get_shard_list: couldn't be sampled
     assert not x.get_shard_list(k0_valcode_addr, is_constant=True)[0]
@@ -108,7 +112,7 @@ def test_validator_manager():
     c.mine(1)
     assert x.sample(0, is_constant=True) == "0x0000000000000000000000000000000000000000"
 
-    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=num_blocks):
+    def get_colhdr(shard_id, parent_collation_hash, number, collation_coinbase=t.a0, privkey=t.k0, n_blocks=c.chain.head.number):
         period_length = 5
         expected_period_number = (n_blocks + 1) // period_length
         b = c.chain.get_block_by_number(expected_period_number * period_length - 1)
@@ -188,6 +192,9 @@ def test_validator_manager():
     )
     assert x.add_header(h1)
     c.mine(1)
+
+    assert x.get_num_collations_with_score(0, 1) == 1
+    assert x.get_collations_with_score(0, 1, 0) != utils.encode_int32(0)
 
     # test add_header: fails when the header is added before
     with pytest.raises(t.TransactionFailed):
@@ -291,3 +298,32 @@ def test_validator_manager():
     assert 2 == x.get_receipts__tx_gasprice(receipt_id1, is_constant=True)
 
     print(utils.checksum_encode(get_valmgr_addr()))
+
+
+def test_get_eligible_proposer():
+    """Test get_eligible_proposer(shard_id, period) function
+    """
+    c, x = get_chain_with_vmc()
+
+    k0_valcode_addr = c.tx(t.k0, '', 0, mk_validation_code(t.a0))
+
+    # case 1. if period * self.period_length >= block.number + self.lookahead_periods * self.period_length
+    eligible_depth = sharding_config['PERIOD_LENGTH'] * sharding_config['LOOKAHEAD_PERIODS']
+    period = 100
+    assert period * sharding_config['PERIOD_LENGTH'] >= c.chain.head.number + eligible_depth
+    with pytest.raises(MessageFailed):
+        x.get_eligible_proposer(1, period, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))
+
+    # case 2. successful case
+    # deposit and then num_validators == 1
+    assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
+    c.mine(4)
+    period = c.chain.head.number // sharding_config['PERIOD_LENGTH'] + sharding_config['LOOKAHEAD_PERIODS']
+    x.get_eligible_proposer(1, period, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))
+
+    # case 3. if the num_validators == 0
+    assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
+    c.mine(1)
+    period = c.chain.head.number // sharding_config['PERIOD_LENGTH'] + sharding_config['LOOKAHEAD_PERIODS']
+    with pytest.raises(MessageFailed):
+        x.get_eligible_proposer(1, period, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))

@@ -118,7 +118,7 @@ class ShardChain(object):
         try:
             collation_rlp = self.db.get(self.head_hash)
             # [TODO] no genesis collation
-            if collation_rlp == 'GENESIS':
+            if collation_rlp == b'GENESIS':
                 return Collation(CollationHeader())
                 # return self.genesis
             else:

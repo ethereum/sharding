@@ -4,7 +4,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 
 -   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (ie. amount of ETH deposited) in the function call. Returns the validator index. `validationCodeAddr` stores the address of the validation code; the function fails if this address's code has not been purity-verified.
 -   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (ie. a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.
--   `getEligibleProposer(uint256 shardId, uint256 period) returns uint256`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit. Should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
+-   `getEligibleProposer(uint256 shardId, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit. Should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 -   `getAncestor(bytes32 hash)`: returns the 10000th ancestor of this hash.
@@ -16,8 +16,8 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 There are also the following public variables:
 
 * `collations: ({parent: bytes32, score: uint256...})[bytes32]` - this implicitly serves as a "hash to collation header" lookup, as well as giving the parent of a collation and the score (ie. depth in the collation tree) of a collation
-* `num_collations_with_score: num[num]` - gives the number of collations that have the given score
-* `collations_with_score: bytes32[num][num]` - `[i][j]` gives the jth collation with score i.
+* `num_collations_with_score: num[num][num]` - `[s][i]` gives the number of collations that have the given shard `s` and score `i`
+* `collations_with_score: bytes32[num][num][num]` - `[s][i][j]` gives the jth collation with shard `s` and score `i`.
 
 ### Parameters
 
@@ -28,8 +28,7 @@ There are also the following public variables:
 -   `SIG_GASLIMIT`: 40000
 -   `COLLATOR_REWARD`: 0.001
 -   `PERIOD_LENGTH`: 5 blocks
--   `LOOKAHEAD_PERIODS`: 3
--   `SHUFFLING_CYCLE_LENGTH`: 2500 blocks
+-   `LOOKAHEAD_PERIODS`: 4
 
 ### Specification
 
@@ -100,10 +99,27 @@ The transaction has an additional side effect of saving a record in `USED_RECEIP
 Here is one simple implementation in Viper:
 
 ```python
-def getEligibleProposer(shardId: num, period: num) -> num:
-    assert period * PERIOD_LENGTH < block.number + 20
-    h = as_num256(blockhash(period * PERIOD_LENGTH - 20))
-    return as_num128(num256_mod(h, as_num256(self.validator_count)))
+def getEligibleProposer(shardId: num, period: num) -> address:
+    assert period >= LOOKAHEAD_PERIODS
+    assert (period - LOOKAHEAD_PERIODS) * PERIOD_LENGTH < block.number
+    assert self.num_validators > 0
+
+    h = as_num256(
+        sha3(
+            concat(
+                blockhash((period - LOOKAHEAD_PERIODS) * PERIOD_LENGTH),
+                as_bytes32(shardId)
+            )
+        )
+    )
+    return self.validators[
+        as_num128(
+            num256_mod(
+                h,
+                as_num256(self.num_validators)
+            )
+        )
+    ].validation_code_addr
 ```
 
 ### Client Logic
@@ -118,7 +134,7 @@ A client would have a config of the following form:
 }
 ```
 
-If a validator address is provided, then it checks if the address is an active validator. If it does, then every time a new period on the main chain starts (ie. when `block.number // PERIOD_LENGTH` changes), then it should call `getEligibleProposer` for all shards for period `block.number // PERIOD_LENGTH + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `MAKE_BLOCK(i)` (see below).
+If a validator address is provided, then it checks if the address is an active validator. If it does, then every time a new period on the main chain starts (ie. when `block.number // PERIOD_LENGTH` changes), then it should call `getEligibleProposer` for all shards for period `block.number // PERIOD_LENGTH + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
 
 For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and repeatedly runs the algorithm `GET_HEAD(i)` (see below).
 
@@ -141,7 +157,7 @@ while 1:
 
 Basically, see if the head provided by the `validator_manager_contract` is valid first, and if not, then walk down checking collation headers with progressively lower scores until you find one that is; accept that one.
 
-### MAKE_BLOCK
+### CREATE_COLLATION
 
 This process has three parts. The first part can be called `GUESS_HEAD(s)`, with pseudocode here:
 
@@ -150,7 +166,7 @@ def main():
     cur_head_guess = validator_manager_contract.get_head()
     depth = 4
     while 1:
-        all_collations = get_collations_with_scores_in_range(low=cur_head_guess - depth, high=cur_head_guess.score)
+        all_collations = get_collations_with_scores_in_range(shard_id=shard_id, low=cur_head_guess - depth, high=cur_head_guess.score)
         best_collation_hash = 0
         best_collation_score = 0
         for collation in all_collations:
@@ -168,15 +184,15 @@ def main():
         cur_head_guess = best_collation_hash
         depth *= 2
 
-def get_collations_with_scores_in_range(low, high):
+def get_collations_with_scores_in_range(shard_id, low, high):
     o = []
     for i in range(low, high+1):
-        o.extend(get_collations_with_score(i))
+        o.extend(get_collations_with_score(shard_id, i))
     return o
 
-def get_collations_with_score(score):
-    return [validator_manager_contract.get_collations_with_score(score, i) for i in
-            range(validator_manager_contract.get_num_collations_with_score(score))]
+def get_collations_with_score(shard_id, score):
+    return [validator_manager_contract.get_collations_with_score(shard_id, score, i) for i in
+            range(validator_manager_contract.get_num_collations_with_score(shard_id, score))]
 
 ```
 
@@ -194,13 +210,14 @@ while len(txpool) > 0:
     # Remove txs that ask for too much gas
     i = 0
     while i < len(txpool):
-        if txpool[i].startgas > GASLIMIT - block.gasused:
+        if txpool[i].startgas > GASLIMIT - collation.gasused:
             txpool.pop(i)
         else:
             i += 1
+    tx = copy.deepcopy(txpool[0])
     tx.witness = UPDATE_WITNESS(tx.witness, recent_trie_nodes_db)
     # Try to add the transaction, discard if it fails
-    success, reads, writes = add_transaction(collation, txpool[0])
+    success, reads, writes = add_transaction(collation, tx)
     recent_trie_nodes_db = union(recent_trie_nodes_db, writes)
     txpool.pop(0)
 ```

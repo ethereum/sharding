@@ -178,24 +178,10 @@ def test_get_validators_max_index(chain):
         chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
         value=0, startgas=10 ** 20, sender_addr=t.a0
     )
-    assert validators_max_index == 0
-
-    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
-    validators_max_index = call_contract_constantly(
-        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
-        value=0, startgas=10 ** 20, sender_addr=t.a0
-    )
     assert validators_max_index == 1
 
     tx = call_deposit(chain.head_state, t.k1, DEPOSIT_SIZE, k1_valcode_addr, t.a1)
     chain.direct_tx(tx)
-    validators_max_index = call_contract_constantly(
-        chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
-        value=0, startgas=10 ** 20, sender_addr=t.a0
-    )
-    assert validators_max_index == 1
-
-    chain.mine(sharding_config['SHUFFLING_CYCLE_LENGTH'])
     validators_max_index = call_contract_constantly(
         chain.head_state, get_valmgr_ct(), get_valmgr_addr(), 'get_validators_max_index', [],
         value=0, startgas=10 ** 20, sender_addr=t.a0
