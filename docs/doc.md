@@ -1,34 +1,35 @@
-### Preliminaries
+### Introduction
 
-We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main shard") there exists a contract that manages an active "validator set", and supports the following functions:
+The purpose of this document is to provide a reasonably complete specification and introduction for anyone looking to understand the details of the sharding proposal, as well as to implement it. This document as written describes only "phase 1" of quadratic sharding; phases 2, 3 and 4 are at this point out of scope, and super-quadratic sharding ("Ethereum 3.0") is also out of scope.
 
--   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (ie. amount of ETH deposited) in the function call. Returns the validator index. `validationCodeAddr` stores the address of the validation code; the function fails if this address's code has not been purity-verified.
+Suppose that the variable `c` denotes the level of computational power available to one node. In a simple blockchain, the transaction capacity is bounded by O(c), as every node must process every transaction. The goal of quadratic sharding is to increase the capacity with a two-layer design. Stage 1 requires no hard forks; the main chain stays exactly as is. However, a contract is published to the main chain called the **validator manager contract** (VMC), which maintains the sharding system. There are O(c) **shards** (currently, 100), where each shard is like a separate "galaxy": it has its own account space, transactions need to specify which shard they are to be published inside, and communication between shards is very limited (in fact, in phase 1, it is nonexistent).
+
+The shards are run on a simple longest-chain-rule proof of stake system, where the stake is on the main chain (specifically, inside the VMC). All shards share a common validator pool; this also means that anyone who signs up with the VMC as a validator could theoretically at any time be assigned the right to create a block on any shard. Each shard has a block size/gas limit of O(c), and so the total capacity of the system is O(c^2).
+
+Most users of the sharding system will run both (i) either a full (O(c)) or light (O(log(c))) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (assumed to be trusted because it's also running on the user's computer) and can be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c).
+
+### Constants
+
+* `LOOKAHEAD_PERIODS`: 4
+* `PERIOD_LENGTH`: 5
+* `COLLATION_GASLIMIT`: 10,000,000
+* `SHARD_COUNT`: 100
+* `SIG_GASLIMIT`: 40000
+* `COLLATOR_REWARD`: 0.001
+
+### The Validator Manager Contract
+
+We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main shard") there exists the VMC, which supports the following functions:
+
+-   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (ie. amount of ETH deposited) in the function call. Returns the validator index. `validationCodeAddr` stores the address of the validation code, which is expected to store a pure function which expects as input a 32 byte hash followed by a signature, and returns 1 if the signature matches the hash and otherwise 0; the function fails if this address's code has not been purity-verified.
 -   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (ie. a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.
 -   `getEligibleProposer(uint256 shardId, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit. Should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
--   `getAncestor(bytes32 hash)`: returns the 10000th ancestor of this hash.
--   `getAncestorDistance(bytes32 hash)`: returns the difference between the block number of this hash and the block number of the 10000th ancestor of this hash.
--   `getCollationGasLimit()`: returns the gas limit that collations can currently have (by default make this function always answer 10 million).
--   `txToShard(address to, uint256 shardId, uint256 tx_startgas, uint256 tx_gasprice, bytes data) returns uint256`: records a request to deposit `msg.value` ETH to address `to` in shard `shardId` during a future collation, with `startgas=tx_startgas` and `gasprice=tx_gasprice`.  Saves a receipt ID for this request, also saving `msg.value`, `to`, `shardId`, `tx_startgas`, `tx_gasprice`, `data` and `msg.sender`.
--   `update_gasprice(uint256 receipt_id, uint256 tx_gasprice) returns bool`: updates the `tx_gasprice` in receipt `receipt_id`, and returns True on success.
 
-There are also the following public variables:
+There is also a log type:
 
-* `collations: ({parent: bytes32, score: uint256...})[bytes32]` - this implicitly serves as a "hash to collation header" lookup, as well as giving the parent of a collation and the score (ie. depth in the collation tree) of a collation
-* `num_collations_with_score: num[num][num]` - `[s][i]` gives the number of collations that have the given shard `s` and score `i`
-* `collations_with_score: bytes32[num][num][num]` - `[s][i][j]` gives the jth collation with shard `s` and score `i`.
-
-### Parameters
-
--   `SERENITY_FORK_BLKNUM`: ????
--   `SHARD_COUNT`: 100
--   `VALIDATOR_MANAGER_ADDRESS`: ????
--   `USED_RECEIPT_STORE_ADDRESS`: ????
--   `SIG_GASLIMIT`: 40000
--   `COLLATOR_REWARD`: 0.001
--   `PERIOD_LENGTH`: 5 blocks
--   `LOOKAHEAD_PERIODS`: 4
+-   `CollationAdded(indexed uint256 shard, bytes collationData)`
 
 ### Specification
 
@@ -49,7 +50,7 @@ We first define a "collation header" as an RLP list with the following values:
 Where:
 
 -   `shard_id` is the shard ID of the shard
--   `expected_period_number` is the period number in which this collation expects to be included. A period is an interval of `PERIOD_LENGTH` blocks.
+-   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`.
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
 -   `parent_collation_hash` is the hash of the parent collation
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation
@@ -57,16 +58,14 @@ Where:
 -   `receipts_root` is the root hash of the receipt trie
 -   `sig` is a signature
 
-For blocks where `block.number >= SERENITY_FORK_BLKNUM`, the block header's extra data must contain a hash which points to an RLP list of `SHARD_COUNT` objects, where each object is either the empty string or a valid collation header for a shard.
-
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
 
 -   The `shard_id` is at least 0, and less than `SHARD_COUNT`
--   The `expected_period_number` equals `floor(block.number / PERIOD_LENGTH)`
--   A collation with the hash `parent_collation_hash` has already been accepted
--   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = sample(shard_id)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
+-   The `expected_period_number` equals the actual current period number (ie. `floor(block.number / PERIOD_LENGTH)`)
+-   A collation with the hash `parent_collation_hash` for the same shard has already been accepted
+-   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_id, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
 
-A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`, and (iii) the total gas used is less than or equal to the output of calling `getCollationGasLimit()` on the main shard.
+A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`, and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
 ### Collation state transition function
 
@@ -74,25 +73,6 @@ The state transition process for executing a collation is as follows:
 
 * Execute each transaction in the tree pointed to by `tx_list_root` in order
 * Assign a reward of `COLLATOR_REWARD` to the coinbase
-
-### Receipt-consuming transactions
-
-A transaction in a shard can use a receipt ID as its signature (that is, (v, r, s) = (1, receiptID, 0)). Let `(to, value, shard_id, tx_startgas, tx_gasprice, sender, data)` be the values that were saved by the `txToShard` call that created this receipt. For such a transaction to be valid:
-
-* Such a receipt *must* have in fact been created by a `txToShard` call in the main chain.
-* The `to`, `value`, `startgas`, and `gasprice` of the transaction *must* match the `to`, `value`, `tx_startgas` and `tx_gasprice` of this receipt.
-* The shard Id *must* match `shard_id`.
-* The contract at address `USED_RECEIPT_STORE_ADDRESS` *must NOT* have a record saved saying that the given receipt ID was already consumed.
-
-The transaction has an additional side effect of saving a record in `USED_RECEIPT_STORE_ADDRESS` saying that the given receipt ID has been consumed. Such a transaction effects a message whose:
-
-* `sender` is `USED_RECEIPT_STORE_ADDRESS`
-* `to` is the `to` from the receipt
-* `startgas` is the `tx_startgas` from the receipt
-* `gasprice` is the `tx_gasprice` from the receipt
-* `value` is the `value` from the receipt, minus `gasprice * gaslimit`
-* `data` is twelve zero bytes concatenated with the `sender` from the receipt concatenated with the `data` from the receipt
-* Gas refunds go to the `to` address
 
 ### Details of `getEligibleProposer`
 
@@ -122,6 +102,36 @@ def getEligibleProposer(shardId: num, period: num) -> address:
     ].validation_code_addr
 ```
 
+### Stateless Clients
+
+A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are required to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement), instead allowing validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (ie. Merkle branches) to prove the pre-state of the accounts the transaction affects and provide enough information to calculate the post-state root after executing the transaction.
+
+We modify the format of a transaction so that the transaction must specify what parts of the state it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to an account outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and wasting their time.
+
+_Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list; this allows the collator to process the transaction with only the state root. When publishing the collation, the collator also sends a witness for the entire collation.
+
+Transaction format:
+
+```
+    [
+        [nonce, acct, data....],    # transaction body
+        [node1, node2, node3....]   # witness
+    ]
+```
+
+Collation format:
+
+```
+    [
+        [shard_id, ... , sig],   # header
+        [tx1, tx2 ...],          # transaction list
+        [node1, node2, node3...] # witness
+        
+    ]
+```
+
+See also: https://ethresear.ch/t/the-stateless-client-concept/172
+
 ### Client Logic
 
 A client would have a config of the following form:
@@ -134,9 +144,9 @@ A client would have a config of the following form:
 }
 ```
 
-If a validator address is provided, then it checks if the address is an active validator. If it does, then every time a new period on the main chain starts (ie. when `block.number // PERIOD_LENGTH` changes), then it should call `getEligibleProposer` for all shards for period `block.number // PERIOD_LENGTH + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
+If a validator address is provided, then it checks (on the main chain) if the address is an active validator. If it does, then every time a new period on the main chain starts (ie. when `floor(block.number / PERIOD_LENGTH)` changes), then it should call `getEligibleProposer` for all shards for period `floor(block.number / PERIOD_LENGTH) + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
 
-For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and repeatedly runs the algorithm `GET_HEAD(i)` (see below).
+For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain AND reorgs of the shard chain may both influence the shard head.
 
 ### GET_HEAD
 
