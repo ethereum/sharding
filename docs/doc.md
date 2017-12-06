@@ -132,7 +132,7 @@ Collation format:
 
 See also: https://ethresear.ch/t/the-stateless-client-concept/172
 
-### Stateless Client State Transition Function
+### Stateless client state transition function
 
 In general, we can describe a traditional "stateful" client as executing a state transition function `stf(state, tx) -> state'` (or `stf(state, block) -> state'`). In a stateless client model, nodes do not store the state. The functions `apply_transaction` and `apply_block` should be rewritten as follows:
 
@@ -140,7 +140,13 @@ In general, we can describe a traditional "stateful" client as executing a state
 apply_block(state_obj, witness, block) -> state_obj', reads, writes
 ```
 
-Where `state_obj` is a tuple containing the state root and other O(1)-sized state data (gas used, receipts, bloom filter, etc), `witness` is a witness and `block` is the rest of the block. The returned output is (i) a new `state_obj` containing the new state root and other variables, (ii) the set of objects from the witness that have been read [this is useful for block creation], and (iii) the set of new state objects that have been created to form the new state trie.
+Where `state_obj` is a tuple containing the state root and other O(1)-sized state data (gas used, receipts, bloom filter, etc), `witness` is a witness and `block` is the rest of the block. The returned output is:
+
+* A new `state_obj` containing the new state root and other variables
+* The set of objects from the witness that have been read (this is useful for block creation)
+* The set of new state objects that have been created to form the new state trie.
+
+This allows the functions to be "pure", as well as only dealing with small-sized objects (as opposed to the state in existing ethereum, which may reach gigabytes), making them convenient to use for sharding.
 
 ### Client Logic
 
@@ -202,11 +208,11 @@ def main(shard_id):
             b = get_parent(b)
 ```
 
-`fetch_and_verify_collation(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. The above algorithm is equivalent to "pick the longest valid chain, check validity as far as possible, and if you find it's invalid then switch to the next-highest-scoring valid chain you know about". The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `fetch_and_verify_collation` should also return a "write set". Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
+`fetch_and_verify_collation(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. The above algorithm is equivalent to "pick the longest valid chain, check validity as far as possible, and if you find it's invalid then switch to the next-highest-scoring valid chain you know about". The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `fetch_and_verify_collation` should also return a "write set" (see stateless client section above). Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
 
 We then define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
 
-For illustration, here is full pseudocode for the transaction-getting part of `CREATE_COLLATION`:
+For illustration, here is full pseudocode for a possible transaction-gathering part of `CREATE_COLLATION`:
 
 ```python
 # Sort by descending order of gasprice
@@ -229,6 +235,49 @@ while len(txpool) > 0:
 ```
 
 At the end, there is an additional step, finalizing the collation (to give the collator the reward, which is `COLLATOR_REWARD` ETH). This requires asking the network for a Merkle branch for the collator's account. When the network replies with this, the post-state root after applying the reward, as well as the fees, can be calculated. The collator can then package up the collation, of the form (header, txs, witness), where the witness is the union of the witnesses of all the transactions and the branch for the collator's account.
+
+## Protocol changes
+
+### Transaction format
+
+The format of a transaction now becomes (note that this includes [account abstraction](https://ethresear.ch/t/tradeoffs-in-account-abstraction-proposals/263/20) and [read/write lists](https://ethresear.ch/t/account-read-write-lists/285/3)):
+
+```
+    [
+        chain_id,      # 1 on mainnet
+        shard_id,      # the shard the transaction goes onto
+        target,        # account the tx goes to
+        data,          # transaction data
+        start_gas,     # starting gas
+        gasprice,      # gasprice
+        access_list,   # access list (see below for specification)
+        code           # initcode of the target (for account creation)
+    ]
+```
+
+The process for applying a transaction is now as follows:
+
+* Verify that the `chain_id` and `shard_id` are correct
+* Subtract `start_gas * gasprice` wei from the `target` account
+* Check if the target `account` has code. If not, verify that `sha3(code)[12:] == target`
+* If the target account is empty, execute a contract creation at the `target` with `code` as init code; otherwise skip this step
+* Execute a message with the remaining gas as startgas, the `target` as the to address, 0xff...ff as the sender, 0 value, and the transaction `data` as data
+* If either of the two executions fail, and <= 200000 gas has been consumed (ie. `start_gas - remaining_gas <= 200000`), the transaction is invalid
+* Otherwise `remaining_gas * gasprice` is refunded, and the fee paid is added to a fee counter (note: fees are NOT immediately added to the coinbase balance; instead, fees are added all at once during block finalization)
+
+### Two-layer trie redesign
+
+The existing account model is replaced with one where there is a single-layer trie, and all account balances, code and storage are incorporated into the trie. Specifically, the mapping is:
+
+* Balance of account X: `sha3(X) ++ 0x00`
+* Code of account X: `sha3(X) ++ 0x01`
+* Storage key K of account X: `sha3(X) ++ 0x02 ++ K`
+
+See: https://ethresear.ch/t/a-two-layer-account-trie-inside-a-single-layer-trie/210
+
+Additionally, the trie is now a new binary trie design: https://github.com/ethereum/research/tree/master/trie_research
+
+### Gas costs
 
 ### Rationale
 
