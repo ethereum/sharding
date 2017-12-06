@@ -27,9 +27,9 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
-There is also a log type:
+There are also two log types:
 
--   `CollationAdded(indexed uint256 shard, bytes collationData)`
+-   `CollationAdded(indexed uint256 shard, bytes collationData, bool isNewHead)`
 
 ### Specification
 
@@ -132,6 +132,16 @@ Collation format:
 
 See also: https://ethresear.ch/t/the-stateless-client-concept/172
 
+### Stateless Client State Transition Function
+
+In general, we can describe a traditional "stateful" client as executing a state transition function `stf(state, tx) -> state'` (or `stf(state, block) -> state'`). In a stateless client model, nodes do not store the state. The functions `apply_transaction` and `apply_block` should be rewritten as follows:
+
+```
+apply_block(state_obj, witness, block) -> state_obj', reads, writes
+```
+
+Where `state_obj` is a tuple containing the state root and other O(1)-sized state data (gas used, receipts, bloom filter, etc), `witness` is a witness and `block` is the rest of the block. The returned output is (i) a new `state_obj` containing the new state root and other variables, (ii) the set of objects from the witness that have been read [this is useful for block creation], and (iii) the set of new state objects that have been created to form the new state trie.
+
 ### Client Logic
 
 A client would have a config of the following form:
@@ -148,67 +158,53 @@ If a validator address is provided, then it checks (on the main chain) if the ad
 
 For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain AND reorgs of the shard chain may both influence the shard head.
 
-### GET_HEAD
+### Possible algorithm for watching a shard
 
-Pseudocode here:
-```python
-h = validator_manager_contract.getShardHead(i)
-if h in self.validHeaders:
-    return h
-s = validator_manager_contract.getScore(h)
-while 1:
-    n = validator_manager_contract.get_num_collations_with_score(s)
-    for i in range(n):
-        h = validator_manager_contract.get_collations_with_score(s, i)
-        if h in self.validHeaders:
-            return h
-    s -= 1
-```
-
-Basically, see if the head provided by the `validator_manager_contract` is valid first, and if not, then walk down checking collation headers with progressively lower scores until you find one that is; accept that one.
+* Upon receiving a collation on shard `i`, verify that you have already received and validated (i) its parent, and (ii) the main chain block that it references, and attempt to process it
+* To get the head at any time, scan backwards through `CollationAdded` logs shard `i` in the main chain (and specifically, those where `isNewHead = true`), and for each such log, check if you have validated the corresponding collation. If you have, then return that as the head
 
 ### CREATE_COLLATION
 
-This process has three parts. The first part can be called `GUESS_HEAD(s)`, with pseudocode here:
+This process has three parts. The first part can be called `GUESS_HEAD(shard_id)`, with pseudocode here:
 
 ```python
-def main():
-    cur_head_guess = validator_manager_contract.get_head()
-    depth = 4
+scanning_at = main_chain.head_block_number
+log_cache = []
+
+# Fetches CollationAdded logs from the main chain, with the requirement that the shard_id
+# is correct and isNewHead = true, in reverse order (ie. latest to earliest)
+def get_new_head_log(shard_id):
+    # Keep log_cache populated
+    while len(logs_so_far) == 0:
+        log_cache.extend(main_chain.get_logs(block_number=scanning_at,
+                                             type=CollationAdded,
+                                             req={shard_id: shard_id, isNewHead: true})[::-1])
+        scanning_at -= 1
+    # Whenever we want a log, we pop the first one from the list
+    return log_cache.pop(0)
+    
+# Download a single collation and check if it is valid or invalid (memoized)
+validity_cache = {}
+def memoized_fetch_and_verify_collation(b):
+    if b.hash not in validity_cache:
+        validity_cache[b.hash] = fetch_and_verify_collation(b)
+    return validity_cache[b.hash]
+    
+    
+def main(shard_id): 
+    head = None
     while 1:
-        all_collations = get_collations_with_scores_in_range(shard_id=shard_id, low=cur_head_guess - depth, high=cur_head_guess.score)
-        best_collation_hash = 0
-        best_collation_score = 0
-        for collation in all_collations:
-            c = collation
-            collation_is_valid = True
-            while c.score >= depth - cur_head_guess:
-                if not full_validate(c):
-                    collation_is_valid = False
-                    break
-                c = validator_manager_contract.get_parent(c)
-            if collation_is_valid:
-                if c.score > best_collation_score:
-                    best_collation_hash = c.hash
-                    best_collation_score = c.score
-        cur_head_guess = best_collation_hash
-        depth *= 2
-
-def get_collations_with_scores_in_range(shard_id, low, high):
-    o = []
-    for i in range(low, high+1):
-        o.extend(get_collations_with_score(shard_id, i))
-    return o
-
-def get_collations_with_score(shard_id, score):
-    return [validator_manager_contract.get_collations_with_score(shard_id, score, i) for i in
-            range(validator_manager_contract.get_num_collations_with_score(shard_id, score))]
-
+        head = get_new_head_log(shard_id)
+        b = head
+        while 1:
+            if not memoized_fetch_and_verify_collation(b):
+                break
+            b = get_parent(b)
 ```
 
-`full_validate(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. Note that `full_validate` and `get_collations_with_score` can both be memoized to avoid redoing computation. The above algorithm is equivalent to "pick the longest valid chain, but only check validity for the most recent N collations" where N starts at 4 and grows over time. The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `full_validate` should also return a "write set". Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
+`fetch_and_verify_collation(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. The above algorithm is equivalent to "pick the longest valid chain, check validity as far as possible, and if you find it's invalid then switch to the next-highest-scoring valid chain you know about". The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `fetch_and_verify_collation` should also return a "write set". Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
 
-We then define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an address list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
+We then define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
 
 For illustration, here is full pseudocode for the transaction-getting part of `CREATE_COLLATION`:
 
