@@ -277,13 +277,40 @@ See: https://ethresear.ch/t/a-two-layer-account-trie-inside-a-single-layer-trie/
 
 Additionally, the trie is now a new binary trie design: https://github.com/ethereum/research/tree/master/trie_research
 
+### Access list
+
+The access list for an account looks as follows:
+
+    [[address, prefix1, prefix2...], [address, prefix1, prefix2...], ...]
+
+This basically means "the transaction can access the balance and code for the given accounts, as well as any storage key provided that at least one of the prefixes listed with the account is a prefix of the storage key". One can translate it into "prefix list form", which essentially is a list of prefixes of the underlying storage trie (see above section):
+
+```python
+def to_prefix_list_form(access_list):
+    o = []
+    for obj in access_list:
+        addr, storage_prefixes = obj[0], obj[1:]
+        o.append(sha3(addr) + b'\x00')
+        o.append(sha3(addr) + b'\x01')
+        for prefix in storage_prefixes:
+            o.append(sha3(addr) + b'\x02' + prefix)
+    return o
+```
+
+One can compute the witness for a transaction by taking the transaction's access list, converting it into prefix list form, then running the algorithm `get_witness_for_prefix` for each item in the prefix list form, and taking the union of these results.
+
+`get_witness_for_prefix` returns a minimal set of trie nodes that are sufficient to access any key which starts with the given prefix. See implementation here: https://github.com/ethereum/research/blob/b0de8d352f6236c9fa2244fed871546fabb016d1/trie_research/new_bintrie.py#L250
+
+See also, ethresearch thread on the access list concept: https://ethresear.ch/t/account-read-write-lists/285
+
 ### Gas costs
 
-### Rationale
+To be finalized.
+
+### Subsequent phases
 
 This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.
 
-### Subsequent phases
 
 * **Phase 2, option a**: require collation headers to be added in as uncles instead of as transactions
 * **Phase 2, option b**: require collation headers to be added in an array, where item `i` in the array must be either a collation header of shard `i` or the empty string, and where the extra data must be the hash of this array (soft fork)
