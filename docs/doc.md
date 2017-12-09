@@ -6,7 +6,7 @@ Suppose that the variable `c` denotes the level of computational power available
 
 The shards are run on a simple longest-chain-rule proof of stake system, where the stake is on the main chain (specifically, inside the VMC). All shards share a common validator pool; this also means that anyone who signs up with the VMC as a validator could theoretically at any time be assigned the right to create a block on any shard. Each shard has a block size/gas limit of O(c), and so the total capacity of the system is O(c^2).
 
-Most users of the sharding system will run both (i) either a full (O(c)) or light (O(log(c))) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (assumed to be trusted because it's also running on the user's computer) and can be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c).
+Most users of the sharding system will run both (i) either a full (O(c) resource requirements) or light (O(log(c)) resource requirements) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (assumed to be trusted because it's also running on the user's computer) and can be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c) (unless the user chooses to specify that they are watching _every_ shard; block explorers and large exchanges may want to do this).
 
 ### Constants
 
@@ -27,9 +27,9 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
-There are also two log types:
+There is also one log type:
 
--   `CollationAdded(indexed uint256 shard, bytes collationData, bool isNewHead)`
+-   `CollationAdded(indexed uint256 shard, bytes collationHeader, bool isNewHead, uint256 score)`
 
 ### Specification
 
@@ -104,13 +104,15 @@ def getEligibleProposer(shardId: num, period: num) -> address:
 
 ### Stateless Clients
 
-A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are required to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement), instead allowing validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (ie. Merkle branches) to prove the pre-state of the accounts the transaction affects and provide enough information to calculate the post-state root after executing the transaction.
+A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are asked to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement), instead allowing validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (ie. Merkle branches) to prove the pre-state of the accounts the transaction affects and provide enough information to calculate the post-state root after executing the transaction.
 
-We modify the format of a transaction so that the transaction must specify what parts of the state it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to an account outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and wasting their time.
+(sidenote: it's theoretically possible to implement sharding in a non-stateless paradigm; however, this requires (i) storage rent to keep storage size bounded, and (ii) validators to be assigned to create blocks in a single shard for O(c) time; this scheme avoids the need for these sacrifices)
+
+We modify the format of a transaction so that the transaction must specify an **access list** enumerating the parts of the state it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to any state outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and thereby wasting the collator's time.
 
 _Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list; this allows the collator to process the transaction with only the state root. When publishing the collation, the collator also sends a witness for the entire collation.
 
-Transaction format:
+Transaction package format:
 
 ```
     [
@@ -134,7 +136,7 @@ See also: https://ethresear.ch/t/the-stateless-client-concept/172
 
 ### Stateless client state transition function
 
-In general, we can describe a traditional "stateful" client as executing a state transition function `stf(state, tx) -> state'` (or `stf(state, block) -> state'`). In a stateless client model, nodes do not store the state. The functions `apply_transaction` and `apply_block` should be rewritten as follows:
+In general, we can describe a traditional "stateful" client as executing a state transition function `stf(state, tx) -> state'` (or `stf(state, block) -> state'`). In a stateless client model, nodes do not store the state. The functions `apply_transaction` and `apply_block` can be rewritten as follows:
 
 ```
 apply_block(state_obj, witness, block) -> state_obj', reads, writes
@@ -164,31 +166,56 @@ If a validator address is provided, then it checks (on the main chain) if the ad
 
 For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain AND reorgs of the shard chain may both influence the shard head.
 
-### Possible algorithm for watching a shard
+### Fetch candidate heads in reverse sorted order
 
-* Upon receiving a collation on shard `i`, verify that you have already received and validated (i) its parent, and (ii) the main chain block that it references, and attempt to process it
-* To get the head at any time, scan backwards through `CollationAdded` logs shard `i` in the main chain (and specifically, those where `isNewHead = true`), and for each such log, check if you have validated the corresponding collation. If you have, then return that as the head
+To implement the algorithms for watching a shard, and for creating a collation, the first primitive that we need is the following algorithm for fetching candidate heads in highest-to-lowest order. First, suppose the existence of a (impure, stateful) method `getNextLog()`, which gets the most recent `CollationAdded` log in some given shard that has not yet been fetched. This would work by fetching all the logs in recent blocks backwards, starting from the head, and within each block looking in reverse order through the receipts. We define an impure method `fetch_candidate_head` as follows:
+
+```
+unchecked_logs = []
+current_checking_score = None
+
+def fetch_candidate_head():
+    # Try to return a log that has the score that we are checking for,
+    # checking in order of oldest to most recent
+    for i in range(len(unchecked_logs)-1, -1, -1):
+        if unchecked_logs[i].score == current_checking_score:
+            return unchecked_logs.pop(i)
+    # If no further recorded but unchecked logs exist, go to the next
+    # isNewHead = true log
+    while 1:
+        unchecked_logs.append(getNextLog())
+        if unchecked_logs[-1].isNewHead is True:
+            break
+    o = unchecked_logs.pop()
+    current_checking_score = o.score
+    return o
+```
+
+To re-express in plain language, the idea is to scan backwards through `CollationAdded` logs (for the correct shard), and wait until you get to one where `isNewHead = True`. Return that log first, then return all more recent logs with score equal to that log with `isNewHead = False`, in order of oldest to most recent. Then go to the previous log with `isNewHead = True` (this is guaranteed to have score 1 lower than the previous NewHead), then go to all more recent blocks after it with that score, and so forth.
+
+The idea is that this algorithm is guaranteed to check potential head candidates in highest-to-lowest sorted order of score, with the second priority being oldest to most recent.
+
+For example, suppose that `CollationAdded` logs have hashes and scores as follows:
+
+    ... 10 11 12 11 13   14 15 11 12 13   14 12 13 14 15   16 17 18 19 16
+    
+Then, `isNewHead` would be assigned as:
+
+    ... T  T  T  F  T    T  T  F  F  F    F  F  F  F  F    T  T  T  T  F
+    
+If we number the collations A1..A5, B1..B5, C1..C5 and D1..D5, the precise returning order is:
+
+    D4 D3 D2 D1 D5 B2 C5 B1 C1 C4 A5 B5 C3 A3 B4 C2 A2 A4 B3 A1
+    
+### Watching a shard
+
+If a client is watching a shard, it should attempt to download and verify any collations in that shard that it can (checking any given collation only if its parent has already been verified). To get the head at any time, keep calling `fetch_candidate_head()` until it returns a block that has been verified; that block is the head. This will in normal circumstances return a valid block immediately or at most after a few tries due to latency or a small-scale attack that creates a few invalid or unavailable collations. Only in the case of a true long-running 51% attack will this algorithm degrade to O(N) time.
 
 ### CREATE_COLLATION
 
 This process has three parts. The first part can be called `GUESS_HEAD(shard_id)`, with pseudocode here:
 
 ```python
-scanning_at = main_chain.head_block_number
-log_cache = []
-
-# Fetches CollationAdded logs from the main chain, with the requirement that the shard_id
-# is correct and isNewHead = true, in reverse order (ie. latest to earliest)
-def get_new_head_log(shard_id):
-    # Keep log_cache populated
-    while len(logs_so_far) == 0:
-        log_cache.extend(main_chain.get_logs(block_number=scanning_at,
-                                             type=CollationAdded,
-                                             req={shard_id: shard_id, isNewHead: true})[::-1])
-        scanning_at -= 1
-    # Whenever we want a log, we pop the first one from the list
-    return log_cache.pop(0)
-    
 # Download a single collation and check if it is valid or invalid (memoized)
 validity_cache = {}
 def memoized_fetch_and_verify_collation(b):
@@ -200,7 +227,7 @@ def memoized_fetch_and_verify_collation(b):
 def main(shard_id): 
     head = None
     while 1:
-        head = get_new_head_log(shard_id)
+        head = fetch_candidate_head(shard_id)
         b = head
         while 1:
             if not memoized_fetch_and_verify_collation(b):
@@ -210,9 +237,9 @@ def main(shard_id):
 
 `fetch_and_verify_collation(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. The above algorithm is equivalent to "pick the longest valid chain, check validity as far as possible, and if you find it's invalid then switch to the next-highest-scoring valid chain you know about". The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `fetch_and_verify_collation` should also return a "write set" (see stateless client section above). Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
 
-We then define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
+We can now define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
 
-For illustration, here is full pseudocode for a possible transaction-gathering part of `CREATE_COLLATION`:
+Next, we have `CREATE_COLLATION`. For illustration, here is full pseudocode for a possible transaction-gathering part of this method.
 
 ```python
 # Sort by descending order of gasprice
@@ -301,6 +328,8 @@ One can compute the witness for a transaction by taking the transaction's access
 
 `get_witness_for_prefix` returns a minimal set of trie nodes that are sufficient to access any key which starts with the given prefix. See implementation here: https://github.com/ethereum/research/blob/b0de8d352f6236c9fa2244fed871546fabb016d1/trie_research/new_bintrie.py#L250
 
+In the EVM, any attempt to access (either by calling or SLOAD'ing or via an opcode such as `BALANCE` or `EXTCODECOPY`) an account that is outside the access list will lead to the EVM instance that made the access attempt immediately throwing an exception.
+
 See also, ethresearch thread on the access list concept: https://ethresear.ch/t/account-read-write-lists/285
 
 ### Gas costs
@@ -311,8 +340,7 @@ To be finalized.
 
 This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.
 
-
-* **Phase 2, option a**: require collation headers to be added in as uncles instead of as transactions
-* **Phase 2, option b**: require collation headers to be added in an array, where item `i` in the array must be either a collation header of shard `i` or the empty string, and where the extra data must be the hash of this array (soft fork)
-* **Phase 3 (two-way pegging)**: add to the `USED_RECEIPT_STORE_ADDRESS` contract a function that allows receipts to be created in shards. Add to the main chain's `VALIDATOR_MANAGER_ADDRESS` a function for submitting Merkle proofs of unspent receipts that have confirmed (ie. they point to some hash `h` such that some hash `h2` exists such that `getAncestor(h2) = h` and `getAncestorDistance(h2) < 10000 * PERIOD_LENGTH * 1.33`), which has similar behavior to the `USED_RECEIPT_STORE_ADDRESS` contract in the shards.
+* **Phase 2 (two-way pegging)**: see section on `USED_RECEIPT_STORE`, still to be written
+* **Phase 3, option a**: require collation headers to be added in as uncles instead of as transactions
+* **Phase 3, option b**: require collation headers to be added in an array, where item `i` in the array must be either a collation header of shard `i` or the empty string, and where the extra data must be the hash of this array (soft fork)
 * **Phase 4 (tight coupling)**: blocks are no longer valid if they point to invalid or unavailable collations. Add data availability proofs.
