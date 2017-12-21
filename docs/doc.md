@@ -36,7 +36,7 @@ There is also one log type:
 We first define a "collation header" as an RLP list with the following values:
 
     [
-        shard_ID: uint256,
+        shard_id: uint256,
         expected_period_number: uint256,
         period_start_prevhash: bytes32,
         parent_collation_hash: bytes32,
@@ -49,7 +49,7 @@ We first define a "collation header" as an RLP list with the following values:
 
 Where:
 
--   `shard_ID` is the shard ID of the shard
+-   `shard_id` is the shard ID of the shard
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`.
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
 -   `parent_collation_hash` is the hash of the parent collation
@@ -60,10 +60,10 @@ Where:
 
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
 
--   the `shard_ID` is at least 0, and less than `SHARD_COUNT`;
+-   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
 -   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
 -   a collation with the hash `parent_collation_hash` for the same shard has already been accepted; and
--   the `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_ID, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1.
+-   the `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_id, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1.
 
 A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
@@ -125,7 +125,7 @@ Collation format:
 
 ```python
     [
-        [shard_ID, ... , sig],   # header
+        [shard_id, ... , sig],   # header
         [tx1, tx2 ...],          # transaction list
         [node1, node2, node3...] # witness
         
@@ -213,7 +213,7 @@ If a client is watching a shard, it should attempt to download and verify any co
 
 ### CREATE_COLLATION
 
-This process has three parts. The first part can be called `GUESS_HEAD(shard_ID)`, with pseudocode here:
+This process has three parts. The first part can be called `GUESS_HEAD(shard_id)`, with pseudocode here:
 
 ```python
 # Download a single collation and check if it is valid or invalid (memoized)
@@ -224,10 +224,10 @@ def memoized_fetch_and_verify_collation(b):
     return validity_cache[b.hash]
     
     
-def main(shard_ID): 
+def main(shard_id): 
     head = None
     while 1:
-        head = fetch_candidate_head(shard_ID)
+        head = fetch_candidate_head(shard_id)
         b = head
         while 1:
             if not memoized_fetch_and_verify_collation(b):
@@ -272,7 +272,7 @@ The format of a transaction now becomes (note that this includes [account abstra
 ```
     [
         chain_id,      # 1 on mainnet
-        shard_ID,      # the shard the transaction goes onto
+        shard_id,      # the shard the transaction goes onto
         target,        # account the tx goes to
         data,          # transaction data
         start_gas,     # starting gas
@@ -284,7 +284,7 @@ The format of a transaction now becomes (note that this includes [account abstra
 
 The process for applying a transaction is now as follows:
 
-* Verify that the `chain_id` and `shard_ID` are correct
+* Verify that the `chain_id` and `shard_id` are correct
 * Subtract `start_gas * gasprice` wei from the `target` account
 * Check if the target `account` has code. If not, verify that `sha3(code)[12:] == target`
 * If the target account is empty, execute a contract creation at the `target` with `code` as init code; otherwise skip this step
