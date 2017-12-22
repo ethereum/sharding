@@ -1,6 +1,6 @@
 ### Introduction
 
-The purpose of this document is to provide a reasonably complete specification and introduction for anyone looking to understand the details of the sharding proposal, as well as to implement it. This document as written describes only "phase 1" of quadratic sharding; phases 2, 3 and 4 are at this point out of scope, and super-quadratic sharding ("Ethereum 3.0") is also out of scope.
+The purpose of this document is to provide a reasonably complete specification and introduction for anyone looking to understand the details of the sharding proposal, as well as to implement it. This document as written describes only "phase 1" of quadratic sharding; [phases 2, 3 and 4](https://github.com/ethereum/sharding/blob/develop/docs/doc.md#subsequent-phases) are at this point out of scope, and super-quadratic sharding ("Ethereum 3.0") is also out of scope.
 
 Suppose that the variable `c` denotes the level of computational power available to one node. In a simple blockchain, the transaction capacity is bounded by O(c), as every node must process every transaction. The goal of quadratic sharding is to increase the capacity with a two-layer design. Stage 1 requires no hard forks; the main chain stays exactly as is. However, a contract is published to the main chain called the **validator manager contract** (VMC), which maintains the sharding system. There are O(c) **shards** (currently, 100), where each shard is like a separate "galaxy": it has its own account space, transactions need to specify which shard they are to be published inside, and communication between shards is very limited (in fact, in phase 1, it is nonexistent).
 
@@ -60,19 +60,19 @@ Where:
 
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
 
--   The `shard_id` is at least 0, and less than `SHARD_COUNT`
--   The `expected_period_number` equals the actual current period number (ie. `floor(block.number / PERIOD_LENGTH)`)
--   A collation with the hash `parent_collation_hash` for the same shard has already been accepted
--   The `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_id, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1
+-   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
+-   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
+-   a collation with the hash `parent_collation_hash` for the same shard has already been accepted; and
+-   the `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_id, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1.
 
-A **collation** is valid if (i) its collation header is valid, (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`, and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
+A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
 ### Collation state transition function
 
 The state transition process for executing a collation is as follows:
 
-* Execute each transaction in the tree pointed to by `tx_list_root` in order
-* Assign a reward of `COLLATOR_REWARD` to the coinbase
+* execute each transaction in the tree pointed to by `tx_list_root` in order; and
+* assign a reward of `COLLATOR_REWARD` to the coinbase.
 
 ### Details of `getEligibleProposer`
 
@@ -104,17 +104,17 @@ def getEligibleProposer(shardId: num, period: num) -> address:
 
 ### Stateless Clients
 
-A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are asked to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement), instead allowing validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (ie. Merkle branches) to prove the pre-state of the accounts the transaction affects and provide enough information to calculate the post-state root after executing the transaction.
+A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are asked to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement). Instead, we allow validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (i.e., Merkle branches), to prove the pre-state of the accounts that the transaction affects, and to provide enough information to calculate the post-state root after executing the transaction.
 
-(sidenote: it's theoretically possible to implement sharding in a non-stateless paradigm; however, this requires (i) storage rent to keep storage size bounded, and (ii) validators to be assigned to create blocks in a single shard for O(c) time; this scheme avoids the need for these sacrifices)
+(Note that it's theoretically possible to implement sharding in a non-stateless paradigm; however, this requires: (i) storage rent to keep storage size bounded; and (ii) validators to be assigned to create blocks in a single shard for O(c) time. This scheme avoids the need for these sacrifices.)
 
-We modify the format of a transaction so that the transaction must specify an **access list** enumerating the parts of the state it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to any state outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and thereby wasting the collator's time.
+We modify the format of a transaction so that the transaction must specify an **access list** enumerating the parts of the state that it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to any state outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and thereby wasting the collator's time.
 
-_Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list; this allows the collator to process the transaction with only the state root. When publishing the collation, the collator also sends a witness for the entire collation.
+_Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list. This allows the collator to process the transaction with only the state root. When publishing the collation, the collator also sends a witness for the entire collation.
 
 Transaction package format:
 
-```
+```python
     [
         [nonce, acct, data....],    # transaction body
         [node1, node2, node3....]   # witness
@@ -123,7 +123,7 @@ Transaction package format:
 
 Collation format:
 
-```
+```python
     [
         [shard_id, ... , sig],   # header
         [tx1, tx2 ...],          # transaction list
@@ -138,17 +138,17 @@ See also: https://ethresear.ch/t/the-stateless-client-concept/172
 
 In general, we can describe a traditional "stateful" client as executing a state transition function `stf(state, tx) -> state'` (or `stf(state, block) -> state'`). In a stateless client model, nodes do not store the state. The functions `apply_transaction` and `apply_block` can be rewritten as follows:
 
-```
+```python
 apply_block(state_obj, witness, block) -> state_obj', reads, writes
 ```
 
-Where `state_obj` is a tuple containing the state root and other O(1)-sized state data (gas used, receipts, bloom filter, etc), `witness` is a witness and `block` is the rest of the block. The returned output is:
+Where `state_obj` is a tuple containing the state root and other O(1)-sized state data (gas used, receipts, bloom filter, etc); `witness` is a witness; and `block` is the rest of the block. The returned output is:
 
-* A new `state_obj` containing the new state root and other variables
-* The set of objects from the witness that have been read (this is useful for block creation)
-* The set of new state objects that have been created to form the new state trie.
+* a new `state_obj` containing the new state root and other variables;
+* the set of objects from the witness that have been read (which is useful for block creation); and
+* the set of new state objects that have been created to form the new state trie.
 
-This allows the functions to be "pure", as well as only dealing with small-sized objects (as opposed to the state in existing ethereum, which may reach gigabytes), making them convenient to use for sharding.
+This allows the functions to be "pure", as well as only dealing with small-sized objects (as opposed to the state in existing Ethereum, which is currently [hundreds of gigabytes](https://etherscan.io/chart/chaindatasizefull)), making them convenient to use for sharding.
 
 ### Client Logic
 
@@ -157,26 +157,26 @@ A client would have a config of the following form:
 ```python
 {
     validator_address: "0x..." OR null,
-    watching: [list of shard ids],
+    watching: [list of shard IDs],
     ...
 }
 ```
 
-If a validator address is provided, then it checks (on the main chain) if the address is an active validator. If it does, then every time a new period on the main chain starts (ie. when `floor(block.number / PERIOD_LENGTH)` changes), then it should call `getEligibleProposer` for all shards for period `floor(block.number / PERIOD_LENGTH) + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
+If a validator address is provided, then it checks (on the main chain) if the address is an active validator. If it is, then every time a new period on the main chain starts (i.e., when `floor(block.number / PERIOD_LENGTH)` changes), then it should call `getEligibleProposer` for all shards for period `floor(block.number / PERIOD_LENGTH) + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
 
-For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, ie. for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain AND reorgs of the shard chain may both influence the shard head.
+For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, i.e., for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score, and where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain *and* reorgs of the shard chain may both influence the shard head.
 
 ### Fetch candidate heads in reverse sorted order
 
-To implement the algorithms for watching a shard, and for creating a collation, the first primitive that we need is the following algorithm for fetching candidate heads in highest-to-lowest order. First, suppose the existence of a (impure, stateful) method `getNextLog()`, which gets the most recent `CollationAdded` log in some given shard that has not yet been fetched. This would work by fetching all the logs in recent blocks backwards, starting from the head, and within each block looking in reverse order through the receipts. We define an impure method `fetch_candidate_head` as follows:
+To implement the algorithms for watching a shard, and for creating a collation, the first primitive that we need is the following algorithm for fetching candidate heads in highest-to-lowest order. First, suppose the existence of an (impure, stateful) method `getNextLog()`, which gets the most recent `CollationAdded` log in some given shard that has not yet been fetched. This would work by fetching all the logs in recent blocks backwards, starting from the head, and within each block looking in reverse order through the receipts. We define an impure method `fetch_candidate_head` as follows:
 
-```
+```python
 unchecked_logs = []
 current_checking_score = None
 
 def fetch_candidate_head():
     # Try to return a log that has the score that we are checking for,
-    # checking in order of oldest to most recent
+    # checking in order of oldest to most recent.
     for i in range(len(unchecked_logs)-1, -1, -1):
         if unchecked_logs[i].score == current_checking_score:
             return unchecked_logs.pop(i)
@@ -191,7 +191,7 @@ def fetch_candidate_head():
     return o
 ```
 
-To re-express in plain language, the idea is to scan backwards through `CollationAdded` logs (for the correct shard), and wait until you get to one where `isNewHead = True`. Return that log first, then return all more recent logs with score equal to that log with `isNewHead = False`, in order of oldest to most recent. Then go to the previous log with `isNewHead = True` (this is guaranteed to have score 1 lower than the previous NewHead), then go to all more recent blocks after it with that score, and so forth.
+To re-express in plain language, the idea is to scan backwards through `CollationAdded` logs (for the correct shard), and wait until you get to one where `isNewHead = True`. Return that log first, then return all more recent logs with a score equal to that log with `isNewHead = False`, in order of oldest to most recent. Then go to the previous log with `isNewHead = True` (this is guaranteed to have a score that is 1 lower than the previous NewHead), then go to all more recent blocks after it with that score, and so forth.
 
 The idea is that this algorithm is guaranteed to check potential head candidates in highest-to-lowest sorted order of score, with the second priority being oldest to most recent.
 
@@ -289,7 +289,7 @@ The process for applying a transaction is now as follows:
 * Check if the target `account` has code. If not, verify that `sha3(code)[12:] == target`
 * If the target account is empty, execute a contract creation at the `target` with `code` as init code; otherwise skip this step
 * Execute a message with the remaining gas as startgas, the `target` as the to address, 0xff...ff as the sender, 0 value, and the transaction `data` as data
-* If either of the two executions fail, and <= 200000 gas has been consumed (ie. `start_gas - remaining_gas <= 200000`), the transaction is invalid
+* If either of the two executions fail, and <= 200000 gas has been consumed (i.e., `start_gas - remaining_gas <= 200000`), the transaction is invalid
 * Otherwise `remaining_gas * gasprice` is refunded, and the fee paid is added to a fee counter (note: fees are NOT immediately added to the coinbase balance; instead, fees are added all at once during block finalization)
 
 ### Two-layer trie redesign
