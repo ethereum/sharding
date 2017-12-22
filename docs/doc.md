@@ -6,24 +6,24 @@ Suppose that the variable `c` denotes the level of computational power available
 
 The shards are run on a simple longest-chain-rule proof of stake system, where the stake is on the main chain (specifically, inside the VMC). All shards share a common validator pool; this also means that anyone who signs up with the VMC as a validator could theoretically at any time be assigned the right to create a block on any shard. Each shard has a block size/gas limit of O(c), and so the total capacity of the system is O(c^2).
 
-Most users of the sharding system will run both (i) either a full (O(c) resource requirements) or light (O(log(c)) resource requirements) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (assumed to be trusted because it's also running on the user's computer) and can be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c) (unless the user chooses to specify that they are watching _every_ shard; block explorers and large exchanges may want to do this).
+Most users of the sharding system will run both (i) either a full (O(c) resource requirements) or light (O(log(c)) resource requirements) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (this client is assumed to be trusted because it's also running on the user's computer) and which can also be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c) (unless the user chooses to specify that they are watching _every_ shard; block explorers and large exchanges may want to do this).
 
 ### Constants
 
 * `LOOKAHEAD_PERIODS`: 4
 * `PERIOD_LENGTH`: 5
-* `COLLATION_GASLIMIT`: 10,000,000
+* `COLLATION_GASLIMIT`: 10,000,000 gas
 * `SHARD_COUNT`: 100
-* `SIG_GASLIMIT`: 40000
-* `COLLATOR_REWARD`: 0.001
+* `SIG_GASLIMIT`: 40000 gas
+* `COLLATOR_REWARD`: 0.001 ETH
 
 ### The Validator Manager Contract
 
 We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main shard") there exists the VMC, which supports the following functions:
 
--   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (ie. amount of ETH deposited) in the function call. Returns the validator index. `validationCodeAddr` stores the address of the validation code, which is expected to store a pure function which expects as input a 32 byte hash followed by a signature, and returns 1 if the signature matches the hash and otherwise 0; the function fails if this address's code has not been purity-verified.
--   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (ie. a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is removes the validator from the validator set and refunds the deposited ETH.
--   `getEligibleProposer(uint256 shardId, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. Chance of being selected should be proportional to the validator's deposit. Should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
+-   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (i.e., the amount of ETH deposited) in the function call. This function returns the validator index. `validationCodeAddr` stores the address of the validation code, which is expected to store a pure function which expects as an input a 32 byte hash followed by a signature, and returns 1 if the signature matches the hash and otherwise returns 0; the function fails if this address's code has not been purity-verified.
+-   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (i.e., a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is, it removes the validator from the validator set and refunds the deposited ETH.
+-   `getEligibleProposer(uint256 shardId, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. The chance of being selected should be proportional to the validator's deposit. The function should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
 -   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
@@ -49,14 +49,14 @@ We first define a "collation header" as an RLP list with the following values:
 
 Where:
 
--   `shard_id` is the shard ID of the shard
--   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`.
--   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (ie. the last block before the expected period starts). Opcodes in the shard that refer to block data (eg. NUMBER, DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase.
--   `parent_collation_hash` is the hash of the parent collation
--   `tx_list_root` is the root hash of the trie holding the transactions included in this collation
--   `post_state_root` is the new state root of the shard after this collation
--   `receipts_root` is the root hash of the receipt trie
--   `sig` is a signature
+-   `shard_id` is the shard ID of the shard;
+-   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
+-   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
+-   `parent_collation_hash` is the hash of the parent collation;
+-   `tx_list_root` is the root hash of the trie holding the transactions included in this collation;
+-   `post_state_root` is the new state root of the shard after this collation;
+-   `receipts_root` is the root hash of the receipt trie; and
+-   `sig` is a signature.
 
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
 
