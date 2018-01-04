@@ -39,7 +39,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 
 There is also one log type:
 
--   `CollationAdded(indexed uint256 shard, bytes collationHeader, bool isNewHead, uint256 score)`
+-   `CollationAdded(indexed uint256 shard_id, bytes collationHeader, bool isNewHead, uint256 score)`
 
 ### Collation header
 
