@@ -319,7 +319,7 @@ def test_get_eligible_proposer():
     assert 0 == x.deposit(k0_valcode_addr, return_addr, value=DEPOSIT_SIZE, sender=t.k0)
     c.mine(4)
     period = c.chain.head.number // sharding_config['PERIOD_LENGTH'] + sharding_config['LOOKAHEAD_PERIODS']
-    x.get_eligible_proposer(1, period, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))
+    assert x.get_eligible_proposer(1, period, is_constant=True) == hex(utils.big_endian_to_int(k0_valcode_addr))
 
     # case 3. if the num_validators == 0
     assert x.withdraw(0, sign(WITHDRAW_HASH, t.k0))
