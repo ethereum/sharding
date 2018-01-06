@@ -6,8 +6,9 @@ cache: pip
 before_install:
   - sudo apt-get update
 install:
-  - pip install setuptools --upgrade
+  - pip install setuptools==37
   - USE_PYETHEREUM_DEVELOP=1 python setup.py develop
   - pip install -r dev_requirements.txt
 script:
   - pytest sharding/tests/
+group: deprecated-2017Q4
