@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/ethereum/sharding.svg?branch=develop)](https://travis-ci.org/ethereum/sharding)
 
+This repository is [a branch in Py-EVM](https://github.com/ethereum/py-evm/tree/sharding), refer there for the latest code.
+
 This repository contains the basic sharding utils.
 
 See the "docs" directory for documentation and EIPs, and the "sharding" directory for code.
