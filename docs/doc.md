@@ -49,10 +49,10 @@ We first define a "collation header" as an RLP list with the following values:
         shard_id: uint256,
         expected_period_number: uint256,
         period_start_prevhash: bytes32,
-        parent_collation_hash: bytes32,
-        tx_list_root: bytes32,
+        parent_hash: bytes32,
+        transactions_root: bytes32,
         coinbase: address,
-        post_state_root: bytes32,
+        state_root: bytes32,
         receipts_root: bytes32,
         sig: bytes
     ]
@@ -62,9 +62,9 @@ Where:
 -   `shard_id` is the shard ID of the shard;
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
--   `parent_collation_hash` is the hash of the parent collation;
--   `tx_list_root` is the root hash of the trie holding the transactions included in this collation;
--   `post_state_root` is the new state root of the shard after this collation;
+-   `parent_hash` is the hash of the parent collation;
+-   `transactions_root` is the root hash of the trie holding the transactions included in this collation;
+-   `state_root` is the new state root of the shard after this collation;
 -   `receipts_root` is the root hash of the receipt trie; and
 -   `sig` is a signature.
 
@@ -72,16 +72,16 @@ A **collation header** is valid if calling `addHeader(header)` returns true. The
 
 -   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
 -   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
--   a collation with the hash `parent_collation_hash` for the same shard has already been accepted; and
+-   a collation with the hash `parent_hash` for the same shard has already been accepted; and
 -   the `sig` is a valid signature. That is, if we calculate `validation_code_addr = getEligibleProposer(shard_id, current_period)`, then call `validation_code_addr` with the calldata being `sha3(shortened_header) ++ sig` (where `shortened_header` is the RLP encoded form of the collation header _without_ the sig), the result of the call should be 1.
 
-A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_collation_hash`'s `post_state_root` results in the given `post_state_root` and `receipts_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
+A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_hash`'s `state_root` results in the given `state_root` and `receipts_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
 ### Collation state transition function
 
 The state transition process for executing a collation is as follows:
 
-* execute each transaction in the tree pointed to by `tx_list_root` in order; and
+* execute each transaction in the tree pointed to by `transactions_root` in order; and
 * assign a reward of `COLLATOR_REWARD` to the coinbase.
 
 ### Details of `getEligibleProposer`
