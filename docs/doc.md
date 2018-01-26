@@ -54,6 +54,7 @@ We first define a "collation header" as an RLP list with the following values:
         coinbase: address,
         state_root: bytes32,
         receipts_root: bytes32,
+        number: uint256,
         sig: bytes
     ]
 
@@ -65,7 +66,8 @@ Where:
 -   `parent_hash` is the hash of the parent collation;
 -   `transactions_root` is the root hash of the trie holding the transactions included in this collation;
 -   `state_root` is the new state root of the shard after this collation;
--   `receipts_root` is the root hash of the receipt trie; and
+-   `receipts_root` is the root hash of the receipt trie;
+-   `number` is the collation number, which is also the score for the fork choice rule now; and
 -   `sig` is a signature.
 
 A **collation header** is valid if calling `addHeader(header)` returns true. The validator manager contract should do this if:
