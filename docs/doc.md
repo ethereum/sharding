@@ -39,7 +39,23 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 
 There is also one log type:
 
--   `CollationAdded(indexed uint256 shard_id, bytes collation_header, bool is_new_head, uint256 score)`
+-   `CollationAdded(indexed uint256 shard_id, bytes collation_header_bytes, bool is_new_head, uint256 score)`
+
+where `collation_header_bytes` can be constructed in vyper by
+
+```python
+    collation_header_bytes = concat(
+        as_bytes32(shard_id),
+        as_bytes32(expected_period_number),
+        period_start_prevhash,
+        parent_collation_hash,
+        tx_list_root,
+        as_bytes32(collation_coinbase),
+        post_state_root,
+        receipt_root,
+        as_bytes32(collation_number),
+    )
+```
 
 ### Collation header
 
