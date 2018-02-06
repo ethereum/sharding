@@ -34,7 +34,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `deposit() returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (i.e., the amount of ETH deposited) in the function call. This function returns the validator index.
 -   `withdraw(uint256 validator_index) returns bool`: verifies that `msg.sender == validators[validator_index].addr`. if it is removes the validator from the validator set and refunds the deposited ETH.
 -   `get_eligible_proposer(uint256 shard_id, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. The chance of being selected should be proportional to the validator's deposit. The function should be able to return a value for the current period or any future up to `LOOKAHEAD_PERIODS` periods ahead.
--   `add_header(uint256 shard_id, uint256 expected_period_number, bytes32 period_start_prevhash, bytes32 parent_collation_hash, bytes32 tx_list_root, address collation_coinbase, bytes32 post_state_root, bytes32 receipt_root, uint256 collation_number) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
+-   `add_header(uint256 shard_id, uint256 expected_period_number, bytes32 period_start_prevhash, bytes32 parent_hash, bytes32 transaction_root, address coinbase, bytes32 state_root, bytes32 receipt_root, uint256 number) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `get_shard_head(uint256 shard_id) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
 There is also one log type:
@@ -48,14 +48,16 @@ where `collation_header_bytes` can be constructed in vyper by
         as_bytes32(shard_id),
         as_bytes32(expected_period_number),
         period_start_prevhash,
-        parent_collation_hash,
-        tx_list_root,
+        parent_hash,
+        transaction_root,
         as_bytes32(collation_coinbase),
-        post_state_root,
+        state_root,
         receipt_root,
         as_bytes32(collation_number),
     )
 ```
+
+Note: `coinbase` and `number` are renamed to `collation_coinbase` and `collation_number`, due to the fact that they are reserved keywords in vyper.
 
 ### Collation header
 
@@ -66,10 +68,10 @@ We first define a "collation header" as an RLP list with the following values:
         expected_period_number: uint256,
         period_start_prevhash: bytes32,
         parent_hash: bytes32,
-        transactions_root: bytes32,
+        transaction_root: bytes32,
         coinbase: address,
         state_root: bytes32,
-        receipts_root: bytes32,
+        receipt_root: bytes32,
         number: uint256,
     ]
 
@@ -79,25 +81,25 @@ Where:
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
 -   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
 -   `parent_hash` is the hash of the parent collation;
--   `transactions_root` is the root hash of the trie holding the transactions included in this collation;
+-   `transaction_root` is the root hash of the trie holding the transactions included in this collation;
 -   `state_root` is the new state root of the shard after this collation;
--   `receipts_root` is the root hash of the receipt trie;
+-   `receipt_root` is the root hash of the receipt trie;
 -   `number` is the collation number, which is also the score for the fork choice rule now; and
 
-A **collation header** is valid if calling ``add_header(shard_id, expected_period_number, period_start_prevhash, parent_collation_hash, tx_list_root, collation_coinbase, post_state_root, receipt_root, collation_number)` returns true. The validator manager contract should do this if:
+A **collation header** is valid if calling ``add_header(shard_id, expected_period_number, period_start_prevhash, parent_hash, transaction_root, coinbase, state_root, receipt_root, number)` returns true. The validator manager contract should do this if:
 
 -   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
 -   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
 -   a collation with the hash `parent_hash` for the same shard has already been accepted;
 -   a collation for the same shard has not yet been submitted during the current period.
 
-A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_hash`'s `state_root` results in the given `state_root` and `receipts_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
+A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_hash`'s `state_root` results in the given `state_root` and `receipt_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
 ### Collation state transition function
 
 The state transition process for executing a collation is as follows:
 
-* execute each transaction in the tree pointed to by `transactions_root` in order; and
+* execute each transaction in the tree pointed to by `transaction_root` in order; and
 * assign a reward of `COLLATOR_REWARD` to the coinbase.
 
 ### Details of `getEligibleProposer`
