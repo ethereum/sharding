@@ -91,7 +91,8 @@ A **collation header** is valid if calling ``add_header(shard_id, expected_perio
 -   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
 -   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
 -   a collation with the hash `parent_hash` for the same shard has already been accepted;
--   a collation for the same shard has not yet been submitted during the current period.
+-   a collation for the same shard has not yet been submitted during the current period;
+-   the address of the sender of `add_header` is equal to the address returned by `get_eligible_proposer(shard_id, expected_period_number)`.
 
 A **collation** is valid if: (i) its collation header is valid; (ii) executing the collation on top of the `parent_hash`'s `state_root` results in the given `state_root` and `receipt_root`; and (iii) the total gas used is less than or equal to `COLLATION_GASLIMIT`.
 
