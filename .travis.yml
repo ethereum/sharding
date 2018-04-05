@@ -1,0 +1,38 @@
+sudo: false
+language: python
+dist: trusty
+env:
+  global:
+    - PYTEST_ADDOPTS="-n 2 --durations 50 --maxfail 50"
+matrix:
+  include:
+    #
+    # Linting and Static Analysis
+    #
+    - python: "3.5"
+      env: TOX_POSARGS="-e flake8py35"
+    - python: "3.6"
+      env: TOX_POSARGS="-e flake8py36"
+    #
+    # Python 3.5
+    #
+    - python: "3.5"
+      env: TOX_POSARGS="-e py35-handler"
+    #
+    # Python 3.6
+    #
+    - python: "3.6"
+      env: TOX_POSARGS="-e py36-contract"
+    - python: "3.6"
+      env: TOX_POSARGS="-e py36-handler"
+cache:
+  pip: true
+install:
+  - "travis_retry pip install pip setuptools --upgrade"
+  - "travis_retry pip install tox"
+before_script:
+  - pip freeze
+script:
+  - tox $TOX_POSARGS
+after_script:
+  - cat .tox/$TOX_POSARGS/log/*.log
