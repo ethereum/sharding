@@ -1,7 +1,5 @@
 cytoolz>=0.9.0,<1.0.0
 eth-utils>=1.0.1,<2.0.0
 rlp>=0.4.7,<1.0.0
-eth-tester==0.1.0b21
 web3>=4.0.0b6,<5.0.0
 py-evm==0.2.0-alpha.12
-pytest~=3.2
