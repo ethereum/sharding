@@ -35,6 +35,11 @@ from handler.log_handler import (
     get_canonical_chain,
     get_recent_block_hashes,
 )
+from handler.utils.web3_utils import (
+    mine,
+    take_snapshot,
+    revert_to_snapshot,
+)
 
 code = """
 Test: __log__({amount1: num})
@@ -55,19 +60,6 @@ default_tx_detail = {
 test_event_signature = event_signature_to_log_topic("Test(int128)")
 
 HISTORY_SIZE = 256
-
-
-def take_snapshot(w3):
-    snapshot_id = w3.testing.snapshot()
-    return snapshot_id
-
-
-def revert_to_snapshot(w3, snapshot_id):
-    w3.testing.revert(snapshot_id)
-
-
-def mine(w3, num_blocks):
-    w3.testing.mine(num_blocks)
 
 
 @pytest.fixture
