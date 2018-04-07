@@ -9,12 +9,10 @@ from evm.utils import (
 
 def get_sharding_config():
     return {
-        # TODO: currently is fixed as 100 ETH, should be removed after
-        # variable-sized deposit is implemented
-        'DEPOSIT_SIZE': env.get(
-            'PYEVM_SHARDING_DEPOSIT_SIZE',
+        'COLLATOR_DEPOSIT': env.get(
+            'COLLATOR_DEPOSIT',
             type=int,
-            default=to_wei('100', 'ether'),
+            default=to_wei('1000', 'ether'),
         ),
         # the maximum valid ahead periods from the current period for `get_eligible_proposer`
         'LOOKAHEAD_PERIODS': env.get('PYEVM_SHARDING_LOOKAHEAD_PERIODS', type=int, default=4),
