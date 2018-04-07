@@ -12,9 +12,28 @@ CollationAdded: __log__({
     is_new_head: bool,
     score: int128,
 })
-# TODO: determine the signature of the log `Deposit` and `Withdraw`
-Deposit: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
-Withdraw: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
+RegisterCollator: __log__({index_in_collator_pool: int128, collator: address})
+DeregisterCollator: __log__({index_in_collator_pool: int128, collator: address})
+
+# Collator pool
+# - collator_pool: array of active collator addresses
+# - collator_pool_len: size of the collator pool
+# - empty_slots_stack: stack of empty collator slot indices
+# - empty_slots_stack_top: top index of the stack
+collator_pool: address[int128]
+collator_pool_len: int128
+empty_slots_stack: int128[int128]
+empty_slots_stack_top: int128
+
+# Collator registry
+# - deregistered: the period when the collator deregister. It defaults to 0 for not yet deregistered collators
+# - pool_index: indicates collator's index in the collator pool
+collator_registry: {
+    deregistered: int128,
+    pool_index: int128
+}[address]
+# - is_collator_exist: returns true if collator's record exist in collator registry
+is_collator_exist: bool[address]
 
 
 # Information about validators
@@ -50,26 +69,19 @@ shard_head: public(bytes32[int128])
 # Number of receipts
 num_receipts: int128
 
-# Indexs of empty slots caused by the function `withdraw`
-empty_slots_stack: int128[int128]
-
-# The top index of the stack in empty_slots_stack
-empty_slots_stack_top: int128
-
-# Has the validator deposited before?
-is_validator_deposited: public(bool[address])
-
 # Log the latest period number of the shard
 period_head: public(int128[int128])
 
 
 # Configuration Parameter
 
-# The exact deposit size which you have to deposit to become a validator
-deposit_size: wei_value
+# The fixed-size deposit, denominated in ETH, required for registration
+COLLATOR_DEPOSIT: wei_value
+
+COLLATOR_LOCKUP_LENGTH: int128
 
 # Number of blocks in one period
-period_length: int128
+PERIOD_LENGTH: int128
 
 # Number of shards
 shard_count: int128
@@ -83,30 +95,30 @@ lookahead_periods: int128
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
-    # 10 ** 20 wei = 100 ETH
-    self.deposit_size = 100000000000000000000
-    self.period_length = 5
+    # 10 ** 21 wei = 1000 ETH
+    self.COLLATOR_DEPOSIT = 1000000000000000000000
+    self.PERIOD_LENGTH = 5
     self.shard_count = 100
     self.lookahead_periods = 4
 
 
 # Checks if empty_slots_stack_top is empty
 @private
-def is_stack_empty() -> bool:
+def is_empty_slots_stack_empty() -> bool:
     return (self.empty_slots_stack_top == 0)
 
 
 # Pushes one int128 to empty_slots_stack
 @private
-def stack_push(index: int128):
+def empty_slots_stack_push(index: int128):
     self.empty_slots_stack[self.empty_slots_stack_top] = index
     self.empty_slots_stack_top += 1
 
 
 # Pops one int128 out of empty_slots_stack
 @private
-def stack_pop() -> int128:
-    if self.is_stack_empty():
+def empty_slots_stack_pop() -> int128:
+    if self.is_empty_slots_stack_empty():
         return -1
     self.empty_slots_stack_top -= 1
     return self.empty_slots_stack[self.empty_slots_stack_top]
@@ -197,7 +209,7 @@ def get_collation_header_score(shard_id: int128, collation_header_hash: bytes32)
 @constant
 def get_eligible_proposer(shard_id: int128, period: int128) -> address:
     assert period >= self.lookahead_periods
-    assert (period - self.lookahead_periods) * self.period_length < block.number
+    assert (period - self.lookahead_periods) * self.PERIOD_LENGTH < block.number
     assert self.num_validators > 0
     return self.validators[
         convert(
@@ -207,7 +219,7 @@ def get_eligible_proposer(shard_id: int128, period: int128) -> address:
                             concat(
                                 # TODO: should check further if this can be further optimized or not
                                 #       e.g. be able to get the proposer of one period earlier
-                                blockhash((period - self.lookahead_periods) * self.period_length),
+                                blockhash((period - self.lookahead_periods) * self.PERIOD_LENGTH),
                                 convert(shard_id, 'bytes32'),
                             )
                         ),
@@ -235,9 +247,9 @@ def add_header(
 
     # Check if the header is valid
     assert (shard_id >= 0) and (shard_id < self.shard_count)
-    assert block.number >= self.period_length
-    assert expected_period_number == floor(block.number / self.period_length)
-    assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
+    assert block.number >= self.PERIOD_LENGTH
+    assert expected_period_number == floor(block.number / self.PERIOD_LENGTH)
+    assert period_start_prevhash == blockhash(expected_period_number * self.PERIOD_LENGTH - 1)
     # Check if only one collation in one period perd shard
     assert self.period_head[shard_id] < expected_period_number
 
@@ -275,7 +287,7 @@ def add_header(
     # and msg.sender is also the eligible proposer
     validator_addr: address = self.get_eligible_proposer(
         shard_id,
-        floor(block.number / self.period_length)
+        floor(block.number / self.PERIOD_LENGTH)
     )
     assert not not validator_addr
     assert msg.sender == validator_addr
