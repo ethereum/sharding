@@ -129,6 +129,7 @@ class SMCHandler(Contract):
     def _send_transaction(self,
                           func_name,
                           args,
+                          private_key=None,
                           nonce=None,
                           chain_id=None,
                           gas=None,
@@ -139,9 +140,10 @@ class SMCHandler(Contract):
             gas = self.config['DEFAULT_GAS']
         if gas_price is None:
             gas_price = self.config['GAS_PRICE']
-        privkey = self.private_key
+        if private_key is None:
+            private_key = self.private_key
         if nonce is None:
-            nonce = self.web3.eth.getTransactionCount(privkey.public_key.to_checksum_address())
+            nonce = self.web3.eth.getTransactionCount(private_key.public_key.to_checksum_address())
         build_transaction_detail = make_transaction_context(
             nonce=nonce,
             gas=gas,
@@ -156,7 +158,7 @@ class SMCHandler(Contract):
         )
         signed_transaction_dict = self.web3.eth.account.signTransaction(
             unsigned_transaction,
-            privkey.to_hex(),
+            private_key.to_hex(),
         )
         tx_hash = self.web3.eth.sendRawTransaction(signed_transaction_dict['rawTransaction'])
         return tx_hash
@@ -164,13 +166,44 @@ class SMCHandler(Contract):
     #
     # Transactions
     #
+    def register_collator(self, private_key=None, gas=None, gas_price=None):
+        tx_hash = self._send_transaction(
+            'register_collator',
+            [],
+            private_key=private_key,
+            value=self.config['COLLATOR_DEPOSIT'],
+            gas=gas,
+            gas_price=gas_price,
+        )
+        return tx_hash
+
+    def deregister_collator(self, private_key=None, gas=None, gas_price=None):
+        tx_hash = self._send_transaction(
+            'deregister_collator',
+            [],
+            private_key=private_key,
+            gas=gas,
+            gas_price=gas_price,
+        )
+        return tx_hash
+
+    def release_collator(self, private_key=None, gas=None, gas_price=None):
+        tx_hash = self._send_transaction(
+            'release_collator',
+            [],
+            private_key=private_key,
+            gas=gas,
+            gas_price=gas_price,
+        )
+        return tx_hash
+
     def deposit(self, gas=None, gas_price=None):
         """Do deposit to become a validator
         """
         tx_hash = self._send_transaction(
             'deposit',
             [],
-            value=self.config['DEPOSIT_SIZE'],
+            value=self.config['COLLATOR_DEPOSIT'],
             gas=gas,
             gas_price=gas_price,
         )
