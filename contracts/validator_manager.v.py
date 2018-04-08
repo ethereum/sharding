@@ -1,3 +1,6 @@
+# NOTE: Some variables are set as public variables for testing. They should be reset
+# to private variables in an official deployment of the contract. 
+
 # Events
 CollationAdded: __log__({
     shard_id: indexed(int128),
@@ -13,17 +16,21 @@ CollationAdded: __log__({
     score: int128,
 })
 RegisterCollator: __log__({index_in_collator_pool: int128, collator: address})
-DeregisterCollator: __log__({index_in_collator_pool: int128, collator: address})
+DeregisterCollator: __log__({index_in_collator_pool: int128, collator: address, deregistered_period: int128})
+ReleaseCollator: __log__({index_in_collator_pool: int128, collator: address})
+
+Deposit: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
+Withdraw: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
 
 # Collator pool
 # - collator_pool: array of active collator addresses
 # - collator_pool_len: size of the collator pool
 # - empty_slots_stack: stack of empty collator slot indices
 # - empty_slots_stack_top: top index of the stack
-collator_pool: address[int128]
-collator_pool_len: int128
-empty_slots_stack: int128[int128]
-empty_slots_stack_top: int128
+collator_pool: public(address[int128])
+collator_pool_len: public(int128)
+empty_slots_stack: public(int128[int128])
+empty_slots_stack_top: public(int128)
 
 # Collator registry
 # - deregistered: the period when the collator deregister. It defaults to 0 for not yet deregistered collators
@@ -33,8 +40,7 @@ collator_registry: {
     pool_index: int128
 }[address]
 # - is_collator_exist: returns true if collator's record exist in collator registry
-is_collator_exist: bool[address]
-
+is_collator_exist: public(bool[address])
 
 # Information about validators
 validators: public({
@@ -63,6 +69,9 @@ receipts: public({
     data: bytes <= 4096,
 }[int128])
 
+# Has the validator deposited before?
+is_validator_deposited: public(bool[address])
+
 # Current head of each shard
 shard_head: public(bytes32[int128])
 
@@ -86,6 +95,9 @@ PERIOD_LENGTH: int128
 # Number of shards
 shard_count: int128
 
+# The exact deposit size which you have to deposit to become a validator
+deposit_size: wei_value
+
 # Number of periods ahead of current period, which the contract
 # is able to return the collator of that period
 lookahead_periods: int128
@@ -97,6 +109,7 @@ def __init__():
     self.empty_slots_stack_top = 0
     # 10 ** 21 wei = 1000 ETH
     self.COLLATOR_DEPOSIT = 1000000000000000000000
+    self.deposit_size = 1000000000000000000000
     self.PERIOD_LENGTH = 5
     self.shard_count = 100
     self.lookahead_periods = 4
@@ -140,6 +153,13 @@ def get_validators_max_index() -> int128:
     return activate_validator_num + self.empty_slots_stack_top
 
 
+# Helper functions to get collator info in collator_registry
+@public
+@constant
+def get_collator_info(collator_address: address) -> (int128, int128):
+    return (self.collator_registry[collator_address].deregistered, self.collator_registry[collator_address].pool_index)
+
+
 # Adds a validator to the validator set, with the validator's size being the msg.value
 # (ie. amount of ETH deposited) in the function call. Returns the validator index.
 @public
@@ -150,8 +170,8 @@ def deposit() -> int128:
     assert msg.value == self.deposit_size
     # find the empty slot index in validators set
     index: int128 = self.num_validators
-    if not self.is_stack_empty():
-        index = self.stack_pop()        
+    if not self.is_empty_slots_stack_empty():
+        index = self.empty_slots_stack_pop()        
     self.validators[index] = {
         deposit: msg.value,
         addr: validator_addr,
@@ -177,7 +197,7 @@ def withdraw(validator_index: int128) -> bool:
         deposit: 0,
         addr: None,
     }
-    self.stack_push(validator_index)
+    self.empty_slots_stack_push(validator_index)
     self.num_validators -= 1
 
     send(validator_addr, validator_deposit)
