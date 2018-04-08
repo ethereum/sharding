@@ -1,5 +1,7 @@
 # NOTE: Some variables are set as public variables for testing. They should be reset
 # to private variables in an official deployment of the contract. 
+# NOTE: COLLATOR_LOCKUP_LENGTH is set to 120 for testing. It should be set according
+# to spec in an official deployment of the contract.
 
 # Events
 CollationAdded: __log__({
@@ -110,6 +112,8 @@ def __init__():
     # 10 ** 21 wei = 1000 ETH
     self.COLLATOR_DEPOSIT = 1000000000000000000000
     self.deposit_size = 1000000000000000000000
+    # self.COLLATOR_LOCKUP_LENGTH = 16128
+    self.COLLATOR_LOCKUP_LENGTH = 120
     self.PERIOD_LENGTH = 5
     self.shard_count = 100
     self.lookahead_periods = 4
@@ -158,6 +162,75 @@ def get_validators_max_index() -> int128:
 @constant
 def get_collator_info(collator_address: address) -> (int128, int128):
     return (self.collator_registry[collator_address].deregistered, self.collator_registry[collator_address].pool_index)
+
+
+# Adds an entry to collator_registry, updates the collator pool (collator_pool, collator_pool_len, etc.),
+# locks a deposit of size COLLATOR_DEPOSIT, and returns True on success.
+@public
+@payable
+def register_collator() -> bool:
+    assert msg.value == self.COLLATOR_DEPOSIT
+    assert not self.is_collator_exist[msg.sender]
+    
+    # Add the collator to the collator pool
+    pool_index: int128 = self.collator_pool_len
+    if not self.is_empty_slots_stack_empty():
+        pool_index = self.empty_slots_stack_pop()        
+    self.collator_pool[pool_index] = msg.sender
+    self.collator_pool_len += 1
+
+    # Add the collator to the collator registry
+    self.collator_registry[msg.sender] = {
+        deregistered: 0,
+        pool_index: pool_index,
+    }
+    self.is_collator_exist[msg.sender] = True
+
+    log.RegisterCollator(pool_index, msg.sender)
+
+    return True
+
+
+# Sets the deregistered period in the collator_registry entry, updates the collator pool (collator_pool, collator_pool_len, etc.),
+# and returns True on success.
+@public
+def deregister_collator() -> bool:
+    assert self.is_collator_exist[msg.sender] == True
+
+    # Delete entry in collator pool
+    index_in_collator_pool: int128 = self.collator_registry[msg.sender].pool_index 
+    self.empty_slots_stack_push(index_in_collator_pool)
+    self.collator_pool[index_in_collator_pool] = None
+    self.collator_pool_len -= 1
+
+    # Set deregistered period to current period
+    self.collator_registry[msg.sender].deregistered = floor(block.number / self.PERIOD_LENGTH)
+
+    log.DeregisterCollator(index_in_collator_pool, msg.sender, self.collator_registry[msg.sender].deregistered)
+
+    return True
+
+
+# Removes an entry from collator_registry, releases the collator deposit, and returns True on success.
+@public
+def release_collator() -> bool:
+    assert self.is_collator_exist[msg.sender] == True
+    assert self.collator_registry[msg.sender].deregistered != 0
+    assert floor(block.number / self.PERIOD_LENGTH) > self.collator_registry[msg.sender].deregistered + self.COLLATOR_LOCKUP_LENGTH
+
+    pool_index: int128 = self.collator_registry[msg.sender].pool_index
+    # Delete entry in collator registry
+    self.collator_registry[msg.sender] = {
+        deregistered: 0,
+        pool_index: 0,
+    }
+    self.is_collator_exist[msg.sender] = False
+
+    send(msg.sender, self.COLLATOR_DEPOSIT)
+
+    log.ReleaseCollator(pool_index, msg.sender)
+
+    return True
 
 
 # Adds a validator to the validator set, with the validator's size being the msg.value
