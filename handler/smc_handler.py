@@ -197,31 +197,6 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def deposit(self, gas=None, gas_price=None):
-        """Do deposit to become a validator
-        """
-        tx_hash = self._send_transaction(
-            'deposit',
-            [],
-            value=self.config['COLLATOR_DEPOSIT'],
-            gas=gas,
-            gas_price=gas_price,
-        )
-        return tx_hash
-
-    def withdraw(self, validator_index, gas=None, gas_price=None):
-        """Withdraw the validator whose index is `validator_index`
-        """
-        tx_hash = self._send_transaction(
-            'withdraw',
-            [
-                validator_index,
-            ],
-            gas=gas,
-            gas_price=gas_price,
-        )
-        return tx_hash
-
     def add_header(self,
                    collation_header,
                    gas=None,

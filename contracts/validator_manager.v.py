@@ -21,9 +21,6 @@ RegisterCollator: __log__({index_in_collator_pool: int128, collator: address})
 DeregisterCollator: __log__({index_in_collator_pool: int128, collator: address, deregistered_period: int128})
 ReleaseCollator: __log__({index_in_collator_pool: int128, collator: address})
 
-Deposit: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
-Withdraw: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
-
 # Collator pool
 # - collator_pool: array of active collator addresses
 # - collator_pool_len: size of the collator pool
@@ -71,9 +68,6 @@ receipts: public({
     data: bytes <= 4096,
 }[int128])
 
-# Has the validator deposited before?
-is_validator_deposited: public(bool[address])
-
 # Current head of each shard
 shard_head: public(bytes32[int128])
 
@@ -97,9 +91,6 @@ PERIOD_LENGTH: int128
 # Number of shards
 shard_count: int128
 
-# The exact deposit size which you have to deposit to become a validator
-deposit_size: wei_value
-
 # Number of periods ahead of current period, which the contract
 # is able to return the collator of that period
 lookahead_periods: int128
@@ -111,7 +102,6 @@ def __init__():
     self.empty_slots_stack_top = 0
     # 10 ** 21 wei = 1000 ETH
     self.COLLATOR_DEPOSIT = 1000000000000000000000
-    self.deposit_size = 1000000000000000000000
     # self.COLLATOR_LOCKUP_LENGTH = 16128
     self.COLLATOR_LOCKUP_LENGTH = 120
     self.PERIOD_LENGTH = 5
@@ -229,53 +219,6 @@ def release_collator() -> bool:
     send(msg.sender, self.COLLATOR_DEPOSIT)
 
     log.ReleaseCollator(pool_index, msg.sender)
-
-    return True
-
-
-# Adds a validator to the validator set, with the validator's size being the msg.value
-# (ie. amount of ETH deposited) in the function call. Returns the validator index.
-@public
-@payable
-def deposit() -> int128:
-    validator_addr: address = msg.sender
-    assert not self.is_validator_deposited[validator_addr]
-    assert msg.value == self.deposit_size
-    # find the empty slot index in validators set
-    index: int128 = self.num_validators
-    if not self.is_empty_slots_stack_empty():
-        index = self.empty_slots_stack_pop()        
-    self.validators[index] = {
-        deposit: msg.value,
-        addr: validator_addr,
-    }
-    self.num_validators += 1
-    self.is_validator_deposited[validator_addr] = True
-
-    log.Deposit(index, validator_addr, msg.value)
-
-    return index
-
-
-# Verifies that `msg.sender == validators[validator_index].addr`. if it is removes the validator
-# from the validator set and refunds the deposited ETH.
-@public
-@payable
-def withdraw(validator_index: int128) -> bool:
-    validator_addr: address = self.validators[validator_index].addr
-    validator_deposit: wei_value = self.validators[validator_index].deposit
-    assert msg.sender == validator_addr
-    self.is_validator_deposited[validator_addr] = False
-    self.validators[validator_index] = {
-        deposit: 0,
-        addr: None,
-    }
-    self.empty_slots_stack_push(validator_index)
-    self.num_validators -= 1
-
-    send(validator_addr, validator_deposit)
-
-    log.Withdraw(validator_index, validator_addr, validator_deposit)
 
     return True
 
