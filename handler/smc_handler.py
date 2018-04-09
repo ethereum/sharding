@@ -166,20 +166,20 @@ class SMCHandler(Contract):
     #
     # Transactions
     #
-    def register_collator(self, private_key=None, gas=None, gas_price=None):
+    def register_notary(self, private_key=None, gas=None, gas_price=None):
         tx_hash = self._send_transaction(
-            'register_collator',
+            'register_notary',
             [],
             private_key=private_key,
-            value=self.config['COLLATOR_DEPOSIT'],
+            value=self.config['NOTARY_DEPOSIT'],
             gas=gas,
             gas_price=gas_price,
         )
         return tx_hash
 
-    def deregister_collator(self, private_key=None, gas=None, gas_price=None):
+    def deregister_notary(self, private_key=None, gas=None, gas_price=None):
         tx_hash = self._send_transaction(
-            'deregister_collator',
+            'deregister_notary',
             [],
             private_key=private_key,
             gas=gas,
@@ -187,9 +187,9 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def release_collator(self, private_key=None, gas=None, gas_price=None):
+    def release_notary(self, private_key=None, gas=None, gas_price=None):
         tx_hash = self._send_transaction(
-            'release_collator',
+            'release_notary',
             [],
             private_key=private_key,
             gas=gas,

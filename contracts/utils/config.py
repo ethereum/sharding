@@ -9,8 +9,8 @@ from evm.utils import (
 
 def get_sharding_config():
     return {
-        'COLLATOR_DEPOSIT': env.get(
-            'COLLATOR_DEPOSIT',
+        'NOTARY_DEPOSIT': env.get(
+            'NOTARY_DEPOSIT',
             type=int,
             default=to_wei('1000', 'ether'),
         ),
@@ -29,8 +29,8 @@ def get_sharding_config():
         # the gas limit of verifying a signature
         'SIG_GASLIMIT': env.get('PYEVM_SHARDING_SIG_GASLIMIT', type=int, default=40000),
         # the reward for creating a collation
-        'COLLATOR_REWARD': env.get(
-            'PYEVM_SHARDING_COLLATOR_REWARD',
+        'NOTARY_REWARD': env.get(
+            'PYEVM_SHARDING_NOTARY_REWARD',
             type=int,
             default=to_wei('0.001', 'ether'),
         ),

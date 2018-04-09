@@ -1,6 +1,6 @@
 # NOTE: Some variables are set as public variables for testing. They should be reset
 # to private variables in an official deployment of the contract. 
-# NOTE: COLLATOR_LOCKUP_LENGTH is set to 120 for testing. It should be set according
+# NOTE: NOTARY_LOCKUP_LENGTH is set to 120 for testing. It should be set according
 # to spec in an official deployment of the contract.
 
 # Events
@@ -17,29 +17,29 @@ CollationAdded: __log__({
     is_new_head: bool,
     score: int128,
 })
-RegisterCollator: __log__({index_in_collator_pool: int128, collator: address})
-DeregisterCollator: __log__({index_in_collator_pool: int128, collator: address, deregistered_period: int128})
-ReleaseCollator: __log__({index_in_collator_pool: int128, collator: address})
+RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
+DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
+ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
 
-# Collator pool
-# - collator_pool: array of active collator addresses
-# - collator_pool_len: size of the collator pool
-# - empty_slots_stack: stack of empty collator slot indices
+# Notary pool
+# - notary_pool: array of active notary addresses
+# - notary_pool_len: size of the notary pool
+# - empty_slots_stack: stack of empty notary slot indices
 # - empty_slots_stack_top: top index of the stack
-collator_pool: public(address[int128])
-collator_pool_len: public(int128)
+notary_pool: public(address[int128])
+notary_pool_len: public(int128)
 empty_slots_stack: public(int128[int128])
 empty_slots_stack_top: public(int128)
 
-# Collator registry
-# - deregistered: the period when the collator deregister. It defaults to 0 for not yet deregistered collators
-# - pool_index: indicates collator's index in the collator pool
-collator_registry: {
+# Notary registry
+# - deregistered: the period when the notary deregister. It defaults to 0 for not yet deregistered notarys
+# - pool_index: indicates notary's index in the notary pool
+notary_registry: {
     deregistered: int128,
     pool_index: int128
 }[address]
-# - is_collator_exist: returns true if collator's record exist in collator registry
-is_collator_exist: public(bool[address])
+# - is_notary_exist: returns true if notary's record exist in notary registry
+is_notary_exist: public(bool[address])
 
 # Information about validators
 validators: public({
@@ -81,9 +81,9 @@ period_head: public(int128[int128])
 # Configuration Parameter
 
 # The fixed-size deposit, denominated in ETH, required for registration
-COLLATOR_DEPOSIT: wei_value
+NOTARY_DEPOSIT: wei_value
 
-COLLATOR_LOCKUP_LENGTH: int128
+NOTARY_LOCKUP_LENGTH: int128
 
 # Number of blocks in one period
 PERIOD_LENGTH: int128
@@ -92,7 +92,7 @@ PERIOD_LENGTH: int128
 shard_count: int128
 
 # Number of periods ahead of current period, which the contract
-# is able to return the collator of that period
+# is able to return the notary of that period
 lookahead_periods: int128
 
 
@@ -101,9 +101,9 @@ def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
     # 10 ** 21 wei = 1000 ETH
-    self.COLLATOR_DEPOSIT = 1000000000000000000000
-    # self.COLLATOR_LOCKUP_LENGTH = 16128
-    self.COLLATOR_LOCKUP_LENGTH = 120
+    self.NOTARY_DEPOSIT = 1000000000000000000000
+    # self.NOTARY_LOCKUP_LENGTH = 16128
+    self.NOTARY_LOCKUP_LENGTH = 120
     self.PERIOD_LENGTH = 5
     self.shard_count = 100
     self.lookahead_periods = 4
@@ -147,78 +147,78 @@ def get_validators_max_index() -> int128:
     return activate_validator_num + self.empty_slots_stack_top
 
 
-# Helper functions to get collator info in collator_registry
+# Helper functions to get notary info in notary_registry
 @public
 @constant
-def get_collator_info(collator_address: address) -> (int128, int128):
-    return (self.collator_registry[collator_address].deregistered, self.collator_registry[collator_address].pool_index)
+def get_notary_info(notary_address: address) -> (int128, int128):
+    return (self.notary_registry[notary_address].deregistered, self.notary_registry[notary_address].pool_index)
 
 
-# Adds an entry to collator_registry, updates the collator pool (collator_pool, collator_pool_len, etc.),
-# locks a deposit of size COLLATOR_DEPOSIT, and returns True on success.
+# Adds an entry to notary_registry, updates the notary pool (notary_pool, notary_pool_len, etc.),
+# locks a deposit of size NOTARY_DEPOSIT, and returns True on success.
 @public
 @payable
-def register_collator() -> bool:
-    assert msg.value == self.COLLATOR_DEPOSIT
-    assert not self.is_collator_exist[msg.sender]
+def register_notary() -> bool:
+    assert msg.value == self.NOTARY_DEPOSIT
+    assert not self.is_notary_exist[msg.sender]
     
-    # Add the collator to the collator pool
-    pool_index: int128 = self.collator_pool_len
+    # Add the notary to the notary pool
+    pool_index: int128 = self.notary_pool_len
     if not self.is_empty_slots_stack_empty():
         pool_index = self.empty_slots_stack_pop()        
-    self.collator_pool[pool_index] = msg.sender
-    self.collator_pool_len += 1
+    self.notary_pool[pool_index] = msg.sender
+    self.notary_pool_len += 1
 
-    # Add the collator to the collator registry
-    self.collator_registry[msg.sender] = {
+    # Add the notary to the notary registry
+    self.notary_registry[msg.sender] = {
         deregistered: 0,
         pool_index: pool_index,
     }
-    self.is_collator_exist[msg.sender] = True
+    self.is_notary_exist[msg.sender] = True
 
-    log.RegisterCollator(pool_index, msg.sender)
+    log.RegisterNotary(pool_index, msg.sender)
 
     return True
 
 
-# Sets the deregistered period in the collator_registry entry, updates the collator pool (collator_pool, collator_pool_len, etc.),
+# Sets the deregistered period in the notary_registry entry, updates the notary pool (notary_pool, notary_pool_len, etc.),
 # and returns True on success.
 @public
-def deregister_collator() -> bool:
-    assert self.is_collator_exist[msg.sender] == True
+def deregister_notary() -> bool:
+    assert self.is_notary_exist[msg.sender] == True
 
-    # Delete entry in collator pool
-    index_in_collator_pool: int128 = self.collator_registry[msg.sender].pool_index 
-    self.empty_slots_stack_push(index_in_collator_pool)
-    self.collator_pool[index_in_collator_pool] = None
-    self.collator_pool_len -= 1
+    # Delete entry in notary pool
+    index_in_notary_pool: int128 = self.notary_registry[msg.sender].pool_index 
+    self.empty_slots_stack_push(index_in_notary_pool)
+    self.notary_pool[index_in_notary_pool] = None
+    self.notary_pool_len -= 1
 
     # Set deregistered period to current period
-    self.collator_registry[msg.sender].deregistered = floor(block.number / self.PERIOD_LENGTH)
+    self.notary_registry[msg.sender].deregistered = floor(block.number / self.PERIOD_LENGTH)
 
-    log.DeregisterCollator(index_in_collator_pool, msg.sender, self.collator_registry[msg.sender].deregistered)
+    log.DeregisterNotary(index_in_notary_pool, msg.sender, self.notary_registry[msg.sender].deregistered)
 
     return True
 
 
-# Removes an entry from collator_registry, releases the collator deposit, and returns True on success.
+# Removes an entry from notary_registry, releases the notary deposit, and returns True on success.
 @public
-def release_collator() -> bool:
-    assert self.is_collator_exist[msg.sender] == True
-    assert self.collator_registry[msg.sender].deregistered != 0
-    assert floor(block.number / self.PERIOD_LENGTH) > self.collator_registry[msg.sender].deregistered + self.COLLATOR_LOCKUP_LENGTH
+def release_notary() -> bool:
+    assert self.is_notary_exist[msg.sender] == True
+    assert self.notary_registry[msg.sender].deregistered != 0
+    assert floor(block.number / self.PERIOD_LENGTH) > self.notary_registry[msg.sender].deregistered + self.NOTARY_LOCKUP_LENGTH
 
-    pool_index: int128 = self.collator_registry[msg.sender].pool_index
-    # Delete entry in collator registry
-    self.collator_registry[msg.sender] = {
+    pool_index: int128 = self.notary_registry[msg.sender].pool_index
+    # Delete entry in notary registry
+    self.notary_registry[msg.sender] = {
         deregistered: 0,
         pool_index: 0,
     }
-    self.is_collator_exist[msg.sender] = False
+    self.is_notary_exist[msg.sender] = False
 
-    send(msg.sender, self.COLLATOR_DEPOSIT)
+    send(msg.sender, self.NOTARY_DEPOSIT)
 
-    log.ReleaseCollator(pool_index, msg.sender)
+    log.ReleaseNotary(pool_index, msg.sender)
 
     return True
 
