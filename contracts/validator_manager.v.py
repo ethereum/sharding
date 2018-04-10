@@ -168,7 +168,7 @@ def get_notary_info(notary_address: address) -> (int128, int128):
 @public
 @payable
 def register_notary() -> bool:
-    assert msg.value == self.NOTARY_DEPOSIT
+    assert msg.value >= self.NOTARY_DEPOSIT
     assert not self.does_notary_exist[msg.sender]
     
     # Add the notary to the notary pool
