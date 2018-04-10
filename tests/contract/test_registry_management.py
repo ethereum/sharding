@@ -12,7 +12,7 @@ from tests.contract.utils.notary_account import (
 def test_normal_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert not does_notary_exist
@@ -28,9 +28,9 @@ def test_normal_register(smc_handler):  # noqa: F811
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
-    notary_1 = TestingNotaryAccount.from_index(1)
+    notary_1 = TestingNotaryAccount(1)
 
-    notary_2 = TestingNotaryAccount.from_index(2)
+    notary_2 = TestingNotaryAccount(2)
 
     # Register notary 1 and notary 2
     smc_handler.register_notary(private_key=notary_1.private_key)
@@ -59,7 +59,7 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert not does_notary_exist
@@ -85,7 +85,7 @@ def test_double_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -107,7 +107,7 @@ def test_double_register(smc_handler):  # noqa: F811
 def test_normal_deregister(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -138,7 +138,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -178,7 +178,7 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
 
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -211,7 +211,7 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -242,7 +242,7 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
 def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount.from_index(0)
+    notary_0 = TestingNotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -250,11 +250,11 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
-    notary_1 = TestingNotaryAccount.from_index(1)
+    notary_1 = TestingNotaryAccount(1)
 
-    notary_2 = TestingNotaryAccount.from_index(2)
+    notary_2 = TestingNotaryAccount(2)
 
-    notary_3 = TestingNotaryAccount.from_index(3)
+    notary_3 = TestingNotaryAccount(3)
 
     # Register notary 1 and notary 2
     smc_handler.register_notary(private_key=notary_1.private_key)
@@ -285,7 +285,7 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     # Check that the top empty_slots entry point to notary 2
     assert empty_slots == notary_2_pool_index
 
-    notary_4 = TestingNotaryAccount.from_index(4)
+    notary_4 = TestingNotaryAccount(4)
 
     # Register notary 4
     smc_handler.register_notary(private_key=notary_4.private_key)

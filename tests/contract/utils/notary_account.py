@@ -16,7 +16,3 @@ class TestingNotaryAccount:
     @property
     def checksum_address(self):
         return self.private_key.public_key.to_checksum_address()
-
-    @classmethod
-    def from_index(cls, index):
-        return cls(index)
