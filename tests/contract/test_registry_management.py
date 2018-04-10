@@ -15,14 +15,21 @@ from handler.utils.web3_utils import (
 )
 
 
+def generate_notary_credential(notary_index):
+    private_key = get_default_account_keys()[notary_index]
+    return (
+        private_key,
+        private_key.public_key.to_canonical_address(),
+        private_key.public_key.to_checksum_address(),
+    )
+
+
 def test_normal_register(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     is_notary_exist = smc_handler.call(
         make_call_context(sender_address=notary_0_canonical_address, gas=default_gas)
@@ -44,13 +51,11 @@ def test_normal_register(smc_handler):  # noqa: F811
     ).notary_pool_len()
     assert notary_pool_length == 1
 
-    notary_1_private_key = default_account_keys[1]
-    notary_1_canonical_address = notary_1_private_key.public_key.to_canonical_address()
-    notary_1_checksum_address = notary_1_private_key.public_key.to_checksum_address()
+    (notary_1_private_key, notary_1_canonical_address, notary_1_checksum_address) = \
+        generate_notary_credential(notary_index=1)
 
-    notary_2_private_key = default_account_keys[2]
-    notary_2_canonical_address = notary_2_private_key.public_key.to_canonical_address()
-    notary_2_checksum_address = notary_2_private_key.public_key.to_checksum_address()
+    (notary_2_private_key, notary_2_canonical_address, notary_2_checksum_address) = \
+        generate_notary_credential(notary_index=2)
 
     # Register notary 1 and notary 2
     smc_handler.register_notary(private_key=notary_1_private_key)
@@ -82,13 +87,11 @@ def test_normal_register(smc_handler):  # noqa: F811
 
 
 def test_register_without_enough_ether(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     is_notary_exist = smc_handler.call(
         make_call_context(sender_address=notary_0_canonical_address, gas=default_gas)
@@ -117,13 +120,11 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
 
 
 def test_double_register(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -149,13 +150,11 @@ def test_double_register(smc_handler):  # noqa: F811
 
 
 def test_normal_deregister(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -191,13 +190,11 @@ def test_normal_deregister(smc_handler):  # noqa: F811
 
 
 def test_deregister_then_register(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -245,13 +242,11 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 def test_normal_release_notary(smc_handler):  # noqa: F811
     SIM_NOTARY_LOCKUP_LENGTH = 120
 
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -289,13 +284,11 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
 
 
 def test_instant_release_notary(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
-    notary_0_checksum_address = notary_0_private_key.public_key.to_checksum_address()
+    (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -332,12 +325,11 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
 
 
 def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
-    default_account_keys = get_default_account_keys()
     web3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
-    notary_0_private_key = default_account_keys[0]
-    notary_0_canonical_address = notary_0_private_key.public_key.to_canonical_address()
+    (notary_0_private_key, notary_0_canonical_address, _) = \
+        generate_notary_credential(notary_index=0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
@@ -347,13 +339,14 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     ).notary_pool_len()
     assert notary_pool_length == 1
 
-    notary_1_private_key = default_account_keys[1]
+    (notary_1_private_key, _, _) = \
+        generate_notary_credential(notary_index=1)
 
-    notary_2_private_key = default_account_keys[2]
-    notary_2_canonical_address = notary_2_private_key.public_key.to_canonical_address()
-    notary_2_checksum_address = notary_2_private_key.public_key.to_checksum_address()
+    (notary_2_private_key, notary_2_canonical_address, notary_2_checksum_address) = \
+        generate_notary_credential(notary_index=2)
 
-    notary_3_private_key = default_account_keys[3]
+    (notary_3_private_key, _, _) = \
+        generate_notary_credential(notary_index=3)
 
     # Register notary 1 and notary 2
     smc_handler.register_notary(private_key=notary_1_private_key)
@@ -396,9 +389,8 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     # Check that the top empty_slots entry point to notary 2
     assert empty_slots == notary_2_pool_index
 
-    notary_4_private_key = default_account_keys[4]
-    notary_4_canonical_address = notary_4_private_key.public_key.to_canonical_address()
-    notary_4_checksum_address = notary_4_private_key.public_key.to_checksum_address()
+    (notary_4_private_key, notary_4_canonical_address, notary_4_checksum_address) = \
+        generate_notary_credential(notary_index=4)
 
     # Register notary 4
     smc_handler.register_notary(private_key=notary_4_private_key)
