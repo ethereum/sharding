@@ -91,40 +91,53 @@ class SMCHandler(Contract):
     def config(self):
         return self._config
 
+    @property
+    def basic_call_context(self):
+        return make_call_context(
+            sender_address=self.sender_address,
+            gas=self.config["DEFAULT_GAS"]
+        )
     #
     # Public variable getter functions
     #
-    def get_eligible_proposer(self, shard_id, period=None, gas=None):
+
+    def is_notary_exist(self, notary_address):
+        return self.functions.is_notary_exist(notary_address).call(self.basic_call_context)
+
+    def get_notary_info(self, notary_address):
+        return self.functions.get_notary_info(notary_address).call(self.basic_call_context)
+
+    def notary_pool_len(self):
+        return self.functions.notary_pool_len().call(self.basic_call_context)
+
+    def empty_slots_stack_top(self):
+        return self.functions.empty_slots_stack_top().call(self.basic_call_context)
+
+    def empty_slots_stack(self, stack_index):
+        return self.functions.empty_slots_stack(stack_index).call(self.basic_call_context)
+
+    def get_eligible_proposer(self, shard_id, period=None):
         """Get the eligible proposer in the specified period
         """
         if period is None:
             period = self.web3.eth.blockNumber // self.config['PERIOD_LENGTH']
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
-        address_in_hex = self.functions.get_eligible_proposer(shard_id, period).call(call_context)
+        address_in_hex = self.functions.get_eligible_proposer(
+            shard_id,
+            period
+        ).call(self.basic_call_context)
         return decode_hex(address_in_hex)
 
-    def get_parent_hash(self, shard_id, collation_hash, gas=None):
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
+    def get_parent_hash(self, shard_id, collation_hash):
         return self.functions.get_collation_header_parent_hash(
             shard_id,
             collation_hash,
-        ).call(call_context)
+        ).call(self.basic_call_context)
 
-    def get_collation_score(self, shard_id, collation_hash, gas=None):
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
+    def get_collation_score(self, shard_id, collation_hash):
         return self.functions.get_collation_header_score(
             shard_id,
             collation_hash,
-        ).call(call_context)
+        ).call(self.basic_call_context)
 
     def _send_transaction(self,
                           func_name,
