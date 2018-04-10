@@ -25,13 +25,13 @@ def test_normal_register(smc_handler):  # noqa: F811
     (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
         generate_notary_credential(notary_index=0)
 
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert not is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert not does_notary_exist
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
         notary_0_checksum_address
     )
@@ -50,15 +50,15 @@ def test_normal_register(smc_handler):  # noqa: F811
     smc_handler.register_notary(private_key=notary_2_private_key)
     mine(web3, 1)
 
-    is_notary_exist = smc_handler.is_notary_exist(notary_1_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_1_checksum_address)
+    assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
         notary_1_checksum_address
     )
     assert notary_deregistered_period == 0 and notary_pool_index == 1
 
-    is_notary_exist = smc_handler.is_notary_exist(notary_2_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_2_checksum_address)
+    assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
         notary_2_checksum_address
     )
@@ -75,8 +75,8 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
     (notary_0_private_key, notary_0_canonical_address, notary_0_checksum_address) = \
         generate_notary_credential(notary_index=0)
 
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert not is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert not does_notary_exist
 
     # Register without enough ether
     smc_handler._send_transaction(
@@ -89,8 +89,8 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
     mine(web3, 1)
 
     # Check that the registration failed
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert not is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert not does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
 
@@ -105,8 +105,8 @@ def test_double_register(smc_handler):  # noqa: F811
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -128,8 +128,8 @@ def test_normal_deregister(smc_handler):  # noqa: F811
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -140,8 +140,8 @@ def test_normal_deregister(smc_handler):  # noqa: F811
     smc_handler.deregister_notary(private_key=notary_0_private_key)
     current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
         notary_0_checksum_address
     )
@@ -160,8 +160,8 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -172,8 +172,8 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     smc_handler.deregister_notary(private_key=notary_0_private_key)
     current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
         notary_0_checksum_address
     )
@@ -201,8 +201,8 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -221,8 +221,8 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
     # Release notary 0
     smc_handler.release_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert not is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert not does_notary_exist
 
 
 def test_instant_release_notary(smc_handler):  # noqa: F811
@@ -235,8 +235,8 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0_private_key)
     mine(web3, 1)
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -253,8 +253,8 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
     tx_hash = smc_handler.release_notary(private_key=notary_0_private_key)
     mine(web3, 1)
     # Check registry remain the same and the transaction consume all gas
-    is_notary_exist = smc_handler.is_notary_exist(notary_0_checksum_address)
-    assert is_notary_exist
+    does_notary_exist = smc_handler.does_notary_exist(notary_0_checksum_address)
+    assert does_notary_exist
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
 
 

@@ -101,8 +101,8 @@ class SMCHandler(Contract):
     # Public variable getter functions
     #
 
-    def is_notary_exist(self, notary_address):
-        return self.functions.is_notary_exist(notary_address).call(self.basic_call_context)
+    def does_notary_exist(self, notary_address):
+        return self.functions.does_notary_exist(notary_address).call(self.basic_call_context)
 
     def get_notary_info(self, notary_address):
         return self.functions.get_notary_info(notary_address).call(self.basic_call_context)

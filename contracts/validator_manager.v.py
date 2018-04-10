@@ -38,8 +38,8 @@ notary_registry: {
     deregistered: int128,
     pool_index: int128
 }[address]
-# - is_notary_exist: returns true if notary's record exist in notary registry
-is_notary_exist: public(bool[address])
+# - does_notary_exist: returns true if notary's record exist in notary registry
+does_notary_exist: public(bool[address])
 
 # Information about validators
 validators: public({
@@ -80,20 +80,29 @@ period_head: public(int128[int128])
 
 # Configuration Parameter
 
-# The fixed-size deposit, denominated in ETH, required for registration
-NOTARY_DEPOSIT: wei_value
+# The total number of shards within a network.
+# Provisionally SHARD_COUNT := 100 for the phase 1 testnet.
+SHARD_COUNT: int128
 
-NOTARY_LOCKUP_LENGTH: int128
-
-# Number of blocks in one period
+# The period of time, denominated in main chain block times, during which
+# a collation tree can be extended by one collation.
+# Provisionally PERIOD_LENGTH := 5, approximately 75 seconds.
 PERIOD_LENGTH: int128
 
-# Number of shards
-shard_count: int128
+# The lookahead time, denominated in periods, for eligible collators to
+# perform windback and select proposals.
+# Provisionally LOOKAHEAD_LENGTH := 4, approximately 5 minutes.
+LOOKAHEAD_LENGTH: int128
 
-# Number of periods ahead of current period, which the contract
-# is able to return the notary of that period
-lookahead_periods: int128
+# The fixed-size deposit, denominated in ETH, required for registration.
+# Provisionally COLLATOR_DEPOSIT := 1000 and PROPOSER_DEPOSIT := 1.
+NOTARY_DEPOSIT: wei_value
+
+# The amount of time, denominated in periods, a deposit is locked up from the
+# time of deregistration.
+# Provisionally COLLATOR_LOCKUP_LENGTH := 16128, approximately two weeks, and
+# PROPOSER_LOCKUP_LENGTH := 48, approximately one hour.
+NOTARY_LOCKUP_LENGTH: int128
 
 
 @public
@@ -105,8 +114,8 @@ def __init__():
     # self.NOTARY_LOCKUP_LENGTH = 16128
     self.NOTARY_LOCKUP_LENGTH = 120
     self.PERIOD_LENGTH = 5
-    self.shard_count = 100
-    self.lookahead_periods = 4
+    self.SHARD_COUNT = 100
+    self.LOOKAHEAD_LENGTH = 4
 
 
 # Checks if empty_slots_stack_top is empty
@@ -160,7 +169,7 @@ def get_notary_info(notary_address: address) -> (int128, int128):
 @payable
 def register_notary() -> bool:
     assert msg.value == self.NOTARY_DEPOSIT
-    assert not self.is_notary_exist[msg.sender]
+    assert not self.does_notary_exist[msg.sender]
     
     # Add the notary to the notary pool
     pool_index: int128 = self.notary_pool_len
@@ -174,7 +183,7 @@ def register_notary() -> bool:
         deregistered: 0,
         pool_index: pool_index,
     }
-    self.is_notary_exist[msg.sender] = True
+    self.does_notary_exist[msg.sender] = True
 
     log.RegisterNotary(pool_index, msg.sender)
 
@@ -185,7 +194,7 @@ def register_notary() -> bool:
 # and returns True on success.
 @public
 def deregister_notary() -> bool:
-    assert self.is_notary_exist[msg.sender] == True
+    assert self.does_notary_exist[msg.sender] == True
 
     # Delete entry in notary pool
     index_in_notary_pool: int128 = self.notary_registry[msg.sender].pool_index 
@@ -204,7 +213,7 @@ def deregister_notary() -> bool:
 # Removes an entry from notary_registry, releases the notary deposit, and returns True on success.
 @public
 def release_notary() -> bool:
-    assert self.is_notary_exist[msg.sender] == True
+    assert self.does_notary_exist[msg.sender] == True
     assert self.notary_registry[msg.sender].deregistered != 0
     assert floor(block.number / self.PERIOD_LENGTH) > self.notary_registry[msg.sender].deregistered + self.NOTARY_LOCKUP_LENGTH
 
@@ -214,7 +223,7 @@ def release_notary() -> bool:
         deregistered: 0,
         pool_index: 0,
     }
-    self.is_notary_exist[msg.sender] = False
+    self.does_notary_exist[msg.sender] = False
 
     send(msg.sender, self.NOTARY_DEPOSIT)
 
@@ -244,8 +253,8 @@ def get_collation_header_score(shard_id: int128, collation_header_hash: bytes32)
 @public
 @constant
 def get_eligible_proposer(shard_id: int128, period: int128) -> address:
-    assert period >= self.lookahead_periods
-    assert (period - self.lookahead_periods) * self.PERIOD_LENGTH < block.number
+    assert period >= self.LOOKAHEAD_LENGTH
+    assert (period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH < block.number
     assert self.num_validators > 0
     return self.validators[
         convert(
@@ -255,7 +264,7 @@ def get_eligible_proposer(shard_id: int128, period: int128) -> address:
                             concat(
                                 # TODO: should check further if this can be further optimized or not
                                 #       e.g. be able to get the proposer of one period earlier
-                                blockhash((period - self.lookahead_periods) * self.PERIOD_LENGTH),
+                                blockhash((period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH),
                                 convert(shard_id, 'bytes32'),
                             )
                         ),
@@ -282,7 +291,7 @@ def add_header(
         collation_number: int128) -> bool:  # TODO: cannot be named `number` since it is reserved
 
     # Check if the header is valid
-    assert (shard_id >= 0) and (shard_id < self.shard_count)
+    assert (shard_id >= 0) and (shard_id < self.SHARD_COUNT)
     assert block.number >= self.PERIOD_LENGTH
     assert expected_period_number == floor(block.number / self.PERIOD_LENGTH)
     assert period_start_prevhash == blockhash(expected_period_number * self.PERIOD_LENGTH - 1)
