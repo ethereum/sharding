@@ -1,3 +1,8 @@
+# NOTE: Some variables are set as public variables for testing. They should be reset
+# to private variables in an official deployment of the contract. 
+# NOTE: NOTARY_LOCKUP_LENGTH is set to 120 for testing. It should be set according
+# to spec in an official deployment of the contract.
+
 # Events
 CollationAdded: __log__({
     shard_id: indexed(int128),
@@ -12,10 +17,29 @@ CollationAdded: __log__({
     is_new_head: bool,
     score: int128,
 })
-# TODO: determine the signature of the log `Deposit` and `Withdraw`
-Deposit: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
-Withdraw: __log__({validator_index: int128, validator_addr: address, deposit: wei_value})
+RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
+DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
+ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
 
+# Notary pool
+# - notary_pool: array of active notary addresses
+# - notary_pool_len: size of the notary pool
+# - empty_slots_stack: stack of empty notary slot indices
+# - empty_slots_stack_top: top index of the stack
+notary_pool: public(address[int128])
+notary_pool_len: public(int128)
+empty_slots_stack: public(int128[int128])
+empty_slots_stack_top: public(int128)
+
+# Notary registry
+# - deregistered: the period when the notary deregister. It defaults to 0 for not yet deregistered notarys
+# - pool_index: indicates notary's index in the notary pool
+notary_registry: {
+    deregistered: int128,
+    pool_index: int128
+}[address]
+# - does_notary_exist: returns true if notary's record exist in notary registry
+does_notary_exist: public(bool[address])
 
 # Information about validators
 validators: public({
@@ -50,63 +74,67 @@ shard_head: public(bytes32[int128])
 # Number of receipts
 num_receipts: int128
 
-# Indexs of empty slots caused by the function `withdraw`
-empty_slots_stack: int128[int128]
-
-# The top index of the stack in empty_slots_stack
-empty_slots_stack_top: int128
-
-# Has the validator deposited before?
-is_validator_deposited: public(bool[address])
-
 # Log the latest period number of the shard
 period_head: public(int128[int128])
 
 
 # Configuration Parameter
 
-# The exact deposit size which you have to deposit to become a validator
-deposit_size: wei_value
+# The total number of shards within a network.
+# Provisionally SHARD_COUNT := 100 for the phase 1 testnet.
+SHARD_COUNT: int128
 
-# Number of blocks in one period
-period_length: int128
+# The period of time, denominated in main chain block times, during which
+# a collation tree can be extended by one collation.
+# Provisionally PERIOD_LENGTH := 5, approximately 75 seconds.
+PERIOD_LENGTH: int128
 
-# Number of shards
-shard_count: int128
+# The lookahead time, denominated in periods, for eligible collators to
+# perform windback and select proposals.
+# Provisionally LOOKAHEAD_LENGTH := 4, approximately 5 minutes.
+LOOKAHEAD_LENGTH: int128
 
-# Number of periods ahead of current period, which the contract
-# is able to return the collator of that period
-lookahead_periods: int128
+# The fixed-size deposit, denominated in ETH, required for registration.
+# Provisionally COLLATOR_DEPOSIT := 1000 and PROPOSER_DEPOSIT := 1.
+NOTARY_DEPOSIT: wei_value
+
+# The amount of time, denominated in periods, a deposit is locked up from the
+# time of deregistration.
+# Provisionally COLLATOR_LOCKUP_LENGTH := 16128, approximately two weeks, and
+# PROPOSER_LOCKUP_LENGTH := 48, approximately one hour.
+NOTARY_LOCKUP_LENGTH: int128
 
 
 @public
 def __init__():
     self.num_validators = 0
     self.empty_slots_stack_top = 0
-    # 10 ** 20 wei = 100 ETH
-    self.deposit_size = 100000000000000000000
-    self.period_length = 5
-    self.shard_count = 100
-    self.lookahead_periods = 4
+    # 10 ** 21 wei = 1000 ETH
+    self.NOTARY_DEPOSIT = 1000000000000000000000
+    # self.NOTARY_LOCKUP_LENGTH = 16128
+    self.NOTARY_LOCKUP_LENGTH = 120
+    self.PERIOD_LENGTH = 5
+    self.SHARD_COUNT = 100
+    self.LOOKAHEAD_LENGTH = 4
 
 
 # Checks if empty_slots_stack_top is empty
 @private
-def is_stack_empty() -> bool:
+def is_empty_slots_stack_empty() -> bool:
     return (self.empty_slots_stack_top == 0)
 
 
 # Pushes one int128 to empty_slots_stack
 @private
-def stack_push(index: int128):
+def empty_slots_stack_push(index: int128):
     self.empty_slots_stack[self.empty_slots_stack_top] = index
     self.empty_slots_stack_top += 1
 
 
 # Pops one int128 out of empty_slots_stack
 @private
-def stack_pop() -> int128:
-    if self.is_stack_empty():
+def empty_slots_stack_pop() -> int128:
+    if self.is_empty_slots_stack_empty():
         return -1
     self.empty_slots_stack_top -= 1
     return self.empty_slots_stack[self.empty_slots_stack_top]
@@ -128,49 +156,78 @@ def get_validators_max_index() -> int128:
     return activate_validator_num + self.empty_slots_stack_top
 
 
-# Adds a validator to the validator set, with the validator's size being the msg.value
-# (ie. amount of ETH deposited) in the function call. Returns the validator index.
+# Helper functions to get notary info in notary_registry
+@public
+@constant
+def get_notary_info(notary_address: address) -> (int128, int128):
+    return (self.notary_registry[notary_address].deregistered, self.notary_registry[notary_address].pool_index)
+
+
+# Adds an entry to notary_registry, updates the notary pool (notary_pool, notary_pool_len, etc.),
+# locks a deposit of size NOTARY_DEPOSIT, and returns True on success.
 @public
 @payable
-def deposit() -> int128:
-    validator_addr: address = msg.sender
-    assert not self.is_validator_deposited[validator_addr]
-    assert msg.value == self.deposit_size
-    # find the empty slot index in validators set
-    index: int128 = self.num_validators
-    if not self.is_stack_empty():
-        index = self.stack_pop()        
-    self.validators[index] = {
-        deposit: msg.value,
-        addr: validator_addr,
+def register_notary() -> bool:
+    assert msg.value >= self.NOTARY_DEPOSIT
+    assert not self.does_notary_exist[msg.sender]
+    
+    # Add the notary to the notary pool
+    pool_index: int128 = self.notary_pool_len
+    if not self.is_empty_slots_stack_empty():
+        pool_index = self.empty_slots_stack_pop()        
+    self.notary_pool[pool_index] = msg.sender
+    self.notary_pool_len += 1
+
+    # Add the notary to the notary registry
+    self.notary_registry[msg.sender] = {
+        deregistered: 0,
+        pool_index: pool_index,
     }
-    self.num_validators += 1
-    self.is_validator_deposited[validator_addr] = True
+    self.does_notary_exist[msg.sender] = True
 
-    log.Deposit(index, validator_addr, msg.value)
+    log.RegisterNotary(pool_index, msg.sender)
 
-    return index
+    return True
 
 
-# Verifies that `msg.sender == validators[validator_index].addr`. if it is removes the validator
-# from the validator set and refunds the deposited ETH.
+# Sets the deregistered period in the notary_registry entry, updates the notary pool (notary_pool, notary_pool_len, etc.),
+# and returns True on success.
 @public
-@payable
-def withdraw(validator_index: int128) -> bool:
-    validator_addr: address = self.validators[validator_index].addr
-    validator_deposit: wei_value = self.validators[validator_index].deposit
-    assert msg.sender == validator_addr
-    self.is_validator_deposited[validator_addr] = False
-    self.validators[validator_index] = {
-        deposit: 0,
-        addr: None,
+def deregister_notary() -> bool:
+    assert self.does_notary_exist[msg.sender] == True
+
+    # Delete entry in notary pool
+    index_in_notary_pool: int128 = self.notary_registry[msg.sender].pool_index 
+    self.empty_slots_stack_push(index_in_notary_pool)
+    self.notary_pool[index_in_notary_pool] = None
+    self.notary_pool_len -= 1
+
+    # Set deregistered period to current period
+    self.notary_registry[msg.sender].deregistered = floor(block.number / self.PERIOD_LENGTH)
+
+    log.DeregisterNotary(index_in_notary_pool, msg.sender, self.notary_registry[msg.sender].deregistered)
+
+    return True
+
+
+# Removes an entry from notary_registry, releases the notary deposit, and returns True on success.
+@public
+def release_notary() -> bool:
+    assert self.does_notary_exist[msg.sender] == True
+    assert self.notary_registry[msg.sender].deregistered != 0
+    assert floor(block.number / self.PERIOD_LENGTH) > self.notary_registry[msg.sender].deregistered + self.NOTARY_LOCKUP_LENGTH
+
+    pool_index: int128 = self.notary_registry[msg.sender].pool_index
+    # Delete entry in notary registry
+    self.notary_registry[msg.sender] = {
+        deregistered: 0,
+        pool_index: 0,
     }
-    self.stack_push(validator_index)
-    self.num_validators -= 1
+    self.does_notary_exist[msg.sender] = False
 
-    send(validator_addr, validator_deposit)
+    send(msg.sender, self.NOTARY_DEPOSIT)
 
-    log.Withdraw(validator_index, validator_addr, validator_deposit)
+    log.ReleaseNotary(pool_index, msg.sender)
 
     return True
 
@@ -196,8 +253,8 @@ def get_collation_header_score(shard_id: int128, collation_header_hash: bytes32)
 @public
 @constant
 def get_eligible_proposer(shard_id: int128, period: int128) -> address:
-    assert period >= self.lookahead_periods
-    assert (period - self.lookahead_periods) * self.period_length < block.number
+    assert period >= self.LOOKAHEAD_LENGTH
+    assert (period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH < block.number
     assert self.num_validators > 0
     return self.validators[
         convert(
@@ -207,7 +264,7 @@ def get_eligible_proposer(shard_id: int128, period: int128) -> address:
                             concat(
                                 # TODO: should check further if this can be further optimized or not
                                 #       e.g. be able to get the proposer of one period earlier
-                                blockhash((period - self.lookahead_periods) * self.period_length),
+                                blockhash((period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH),
                                 convert(shard_id, 'bytes32'),
                             )
                         ),
@@ -234,10 +291,10 @@ def add_header(
         collation_number: int128) -> bool:  # TODO: cannot be named `number` since it is reserved
 
     # Check if the header is valid
-    assert (shard_id >= 0) and (shard_id < self.shard_count)
-    assert block.number >= self.period_length
-    assert expected_period_number == floor(block.number / self.period_length)
-    assert period_start_prevhash == blockhash(expected_period_number * self.period_length - 1)
+    assert (shard_id >= 0) and (shard_id < self.SHARD_COUNT)
+    assert block.number >= self.PERIOD_LENGTH
+    assert expected_period_number == floor(block.number / self.PERIOD_LENGTH)
+    assert period_start_prevhash == blockhash(expected_period_number * self.PERIOD_LENGTH - 1)
     # Check if only one collation in one period perd shard
     assert self.period_head[shard_id] < expected_period_number
 
@@ -275,7 +332,7 @@ def add_header(
     # and msg.sender is also the eligible proposer
     validator_addr: address = self.get_eligible_proposer(
         shard_id,
-        floor(block.number / self.period_length)
+        floor(block.number / self.PERIOD_LENGTH)
     )
     assert not not validator_addr
     assert msg.sender == validator_addr

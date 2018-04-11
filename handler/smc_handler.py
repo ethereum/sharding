@@ -91,44 +91,58 @@ class SMCHandler(Contract):
     def config(self):
         return self._config
 
+    @property
+    def basic_call_context(self):
+        return make_call_context(
+            sender_address=self.sender_address,
+            gas=self.config["DEFAULT_GAS"]
+        )
     #
     # Public variable getter functions
     #
-    def get_eligible_proposer(self, shard_id, period=None, gas=None):
+
+    def does_notary_exist(self, notary_address):
+        return self.functions.does_notary_exist(notary_address).call(self.basic_call_context)
+
+    def get_notary_info(self, notary_address):
+        return self.functions.get_notary_info(notary_address).call(self.basic_call_context)
+
+    def notary_pool_len(self):
+        return self.functions.notary_pool_len().call(self.basic_call_context)
+
+    def empty_slots_stack_top(self):
+        return self.functions.empty_slots_stack_top().call(self.basic_call_context)
+
+    def empty_slots_stack(self, stack_index):
+        return self.functions.empty_slots_stack(stack_index).call(self.basic_call_context)
+
+    def get_eligible_proposer(self, shard_id, period=None):
         """Get the eligible proposer in the specified period
         """
         if period is None:
             period = self.web3.eth.blockNumber // self.config['PERIOD_LENGTH']
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
-        address_in_hex = self.functions.get_eligible_proposer(shard_id, period).call(call_context)
+        address_in_hex = self.functions.get_eligible_proposer(
+            shard_id,
+            period
+        ).call(self.basic_call_context)
         return decode_hex(address_in_hex)
 
-    def get_parent_hash(self, shard_id, collation_hash, gas=None):
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
+    def get_parent_hash(self, shard_id, collation_hash):
         return self.functions.get_collation_header_parent_hash(
             shard_id,
             collation_hash,
-        ).call(call_context)
+        ).call(self.basic_call_context)
 
-    def get_collation_score(self, shard_id, collation_hash, gas=None):
-        call_context = make_call_context(
-            sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
-        )
+    def get_collation_score(self, shard_id, collation_hash):
         return self.functions.get_collation_header_score(
             shard_id,
             collation_hash,
-        ).call(call_context)
+        ).call(self.basic_call_context)
 
     def _send_transaction(self,
                           func_name,
                           args,
+                          private_key=None,
                           nonce=None,
                           chain_id=None,
                           gas=None,
@@ -139,9 +153,10 @@ class SMCHandler(Contract):
             gas = self.config['DEFAULT_GAS']
         if gas_price is None:
             gas_price = self.config['GAS_PRICE']
-        privkey = self.private_key
+        if private_key is None:
+            private_key = self.private_key
         if nonce is None:
-            nonce = self.web3.eth.getTransactionCount(privkey.public_key.to_checksum_address())
+            nonce = self.web3.eth.getTransactionCount(private_key.public_key.to_checksum_address())
         build_transaction_detail = make_transaction_context(
             nonce=nonce,
             gas=gas,
@@ -156,7 +171,7 @@ class SMCHandler(Contract):
         )
         signed_transaction_dict = self.web3.eth.account.signTransaction(
             unsigned_transaction,
-            privkey.to_hex(),
+            private_key.to_hex(),
         )
         tx_hash = self.web3.eth.sendRawTransaction(signed_transaction_dict['rawTransaction'])
         return tx_hash
@@ -164,26 +179,32 @@ class SMCHandler(Contract):
     #
     # Transactions
     #
-    def deposit(self, gas=None, gas_price=None):
-        """Do deposit to become a validator
-        """
+    def register_notary(self, private_key=None, gas=None, gas_price=None):
         tx_hash = self._send_transaction(
-            'deposit',
+            'register_notary',
             [],
-            value=self.config['DEPOSIT_SIZE'],
+            private_key=private_key,
+            value=self.config['NOTARY_DEPOSIT'],
             gas=gas,
             gas_price=gas_price,
         )
         return tx_hash
 
-    def withdraw(self, validator_index, gas=None, gas_price=None):
-        """Withdraw the validator whose index is `validator_index`
-        """
+    def deregister_notary(self, private_key=None, gas=None, gas_price=None):
         tx_hash = self._send_transaction(
-            'withdraw',
-            [
-                validator_index,
-            ],
+            'deregister_notary',
+            [],
+            private_key=private_key,
+            gas=gas,
+            gas_price=gas_price,
+        )
+        return tx_hash
+
+    def release_notary(self, private_key=None, gas=None, gas_price=None):
+        tx_hash = self._send_transaction(
+            'release_notary',
+            [],
+            private_key=private_key,
             gas=gas,
             gas_price=gas_price,
         )
