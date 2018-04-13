@@ -31,6 +31,9 @@ from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
 
+from evm.utils.numeric import (
+    int_to_bytes32,
+)
 from evm.vm.forks.byzantium.transactions import (
     ByzantiumTransaction,
 )
@@ -56,13 +59,37 @@ from handler.utils.web3_utils import (
 )
 
 
+def constructor_arguments():
+    """Encode system parameters passed into SMC constructor
+    """
+    arguments = (
+        int_to_bytes32(get_sharding_config()['SHARD_COUNT']) +
+        int_to_bytes32(get_sharding_config()['PERIOD_LENGTH']) +
+        int_to_bytes32(get_sharding_config()['LOOKAHEAD_PERIODS']) +
+        int_to_bytes32(get_sharding_config()['NOTARY_DEPOSIT']) +
+        int_to_bytes32(get_sharding_config()['NOTARY_LOCKUP_LENGTH'])
+    )
+    return arguments
+
+
 def make_deploy_smc_tx(TransactionClass, gas_price):
     smc_json = get_smc_json()
     smc_bytecode = decode_hex(smc_json['bytecode'])
+    tx_data = smc_bytecode + constructor_arguments()
     v = 27
     r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
-    return TransactionClass(0, gas_price, 3000000, b'', 0, smc_bytecode, v, r, s)
+    return TransactionClass(
+        0,
+        gas_price,
+        3000000,
+        b'',
+        0,
+        tx_data,
+        v,
+        r,
+        s
+    )
 
 
 def get_contract_address_from_deploy_tx(transaction):

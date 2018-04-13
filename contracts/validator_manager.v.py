@@ -106,16 +106,18 @@ NOTARY_LOCKUP_LENGTH: int128
 
 
 @public
-def __init__():
-    self.num_validators = 0
-    self.empty_slots_stack_top = 0
-    # 10 ** 21 wei = 1000 ETH
-    self.NOTARY_DEPOSIT = 1000000000000000000000
-    # self.NOTARY_LOCKUP_LENGTH = 16128
-    self.NOTARY_LOCKUP_LENGTH = 120
-    self.PERIOD_LENGTH = 5
-    self.SHARD_COUNT = 100
-    self.LOOKAHEAD_LENGTH = 4
+def __init__(
+        _SHARD_COUNT: int128,
+        _PERIOD_LENGTH: int128,
+        _LOOKAHEAD_LENGTH: int128,
+        _NOTARY_DEPOSIT: wei_value,
+        _NOTARY_LOCKUP_LENGTH: int128,
+    ):
+    self.SHARD_COUNT = _SHARD_COUNT
+    self.PERIOD_LENGTH = _PERIOD_LENGTH
+    self.LOOKAHEAD_LENGTH = _LOOKAHEAD_LENGTH
+    self.NOTARY_DEPOSIT = _NOTARY_DEPOSIT
+    self.NOTARY_LOCKUP_LENGTH = _NOTARY_LOCKUP_LENGTH
 
 
 # Checks if empty_slots_stack_top is empty
