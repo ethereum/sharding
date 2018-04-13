@@ -27,9 +27,6 @@ from eth_tester.backends.pyevm.main import (
 from handler.smc_handler import (
     SMCHandler,
 )
-from contracts.utils.config import (
-    get_sharding_config,
-)
 from contracts.utils.smc_utils import (
     get_smc_json,
 )
@@ -38,6 +35,9 @@ from handler.utils.web3_utils import (
 )
 from tests.handler.utils.deploy import (
     deploy_smc_contract,
+)
+from tests.handler.utils.config import (
+    get_sharding_testing_config,
 )
 
 
@@ -56,7 +56,7 @@ def smc_handler():
     # deploy smc contract
     smc_addr = deploy_smc_contract(
         w3,
-        get_sharding_config()['GAS_PRICE'],
+        get_sharding_testing_config()['GAS_PRICE'],
         default_privkey,
     )
     assert get_code(w3, smc_addr) != b''
@@ -69,6 +69,7 @@ def smc_handler():
     smc_handler = SMCHandlerClass(
         to_checksum_address(smc_addr),
         default_privkey=default_privkey,
+        config=get_sharding_testing_config(),
     )
 
     return smc_handler
