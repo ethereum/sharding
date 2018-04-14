@@ -12,12 +12,11 @@ from eth_utils import (
 from evm.utils.numeric import (
     int_to_bytes32,
 )
-from evm.vm.forks.byzantium.transactions import (
-    ByzantiumTransaction,
-)
-
 from evm.utils.address import (
     generate_contract_address,
+)
+from evm.vm.forks.byzantium.transactions import (
+    ByzantiumTransaction,
 )
 
 from contracts.utils.smc_utils import (
