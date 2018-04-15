@@ -174,8 +174,6 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 
 
 def test_normal_release_notary(smc_handler):  # noqa: F811
-    SIM_NOTARY_LOCKUP_LENGTH = 120
-
     web3 = smc_handler.web3
 
     notary_0 = TestingNotaryAccount(0)
@@ -197,8 +195,10 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
 
-    # Fast foward
-    mine(web3, SIM_NOTARY_LOCKUP_LENGTH * (smc_handler.config['PERIOD_LENGTH'] + 1))
+    # Fast foward to end of lock up
+    blocks_to_end_of_lock_up = smc_handler.config['NOTARY_LOCKUP_LENGTH'] \
+        * (smc_handler.config['PERIOD_LENGTH'] + 1)
+    mine(web3, blocks_to_end_of_lock_up)
 
     # Release notary 0
     smc_handler.release_notary(private_key=notary_0.private_key)

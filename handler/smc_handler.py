@@ -11,10 +11,6 @@ from eth_utils import (
     decode_hex,
 )
 
-from contracts.utils.config import (
-    get_sharding_config,
-)
-
 
 # Basic call context helper functions
 @to_dict
@@ -69,10 +65,10 @@ class SMCHandler(Contract):
     _sender_address = None
     _config = None
 
-    def __init__(self, *args, default_privkey, **kwargs):
+    def __init__(self, *args, default_privkey, config, **kwargs):
         self._privkey = default_privkey
         self._sender_address = default_privkey.public_key.to_canonical_address()
-        self._config = get_sharding_config()
+        self._config = config
 
         super().__init__(*args, **kwargs)
 
