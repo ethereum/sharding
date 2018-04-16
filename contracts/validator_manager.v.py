@@ -1,7 +1,5 @@
 # NOTE: Some variables are set as public variables for testing. They should be reset
 # to private variables in an official deployment of the contract. 
-# NOTE: NOTARY_LOCKUP_LENGTH is set to 120 for testing. It should be set according
-# to spec in an official deployment of the contract.
 
 # Events
 CollationAdded: __log__({
@@ -40,17 +38,6 @@ notary_registry: {
 }[address]
 # - does_notary_exist: returns true if notary's record exist in notary registry
 does_notary_exist: public(bool[address])
-
-# Information about validators
-validators: public({
-    # Amount of wei the validator holds
-    deposit: wei_value,
-    # Address of the validator
-    addr: address,
-}[int128])
-
-# Number of validators
-num_validators: public(int128)
 
 # Collation headers: (parent_hash || score)
 # parent_hash: 26 bytes
@@ -140,22 +127,6 @@ def empty_slots_stack_pop() -> int128:
         return -1
     self.empty_slots_stack_top -= 1
     return self.empty_slots_stack[self.empty_slots_stack_top]
-
-
-# Returns the current maximum index for validators mapping
-@private
-@constant
-def get_validators_max_index() -> int128:
-    activate_validator_num: int128 = 0
-    all_validator_slots_num: int128 = self.num_validators + self.empty_slots_stack_top
-
-    # TODO: any better way to iterate the mapping?
-    for i in range(1024):
-        if i >= all_validator_slots_num:
-            break
-        if not not self.validators[i].addr:
-            activate_validator_num += 1
-    return activate_validator_num + self.empty_slots_stack_top
 
 
 # Helper functions to get notary info in notary_registry
@@ -249,36 +220,6 @@ def get_collation_header_score(shard_id: int128, collation_header_hash: bytes32)
     return collation_score
 
 
-# Uses a block hash as a seed to pseudorandomly select a signer from the validator set.
-# [TODO] Chance of being selected should be proportional to the validator's deposit.
-# Should be able to return a value for the current period or any future period up to.
-@public
-@constant
-def get_eligible_proposer(shard_id: int128, period: int128) -> address:
-    assert period >= self.LOOKAHEAD_LENGTH
-    assert (period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH < block.number
-    assert self.num_validators > 0
-    return self.validators[
-        convert(
-            uint256_mod(
-                convert(
-                        sha3(
-                            concat(
-                                # TODO: should check further if this can be further optimized or not
-                                #       e.g. be able to get the proposer of one period earlier
-                                blockhash((period - self.LOOKAHEAD_LENGTH) * self.PERIOD_LENGTH),
-                                convert(shard_id, 'bytes32'),
-                            )
-                        ),
-                        'uint256'
-                ),
-                convert(self.get_validators_max_index(), 'uint256')
-            ),
-            'int128'
-        )
-    ].addr
-
-
 # Attempts to process a collation header, returns True on success, reverts on failure.
 @public
 def add_header(
@@ -329,15 +270,6 @@ def add_header(
     )
     if not not parent_hash:
         assert parent_collation_score > 0
-
-    # Check that there's eligible proposer in this period
-    # and msg.sender is also the eligible proposer
-    validator_addr: address = self.get_eligible_proposer(
-        shard_id,
-        floor(block.number / self.PERIOD_LENGTH)
-    )
-    assert not not validator_addr
-    assert msg.sender == validator_addr
 
     # Check score == collation_number
     _score: int128 = parent_collation_score + 1
