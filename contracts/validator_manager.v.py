@@ -39,6 +39,16 @@ notary_registry: {
 # - does_notary_exist: returns true if notary's record exist in notary registry
 does_notary_exist: public(bool[address])
 
+# Notary sampling info
+# In order to keep sample size unchanged through out entire period, we keep track of pool size change
+# resulted from notary regitration/deregistration in current period and apply the change until next period. 
+# - current_period_notary_sample_size: 
+# - next_period_notary_sample_size: 
+# - notary_sample_size_updated_period: latest period when current_period_notary_sample_size is updated
+current_period_notary_sample_size: public(int128)
+next_period_notary_sample_size: public(int128)
+notary_sample_size_updated_period: public(int128)
+
 # Collation headers: (parent_hash || score)
 # parent_hash: 26 bytes
 # score: 6 bytes
@@ -136,6 +146,19 @@ def get_notary_info(notary_address: address) -> (int128, int128):
     return (self.notary_registry[notary_address].deregistered, self.notary_registry[notary_address].pool_index)
 
 
+# Update notary_sample_size
+@public
+def update_notary_sample_size() -> bool:
+    current_period : int128 = floor(block.number / self.PERIOD_LENGTH)
+    if self.notary_sample_size_updated_period >= current_period:
+        return False
+
+    self.current_period_notary_sample_size = self.next_period_notary_sample_size
+    self.notary_sample_size_updated_period = current_period
+
+    return True
+
+
 # Adds an entry to notary_registry, updates the notary pool (notary_pool, notary_pool_len, etc.),
 # locks a deposit of size NOTARY_DEPOSIT, and returns True on success.
 @public
@@ -143,13 +166,20 @@ def get_notary_info(notary_address: address) -> (int128, int128):
 def register_notary() -> bool:
     assert msg.value >= self.NOTARY_DEPOSIT
     assert not self.does_notary_exist[msg.sender]
-    
+
+    # Update notary_sample_size
+    self.update_notary_sample_size()
+
     # Add the notary to the notary pool
     pool_index: int128 = self.notary_pool_len
     if not self.is_empty_slots_stack_empty():
         pool_index = self.empty_slots_stack_pop()        
     self.notary_pool[pool_index] = msg.sender
     self.notary_pool_len += 1
+
+    # If index is larger than notary_sample_size, expand notary_sample_size in next period.
+    if pool_index >= self.next_period_notary_sample_size:
+        self.next_period_notary_sample_size = pool_index + 1
 
     # Add the notary to the notary registry
     self.notary_registry[msg.sender] = {
@@ -168,6 +198,9 @@ def register_notary() -> bool:
 @public
 def deregister_notary() -> bool:
     assert self.does_notary_exist[msg.sender] == True
+
+    # Update notary_sample_size
+    self.update_notary_sample_size()
 
     # Delete entry in notary pool
     index_in_notary_pool: int128 = self.notary_registry[msg.sender].pool_index 
@@ -240,6 +273,9 @@ def add_header(
     assert period_start_prevhash == blockhash(expected_period_number * self.PERIOD_LENGTH - 1)
     # Check if only one collation in one period perd shard
     assert self.period_head[shard_id] < expected_period_number
+
+    # Update notary_sample_size
+    self.update_notary_sample_size()
 
     # Check if this header already exists
     header_bytes: bytes <= 288 = concat(

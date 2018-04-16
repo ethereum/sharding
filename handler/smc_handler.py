@@ -112,6 +112,15 @@ class SMCHandler(Contract):
     def empty_slots_stack(self, stack_index):
         return self.functions.empty_slots_stack(stack_index).call(self.basic_call_context)
 
+    def current_period_notary_sample_size(self):
+        return self.functions.current_period_notary_sample_size().call(self.basic_call_context)
+
+    def next_period_notary_sample_size(self):
+        return self.functions.next_period_notary_sample_size().call(self.basic_call_context)
+
+    def notary_sample_size_updated_period(self):
+        return self.functions.notary_sample_size_updated_period().call(self.basic_call_context)
+
     def get_eligible_proposer(self, shard_id, period=None):
         """Get the eligible proposer in the specified period
         """
