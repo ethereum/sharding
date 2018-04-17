@@ -91,6 +91,12 @@ PERIOD_LENGTH: int128
 # Provisionally LOOKAHEAD_LENGTH := 4, approximately 5 minutes.
 LOOKAHEAD_LENGTH: int128
 
+# The number of notaries to select from notary pool for each shard in each period.
+COMMITTEE_SIZE: int128
+
+# The threshold(number of notaries in committee) for a proposal to be deem accepted
+QUORUM_SIZE: int128
+
 # The fixed-size deposit, denominated in ETH, required for registration.
 # Provisionally COLLATOR_DEPOSIT := 1000 and PROPOSER_DEPOSIT := 1.
 NOTARY_DEPOSIT: wei_value
@@ -107,12 +113,16 @@ def __init__(
         _SHARD_COUNT: int128,
         _PERIOD_LENGTH: int128,
         _LOOKAHEAD_LENGTH: int128,
+        _COMMITTEE_SIZE: int128,
+        _QUORUM_SIZE: int128,
         _NOTARY_DEPOSIT: wei_value,
         _NOTARY_LOCKUP_LENGTH: int128,
     ):
     self.SHARD_COUNT = _SHARD_COUNT
     self.PERIOD_LENGTH = _PERIOD_LENGTH
     self.LOOKAHEAD_LENGTH = _LOOKAHEAD_LENGTH
+    self.COMMITTEE_SIZE = _COMMITTEE_SIZE
+    self.QUORUM_SIZE = _QUORUM_SIZE
     self.NOTARY_DEPOSIT = _NOTARY_DEPOSIT
     self.NOTARY_LOCKUP_LENGTH = _NOTARY_LOCKUP_LENGTH
 

@@ -39,8 +39,10 @@ def constructor_arguments():
         int_to_bytes32(get_sharding_testing_config()['SHARD_COUNT']) +
         int_to_bytes32(get_sharding_testing_config()['PERIOD_LENGTH']) +
         int_to_bytes32(get_sharding_testing_config()['LOOKAHEAD_PERIODS']) +
+        int_to_bytes32(get_sharding_testing_config()['COMMITTEE_SIZE']) +
+        int_to_bytes32(get_sharding_testing_config()['QUORUM_SIZE']) +
         int_to_bytes32(get_sharding_testing_config()['NOTARY_DEPOSIT']) +
-        int_to_bytes32(get_sharding_testing_config()['PERIOD_LENGTH'])
+        int_to_bytes32(get_sharding_testing_config()['NOTARY_LOCKUP_LENGTH'])
     )
     return arguments
 

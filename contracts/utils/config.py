@@ -15,6 +15,8 @@ def get_sharding_config():
         'PERIOD_LENGTH': env.get('PYEVM_SHARDING_PERIOD_LENGTH', type=int, default=5),
         # the maximum valid ahead periods from the current period for `get_eligible_proposer`
         'LOOKAHEAD_PERIODS': env.get('PYEVM_SHARDING_LOOKAHEAD_PERIODS', type=int, default=4),
+        'COMMITTEE_SIZE': env.get('PYEVM_COMMITTEE_SIZE', type=int, default=135),
+        'QUORUM_SIZE': env.get('PYEVM_QUORUM_SIZW', type=int, default=135),
         # the gas limit of one collation
         'COLLATION_GASLIMIT': env.get(
             'PYEVM_SHARDING_COLLATION_GASLIMIT',

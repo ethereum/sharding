@@ -9,6 +9,8 @@ from contracts.utils.config import (
 
 def get_sharding_testing_config():
     REPLACED_PARAMETERS = {
+        'COMMITTEE_SIZE': 6,
+        'QUORUM_SIZE': 4,
         'NOTARY_LOCKUP_LENGTH': 120,
     }
     return merge(
