@@ -121,16 +121,12 @@ class SMCHandler(Contract):
     def notary_sample_size_updated_period(self):
         return self.functions.notary_sample_size_updated_period().call(self.basic_call_context)
 
-    def get_eligible_proposer(self, shard_id, period=None):
-        """Get the eligible proposer in the specified period
-        """
-        if period is None:
-            period = self.web3.eth.blockNumber // self.config['PERIOD_LENGTH']
-        address_in_hex = self.functions.get_eligible_proposer(
+    def is_member_of_committee(self, shard_id, notary, index):
+        return self.functions.is_member_of_committee(
             shard_id,
-            period
+            notary,
+            index,
         ).call(self.basic_call_context)
-        return decode_hex(address_in_hex)
 
     def get_parent_hash(self, shard_id, collation_hash):
         return self.functions.get_collation_header_parent_hash(

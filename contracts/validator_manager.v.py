@@ -248,6 +248,46 @@ def release_notary() -> bool:
     return True
 
 
+# Given notary, shard_id and index, return True/False to indicate if the
+# notary has been chosen as a member of committee in the specified shard and period
+@public
+@constant
+def is_member_of_committee(
+        shard_id: int128,
+        notary: address,
+        index: int128,
+    ) -> bool:
+    period: int128 = floor(block.number / self.PERIOD_LENGTH)
+
+    # Decide notary pool length based on if notary sample size is updated
+    sample_size: int128
+    if self.notary_sample_size_updated_period < period:
+        sample_size = self.next_period_notary_sample_size
+    elif self.notary_sample_size_updated_period == period:
+        sample_size = self.current_period_notary_sample_size
+
+    # Block hash used as entropy is the latest block of previous period  
+    entropy_block_number: int128 = period * self.PERIOD_LENGTH - 1
+
+    sampled_index: int128 = convert(
+        uint256_mod(
+            convert(
+                sha3(
+                    concat(
+                        blockhash(entropy_block_number),
+                        convert(shard_id, "bytes32"),
+                        convert(index, "bytes32"),
+                    )
+                ),
+                "uint256",
+            ),
+            convert(sample_size, "uint256"),
+        ),
+        'int128',
+    )
+    return notary == self.notary_pool[sampled_index]
+
+
 # Helper function to get collation header score
 @public
 @constant
