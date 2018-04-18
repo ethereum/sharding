@@ -4,6 +4,10 @@ from handler.utils.web3_utils import (
 from tests.handler.fixtures import (  # noqa: F401
     smc_handler,
 )
+from tests.contract.utils.common_utils import (
+    batch_register,
+    fast_forward,
+)
 from tests.contract.utils.notary_account import (
     TestingNotaryAccount,
 )
@@ -33,9 +37,7 @@ def test_normal_register(smc_handler):  # noqa: F811
     notary_2 = TestingNotaryAccount(2)
 
     # Register notary 1 and notary 2
-    smc_handler.register_notary(private_key=notary_1.private_key)
-    smc_handler.register_notary(private_key=notary_2.private_key)
-    mine(web3, 1)
+    batch_register(smc_handler, 0, 2)
 
     does_notary_exist = smc_handler.does_notary_exist(notary_1.checksum_address)
     assert does_notary_exist
@@ -196,9 +198,7 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
     assert notary_pool_length == 0
 
     # Fast foward to end of lock up
-    blocks_to_end_of_lock_up = smc_handler.config['NOTARY_LOCKUP_LENGTH'] \
-        * (smc_handler.config['PERIOD_LENGTH'] + 1)
-    mine(web3, blocks_to_end_of_lock_up)
+    fast_forward(smc_handler, smc_handler.config['NOTARY_LOCKUP_LENGTH'] + 1)
 
     # Release notary 0
     smc_handler.release_notary(private_key=notary_0.private_key)
@@ -250,17 +250,10 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
-    notary_1 = TestingNotaryAccount(1)
-
     notary_2 = TestingNotaryAccount(2)
 
-    notary_3 = TestingNotaryAccount(3)
-
-    # Register notary 1 and notary 2
-    smc_handler.register_notary(private_key=notary_1.private_key)
-    smc_handler.register_notary(private_key=notary_2.private_key)
-    smc_handler.register_notary(private_key=notary_3.private_key)
-    mine(web3, 1)
+    # Register notary 1~3
+    batch_register(smc_handler, 1, 3)
 
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 4
