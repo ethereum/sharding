@@ -159,7 +159,7 @@ def get_notary_info(notary_address: address) -> (int128, int128):
 # Update notary_sample_size
 @public
 def update_notary_sample_size() -> bool:
-    current_period : int128 = floor(block.number / self.PERIOD_LENGTH)
+    current_period: int128 = floor(block.number / self.PERIOD_LENGTH)
     if self.notary_sample_size_updated_period >= current_period:
         return False
 
