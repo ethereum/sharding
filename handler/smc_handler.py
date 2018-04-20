@@ -106,6 +106,9 @@ class SMCHandler(Contract):
     def notary_pool_len(self):
         return self.functions.notary_pool_len().call(self.basic_call_context)
 
+    def notary_pool(self, pool_index):
+        return self.functions.notary_pool(pool_index).call(self.basic_call_context)
+
     def empty_slots_stack_top(self):
         return self.functions.empty_slots_stack_top().call(self.basic_call_context)
 

@@ -12,6 +12,10 @@ from tests.contract.utils.common_utils import (
 from tests.contract.utils.notary_account import (
     TestingNotaryAccount,
 )
+from tests.contract.utils.sample_helper import (
+    get_notary_pool_list,
+    get_committee_list,
+)
 
 
 def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
@@ -111,7 +115,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     fast_forward(smc_handler, 1)
 
     # Deregister notary 0 first
-    # NOTE: Deregitration would also invoke update_notary_sample_size function
+    # NOTE: Deregistration would also invoke update_notary_sample_size function
     smc_handler.deregister_notary(private_key=notary_0.private_key)
     mine(web3, 1)
     # Check that current_period_notary_sample_size is updated
@@ -231,3 +235,115 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
     update_notary_sample_size(smc_handler)
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
     assert current_period_notary_sample_size == next_period_notary_sample_size
+
+
+def test_is_member_of_committee_without_updating_sample_size(smc_handler):  # noqa: F811
+    web3 = smc_handler.web3
+
+    # Register notary 0~5 and fast forward to next period
+    batch_register(smc_handler, 0, 5)
+    fast_forward(smc_handler, 1)
+
+    # Register notary 6~8
+    batch_register(smc_handler, 6, 8)
+
+    # Check that sample-size-related values match
+    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
+    assert notary_sample_size_updated_period == current_period
+    current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
+    assert current_period_notary_sample_size == 6
+    next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
+    assert next_period_notary_sample_size == 9
+
+    # Fast forward to next period
+    fast_forward(smc_handler, 1)
+    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
+    assert notary_sample_size_updated_period == current_period - 1
+
+    shard_0_committee_list = get_committee_list(smc_handler, 0)
+    for (i, notary) in enumerate(shard_0_committee_list):
+        assert smc_handler.is_member_of_committee(0, notary, i)
+
+
+def test_is_member_of_committee_with_updated_sample_size(smc_handler):  # noqa: F811
+    web3 = smc_handler.web3
+
+    # Register notary 0~8 and fast forward to next period
+    batch_register(smc_handler, 0, 8)
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+    # Check that sample-size-related values match
+    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
+    assert notary_sample_size_updated_period == current_period
+    current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
+    assert current_period_notary_sample_size == 9
+    next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
+    assert next_period_notary_sample_size == 9
+
+    shard_0_committee_list = get_committee_list(smc_handler, 0)
+    for (i, notary) in enumerate(shard_0_committee_list):
+        assert smc_handler.is_member_of_committee(0, notary, i)
+
+
+def test_committee_lists_generated_are_different(smc_handler):  # noqa: F811
+    # Register notary 0~8 and fast forward to next period
+    batch_register(smc_handler, 0, 8)
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+
+    shard_0_committee_list = get_committee_list(smc_handler, 0)
+    shard_1_committee_list = get_committee_list(smc_handler, 1)
+    assert shard_0_committee_list != shard_1_committee_list
+
+    # Fast forward to next period
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+
+    new_shard_0_committee_list = get_committee_list(smc_handler, 0)
+    assert new_shard_0_committee_list != shard_0_committee_list
+
+
+def test_is_member_of_committee_with_non_member(smc_handler):  # noqa: F811
+    # Register notary 0~8 and fast forward to next period
+    batch_register(smc_handler, 0, 8)
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+
+    notary_pool_list = get_notary_pool_list(smc_handler)
+    shard_0_committee_list = get_committee_list(smc_handler, 0)
+    for (i, notary) in enumerate(shard_0_committee_list):
+        notary_index = notary_pool_list.index(notary)
+        next_notary_index = notary_index + 1 \
+            if notary_index < len(notary_pool_list) - 1 else 0
+        next_notary = notary_pool_list[next_notary_index]
+        assert not smc_handler.is_member_of_committee(0, next_notary, i)
+
+
+def test_is_member_of_committee_with_deregistered_notary(smc_handler):  # noqa: F811
+    web3 = smc_handler.web3
+
+    # Register notary 0~8 and fast forward to next period
+    batch_register(smc_handler, 0, 8)
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+
+    notary_pool_list = get_notary_pool_list(smc_handler)
+    # Choose the first sampled notary and deregister it
+    notary = get_committee_list(smc_handler, 0)[0]
+    notary_index = notary_pool_list.index(notary)
+    smc_handler.deregister_notary(private_key=TestingNotaryAccount(notary_index).private_key)
+    mine(web3, 1)
+    assert not smc_handler.is_member_of_committee(0, notary_pool_list[notary_index], 0)
