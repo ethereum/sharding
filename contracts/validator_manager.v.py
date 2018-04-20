@@ -248,15 +248,13 @@ def release_notary() -> bool:
     return True
 
 
-# Given notary, shard_id and index, return True/False to indicate if the
-# notary has been chosen as a member of committee in the specified shard and period
+# Given shard_id and index, return the chosen notary in the current period
 @public
 @constant
-def is_member_of_committee(
+def get_member_of_committee(
         shard_id: int128,
-        notary: address,
         index: int128,
-    ) -> bool:
+    ) -> address:
     period: int128 = floor(block.number / self.PERIOD_LENGTH)
 
     # Decide notary pool length based on if notary sample size is updated
@@ -285,7 +283,7 @@ def is_member_of_committee(
         ),
         'int128',
     )
-    return notary == self.notary_pool[sampled_index]
+    return self.notary_pool[sampled_index]
 
 
 # Helper function to get collation header score

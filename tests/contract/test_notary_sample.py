@@ -237,7 +237,7 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
     assert current_period_notary_sample_size == next_period_notary_sample_size
 
 
-def test_is_member_of_committee_without_updating_sample_size(smc_handler):  # noqa: F811
+def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
     # Register notary 0~5 and fast forward to next period
@@ -264,10 +264,10 @@ def test_is_member_of_committee_without_updating_sample_size(smc_handler):  # no
 
     shard_0_committee_list = get_committee_list(smc_handler, 0)
     for (i, notary) in enumerate(shard_0_committee_list):
-        assert smc_handler.is_member_of_committee(0, notary, i)
+        assert smc_handler.get_member_of_committee(0, i) == notary
 
 
-def test_is_member_of_committee_with_updated_sample_size(smc_handler):  # noqa: F811
+def test_get_member_of_committee_with_updated_sample_size(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
@@ -287,7 +287,7 @@ def test_is_member_of_committee_with_updated_sample_size(smc_handler):  # noqa: 
 
     shard_0_committee_list = get_committee_list(smc_handler, 0)
     for (i, notary) in enumerate(shard_0_committee_list):
-        assert smc_handler.is_member_of_committee(0, notary, i)
+        assert smc_handler.get_member_of_committee(0, i) == notary
 
 
 def test_committee_lists_generated_are_different(smc_handler):  # noqa: F811
@@ -312,7 +312,7 @@ def test_committee_lists_generated_are_different(smc_handler):  # noqa: F811
     assert new_shard_0_committee_list != shard_0_committee_list
 
 
-def test_is_member_of_committee_with_non_member(smc_handler):  # noqa: F811
+def test_get_member_of_committee_with_non_member(smc_handler):  # noqa: F811
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
@@ -327,10 +327,10 @@ def test_is_member_of_committee_with_non_member(smc_handler):  # noqa: F811
         next_notary_index = notary_index + 1 \
             if notary_index < len(notary_pool_list) - 1 else 0
         next_notary = notary_pool_list[next_notary_index]
-        assert not smc_handler.is_member_of_committee(0, next_notary, i)
+        assert not (smc_handler.get_member_of_committee(0, i) == next_notary)
 
 
-def test_is_member_of_committee_with_deregistered_notary(smc_handler):  # noqa: F811
+def test_get_member_of_committee_with_deregistered_notary(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
@@ -346,4 +346,4 @@ def test_is_member_of_committee_with_deregistered_notary(smc_handler):  # noqa: 
     notary_index = notary_pool_list.index(notary)
     smc_handler.deregister_notary(private_key=TestingNotaryAccount(notary_index).private_key)
     mine(web3, 1)
-    assert not smc_handler.is_member_of_committee(0, notary_pool_list[notary_index], 0)
+    assert not (smc_handler.get_member_of_committee(0, 0) == notary_pool_list[notary_index])

@@ -124,10 +124,9 @@ class SMCHandler(Contract):
     def notary_sample_size_updated_period(self):
         return self.functions.notary_sample_size_updated_period().call(self.basic_call_context)
 
-    def is_member_of_committee(self, shard_id, notary, index):
-        return self.functions.is_member_of_committee(
+    def get_member_of_committee(self, shard_id, index):
+        return self.functions.get_member_of_committee(
             shard_id,
-            notary,
             index,
         ).call(self.basic_call_context)
 
