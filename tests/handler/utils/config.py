@@ -9,6 +9,7 @@ from contracts.utils.config import (
 
 def get_sharding_testing_config():
     REPLACED_PARAMETERS = {
+        'SHARD_COUNT': 10,
         'PERIOD_LENGTH': 5,
         'COMMITTEE_SIZE': 6,
         'QUORUM_SIZE': 4,

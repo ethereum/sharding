@@ -15,6 +15,7 @@ from tests.contract.utils.notary_account import (
 from tests.contract.utils.sample_helper import (
     get_notary_pool_list,
     get_committee_list,
+    get_sample_result,
 )
 
 
@@ -347,3 +348,31 @@ def test_get_member_of_committee_with_deregistered_notary(smc_handler):  # noqa:
     smc_handler.deregister_notary(private_key=TestingNotaryAccount(notary_index).private_key)
     mine(web3, 1)
     assert not (smc_handler.get_member_of_committee(0, 0) == notary_pool_list[notary_index])
+
+
+def test_get_sample_result(smc_handler):  # noqa: F811
+    # Register notary 0~8 and fast forward to next period
+    batch_register(smc_handler, 0, 8)
+    fast_forward(smc_handler, 1)
+
+    # Update notary sample size
+    update_notary_sample_size(smc_handler)
+
+    # Get all committee of current period
+    committee_group = []
+    for shard_id in range(smc_handler.config['SHARD_COUNT']):
+        committee_group.append(get_committee_list(smc_handler, shard_id))
+
+    # Get sampling result for notary 0
+    notary_0 = TestingNotaryAccount(0)
+    _, notary_0_pool_index = smc_handler.get_notary_info(
+        notary_0.checksum_address
+    )
+    notary_0_sampling_result = get_sample_result(smc_handler, notary_0_pool_index)
+
+    for (shard_id, sampling_index) in notary_0_sampling_result:
+        # Check that notary is correctly sampled in get_committee_list
+        assert committee_group[shard_id][sampling_index] == notary_0.checksum_address
+        # Check that notary is correctly sampled in SMC
+        assert smc_handler.get_member_of_committee(shard_id, sampling_index) \
+            == notary_0.checksum_address
