@@ -72,4 +72,4 @@ def get_sample_result(smc_handler, notary_index):
                 )
             ) % sample_size
             if pool_index == notary_index:
-                yield (shard_id, index)
+                yield (current_period, shard_id, index)
