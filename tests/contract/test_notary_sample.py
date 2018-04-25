@@ -264,6 +264,8 @@ def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # n
     assert notary_sample_size_updated_period == current_period - 1
 
     shard_0_committee_list = get_committee_list(smc_handler, 0)
+    # Check that get_committee_list did generate committee list
+    assert len(shard_0_committee_list) > 0
     for (i, notary) in enumerate(shard_0_committee_list):
         assert smc_handler.get_member_of_committee(0, i) == notary
 
