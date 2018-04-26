@@ -47,7 +47,7 @@ def sampling(smc_handler, shard_id):
 @to_list
 def get_committee_list(smc_handler, shard_id):
     """Get committee list in specified shard in current period.
-    Index starts from zero to COMMITTEE_SIZE-1
+    Returns the list of sampled notaries.
     """
     for notary_pool_index in sampling(smc_handler, shard_id):
         yield smc_handler.notary_pool(notary_pool_index)
@@ -56,8 +56,9 @@ def get_committee_list(smc_handler, shard_id):
 @to_list
 def get_sample_result(smc_handler, notary_index):
     """Get sampling result for the specified notary. Pass in notary's index in notary pool.
-    Returns a list of tuple(shard_id, index) indicating on which shard is the notary sampled
-    and by which sampling index.
+    Returns a list of tuple(period, shard_id, index) indicating in which period on which shard
+    is the notary sampled and by which sampling index.
+    Note that here sampling index in not the same as notary pool index.
     """
     current_period = smc_handler.web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
 
