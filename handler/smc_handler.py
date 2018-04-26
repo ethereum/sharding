@@ -106,22 +106,29 @@ class SMCHandler(Contract):
     def notary_pool_len(self):
         return self.functions.notary_pool_len().call(self.basic_call_context)
 
+    def notary_pool(self, pool_index):
+        return self.functions.notary_pool(pool_index).call(self.basic_call_context)
+
     def empty_slots_stack_top(self):
         return self.functions.empty_slots_stack_top().call(self.basic_call_context)
 
     def empty_slots_stack(self, stack_index):
         return self.functions.empty_slots_stack(stack_index).call(self.basic_call_context)
 
-    def get_eligible_proposer(self, shard_id, period=None):
-        """Get the eligible proposer in the specified period
-        """
-        if period is None:
-            period = self.web3.eth.blockNumber // self.config['PERIOD_LENGTH']
-        address_in_hex = self.functions.get_eligible_proposer(
+    def current_period_notary_sample_size(self):
+        return self.functions.current_period_notary_sample_size().call(self.basic_call_context)
+
+    def next_period_notary_sample_size(self):
+        return self.functions.next_period_notary_sample_size().call(self.basic_call_context)
+
+    def notary_sample_size_updated_period(self):
+        return self.functions.notary_sample_size_updated_period().call(self.basic_call_context)
+
+    def get_member_of_committee(self, shard_id, index):
+        return self.functions.get_member_of_committee(
             shard_id,
-            period
+            index,
         ).call(self.basic_call_context)
-        return decode_hex(address_in_hex)
 
     def get_parent_hash(self, shard_id, collation_hash):
         return self.functions.get_collation_header_parent_hash(
