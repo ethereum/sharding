@@ -20,6 +20,12 @@ def get_notary_pool_list(smc_handler):
 
 @to_list
 def sampling(smc_handler, shard_id):
+    """The sampling process is the same as the one in SMC(inside the
+    `get_member_of_committee` function). It is used to avoid the overhead
+    of making contrac call to SMC. The overhead could be quite significant
+    if you want to get the complete sampling result since you have to make
+    a total of `SHARD_COUNT`*`COMMITTEE_SIZE` times of contract calls.
+    """
     web3 = smc_handler.web3
     current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
 
