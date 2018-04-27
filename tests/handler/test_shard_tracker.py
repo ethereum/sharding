@@ -2,9 +2,6 @@ import logging
 
 import pytest
 
-from contracts.utils.headers import (
-    CollationHeader,
-)
 from handler.log_handler import (
     LogHandler,
 )
@@ -12,6 +9,9 @@ from handler.shard_tracker import (
     NoCandidateHead,
     ShardTracker,
     parse_collation_added_log,
+)
+from handler.utils.headers import (
+    CollationHeader,
 )
 
 from tests.handler.fixtures import (  # noqa: F401

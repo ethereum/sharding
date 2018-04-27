@@ -4,7 +4,7 @@ from evm.exceptions import (
     ValidationError,
 )
 
-from contracts.utils.headers import (
+from handler.utils.headers import (
     CollationHeader,
 )
 
