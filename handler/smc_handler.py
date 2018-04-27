@@ -8,7 +8,6 @@ from eth_utils import (
     is_canonical_address,
     to_checksum_address,
     to_dict,
-    decode_hex,
 )
 
 
