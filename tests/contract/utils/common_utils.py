@@ -1,4 +1,4 @@
-from handler.utils.web3_utils import (
+from sharding.handler.utils.web3_utils import (
     mine,
 )
 from tests.contract.utils.notary_account import (

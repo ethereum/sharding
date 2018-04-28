@@ -11,7 +11,7 @@ from eth_utils import (
     big_endian_to_int,
 )
 
-from handler.utils.headers import (
+from sharding.handler.utils.headers import (
     CollationHeader,
 )
 

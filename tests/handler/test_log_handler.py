@@ -30,12 +30,12 @@ from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
 
-from handler.log_handler import (
+from sharding.handler.log_handler import (
     LogHandler,
     get_canonical_chain,
     get_recent_block_hashes,
 )
-from handler.utils.web3_utils import (
+from sharding.handler.utils.web3_utils import (
     mine,
     take_snapshot,
     revert_to_snapshot,

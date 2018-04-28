@@ -2,15 +2,15 @@ import logging
 
 import pytest
 
-from handler.log_handler import (
+from sharding.handler.log_handler import (
     LogHandler,
 )
-from handler.shard_tracker import (
+from sharding.handler.shard_tracker import (
     NoCandidateHead,
     ShardTracker,
     parse_collation_added_log,
 )
-from handler.utils.headers import (
+from sharding.handler.utils.headers import (
     CollationHeader,
 )
 

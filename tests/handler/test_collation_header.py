@@ -4,7 +4,7 @@ from evm.exceptions import (
     ValidationError,
 )
 
-from handler.utils.headers import (
+from sharding.handler.utils.headers import (
     CollationHeader,
 )
 

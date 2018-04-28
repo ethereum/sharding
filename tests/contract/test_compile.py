@@ -1,6 +1,6 @@
 from vyper import compiler
 
-from contracts.utils.smc_utils import (
+from sharding.contracts.utils.smc_utils import (
     get_smc_json,
     get_smc_source_code,
 )
