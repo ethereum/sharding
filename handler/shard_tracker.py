@@ -11,7 +11,7 @@ from eth_utils import (
     big_endian_to_int,
 )
 
-from contracts.utils.headers import (
+from handler.utils.headers import (
     CollationHeader,
 )
 
