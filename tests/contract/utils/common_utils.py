@@ -2,7 +2,7 @@ from sharding.handler.utils.web3_utils import (
     mine,
 )
 from tests.contract.utils.notary_account import (
-    TestingNotaryAccount,
+    NotaryAccount,
 )
 
 
@@ -10,7 +10,7 @@ def update_notary_sample_size(smc_handler):
     smc_handler._send_transaction(
         'update_notary_sample_size',
         [],
-        private_key=TestingNotaryAccount(0).private_key,
+        private_key=NotaryAccount(0).private_key,
         gas=smc_handler.config['DEFAULT_GAS'],
     )
     mine(smc_handler.web3, 1)
@@ -19,7 +19,7 @@ def update_notary_sample_size(smc_handler):
 def batch_register(smc_handler, start, end):
     assert start <= end
     for i in range(start, end + 1):
-        notary = TestingNotaryAccount(i)
+        notary = NotaryAccount(i)
         smc_handler.register_notary(private_key=notary.private_key)
     mine(smc_handler.web3, 1)
 

@@ -3,7 +3,7 @@ from eth_tester.backends.pyevm.main import (
 )
 
 
-class TestingNotaryAccount:
+class NotaryAccount:
     index = None
 
     def __init__(self, index):
