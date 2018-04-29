@@ -8,6 +8,8 @@ from sharding.handler.log_handler import (
 from sharding.handler.shard_tracker import (
     NoCandidateHead,
     ShardTracker,
+)
+from sharding.handler.utils.shard_tracker_utils import (
     parse_collation_added_log,
 )
 from sharding.handler.utils.headers import (

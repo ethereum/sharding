@@ -32,13 +32,13 @@ from eth_tester.backends.pyevm.main import (
 
 from sharding.handler.log_handler import (
     LogHandler,
-    get_canonical_chain,
-    get_recent_block_hashes,
 )
 from sharding.handler.utils.web3_utils import (
     mine,
     take_snapshot,
     revert_to_snapshot,
+    get_canonical_chain,
+    get_recent_block_hashes,
 )
 
 code = """

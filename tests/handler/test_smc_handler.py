@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from sharding.handler.smc_handler import (
+from sharding.handler.utils.smc_handler_utils import (
     make_call_context,
     make_transaction_context,
 )
