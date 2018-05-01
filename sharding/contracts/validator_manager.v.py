@@ -8,7 +8,7 @@
 RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
 DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
 ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
-AddHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
+addHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
 
 
 #
@@ -252,6 +252,8 @@ def get_member_of_committee(
         shard_id: int128,
         index: int128,
     ) -> address:
+    # Check that shard_id is valid
+    assert shard_id >= 0 and shard_id < self.SHARD_COUNT
     period: int128 = floor(block.number / self.PERIOD_LENGTH)
 
     # Decide notary pool length based on if notary sample size is updated
@@ -312,6 +314,8 @@ def add_header(
         chunk_root: bytes32
     ) -> bool:
 
+    # Check that shard_id is valid
+    assert shard_id >= 0 and shard_id < self.SHARD_COUNT
     # Check that it's current period
     current_period: int128 = floor(block.number / self.PERIOD_LENGTH)
     assert current_period == period
@@ -330,9 +334,9 @@ def add_header(
 
     # Update records_updated_period
     self.records_updated_period[shard_id] = current_period
-    
+
     # Emit log
-    log.AddHeader(
+    log.addHeader(
         period,
         shard_id,
         chunk_root,
