@@ -19,10 +19,10 @@ from evm.vm.forks.byzantium.transactions import (
     ByzantiumTransaction,
 )
 
-from contracts.utils.smc_utils import (
+from sharding.contracts.utils.smc_utils import (
     get_smc_json,
 )
-from handler.utils.web3_utils import (
+from sharding.handler.utils.web3_utils import (
     get_nonce,
     send_raw_transaction,
     mine,

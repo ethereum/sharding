@@ -1,4 +1,4 @@
-from handler.utils.web3_utils import (
+from sharding.handler.utils.web3_utils import (
     mine,
 )
 from tests.handler.fixtures import (  # noqa: F401
@@ -10,7 +10,7 @@ from tests.contract.utils.common_utils import (
     fast_forward,
 )
 from tests.contract.utils.notary_account import (
-    TestingNotaryAccount,
+    NotaryAccount,
 )
 from tests.contract.utils.sample_helper import (
     get_notary_pool_list,
@@ -22,7 +22,7 @@ from tests.contract.utils.sample_helper import (
 def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount(0)
+    notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -34,7 +34,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
     next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
     assert (notary_0_pool_index + 1) == next_period_notary_sample_size
 
-    notary_1 = TestingNotaryAccount(1)
+    notary_1 = NotaryAccount(1)
 
     # Register notary 1
     smc_handler.register_notary(private_key=notary_1.private_key)
@@ -68,7 +68,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
 
     # Register notary 2
     # NOTE: Registration would also invoke update_notary_sample_size function
-    notary_2 = TestingNotaryAccount(2)
+    notary_2 = NotaryAccount(2)
     smc_handler.register_notary(private_key=notary_2.private_key)
     mine(web3, 1)
 
@@ -86,7 +86,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
 def test_register_then_deregister(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount(0)
+    notary_0 = NotaryAccount(0)
 
     # Register notary 0 first
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -109,7 +109,7 @@ def test_register_then_deregister(smc_handler):  # noqa: F811
 def test_deregister_then_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount(0)
+    notary_0 = NotaryAccount(0)
 
     # Register notary 0 and fast forward to next period
     smc_handler.register_notary(private_key=notary_0.private_key)
@@ -123,7 +123,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
     assert current_period_notary_sample_size == 1
 
-    notary_1 = TestingNotaryAccount(1)
+    notary_1 = NotaryAccount(1)
 
     # Then register notary 1
     smc_handler.register_notary(private_key=notary_1.private_key)
@@ -141,9 +141,9 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount(0)
-    notary_1 = TestingNotaryAccount(1)
-    notary_2 = TestingNotaryAccount(2)
+    notary_0 = NotaryAccount(0)
+    notary_1 = NotaryAccount(1)
+    notary_2 = NotaryAccount(2)
 
     # Register notary 0~2
     batch_register(smc_handler, 0, 2)
@@ -188,9 +188,9 @@ def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # no
 def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
-    notary_0 = TestingNotaryAccount(0)
-    notary_1 = TestingNotaryAccount(1)
-    notary_2 = TestingNotaryAccount(2)
+    notary_0 = NotaryAccount(0)
+    notary_1 = NotaryAccount(1)
+    notary_2 = NotaryAccount(2)
 
     # Register notary 0~2
     batch_register(smc_handler, 0, 2)
@@ -347,7 +347,7 @@ def test_get_member_of_committee_with_deregistered_notary(smc_handler):  # noqa:
     # Choose the first sampled notary and deregister it
     notary = get_committee_list(smc_handler, 0)[0]
     notary_index = notary_pool_list.index(notary)
-    smc_handler.deregister_notary(private_key=TestingNotaryAccount(notary_index).private_key)
+    smc_handler.deregister_notary(private_key=NotaryAccount(notary_index).private_key)
     mine(web3, 1)
     assert not (smc_handler.get_member_of_committee(0, 0) == notary_pool_list[notary_index])
 
@@ -369,7 +369,7 @@ def test_get_sample_result(smc_handler):  # noqa: F811
         committee_group.append(get_committee_list(smc_handler, shard_id))
 
     # Get sampling result for notary 0
-    notary_0 = TestingNotaryAccount(0)
+    notary_0 = NotaryAccount(0)
     _, notary_0_pool_index = smc_handler.get_notary_info(
         notary_0.checksum_address
     )

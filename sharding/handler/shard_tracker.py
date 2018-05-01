@@ -4,15 +4,12 @@ from cytoolz import (
 
 from eth_utils import (
     event_signature_to_log_topic,
-    to_dict,
     to_tuple,
     encode_hex,
-    decode_hex,
-    big_endian_to_int,
 )
 
-from handler.utils.headers import (
-    CollationHeader,
+from sharding.handler.utils.shard_tracker_utils import (
+    parse_collation_added_log,
 )
 
 
@@ -30,20 +27,6 @@ class NoCandidateHead(Exception):
 COLLATION_ADDED_TOPIC = event_signature_to_log_topic(
     "CollationAdded(int128,int128,bytes32,bytes32,bytes32,address,bytes32,bytes32,int128,bool,int128)"  # noqa: E501
 )
-
-
-@to_dict
-def parse_collation_added_log(log):
-    # `shard_id` is the first indexed entry,hence the second entry in topics
-    shard_id_bytes32 = log['topics'][1]
-    data_bytes = decode_hex(log['data'])
-    header_bytes = shard_id_bytes32 + data_bytes[:-64]
-    is_new_head = bool(big_endian_to_int(data_bytes[-64:-32]))
-    score = big_endian_to_int(data_bytes[-32:])
-    collation_header = CollationHeader.from_bytes(header_bytes)
-    yield 'header', collation_header
-    yield 'is_new_head', is_new_head
-    yield 'score', score
 
 
 class ShardTracker:

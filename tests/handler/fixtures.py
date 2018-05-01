@@ -24,13 +24,13 @@ from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
 
-from handler.smc_handler import (
+from sharding.handler.smc_handler import (
     SMCHandler,
 )
-from contracts.utils.smc_utils import (
+from sharding.contracts.utils.smc_utils import (
     get_smc_json,
 )
-from handler.utils.web3_utils import (
+from sharding.handler.utils.web3_utils import (
     get_code,
 )
 from tests.handler.utils.deploy import (

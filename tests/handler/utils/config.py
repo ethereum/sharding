@@ -2,7 +2,7 @@ from cytoolz import (
     merge,
 )
 
-from contracts.utils.config import (
+from sharding.contracts.utils.config import (
     get_sharding_config,
 )
 
