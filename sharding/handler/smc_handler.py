@@ -86,18 +86,6 @@ class SMCHandler(Contract):
             index,
         ).call(self.basic_call_context)
 
-    def get_parent_hash(self, shard_id, collation_hash):
-        return self.functions.get_collation_header_parent_hash(
-            shard_id,
-            collation_hash,
-        ).call(self.basic_call_context)
-
-    def get_collation_score(self, shard_id, collation_hash):
-        return self.functions.get_collation_header_score(
-            shard_id,
-            collation_hash,
-        ).call(self.basic_call_context)
-
     def _send_transaction(self,
                           func_name,
                           args,
@@ -188,32 +176,6 @@ class SMCHandler(Contract):
                 collation_header.receipt_root,
                 collation_header.number,
             ],
-            gas=gas,
-            gas_price=gas_price,
-        )
-        return tx_hash
-
-    def tx_to_shard(self,
-                    to,
-                    shard_id,
-                    tx_startgas,
-                    tx_gasprice,
-                    data,
-                    value,
-                    gas=None,
-                    gas_price=None):
-        """Make a receipt with the given parameters
-        """
-        tx_hash = self._send_transaction(
-            'tx_to_shard',
-            [
-                to_checksum_address(to),
-                shard_id,
-                tx_startgas,
-                tx_gasprice,
-                data,
-            ],
-            value=value,
             gas=gas,
             gas_price=gas_price,
         )

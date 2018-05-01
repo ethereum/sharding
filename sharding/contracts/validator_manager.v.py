@@ -1,23 +1,18 @@
 # NOTE: Some variables are set as public variables for testing. They should be reset
 # to private variables in an official deployment of the contract. 
 
+#
 # Events
-CollationAdded: __log__({
-    shard_id: indexed(int128),
-    expected_period_number: int128,
-    period_start_prevhash: bytes32,
-    parent_hash: bytes32,
-    transaction_root: bytes32,
-    collation_coinbase: address,
-    state_root: bytes32,
-    receipt_root: bytes32,
-    collation_number: int128,
-    is_new_head: bool,
-    score: int128,
-})
+#
+
 RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
 DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
 ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
+
+
+#
+# State Variables
+#
 
 # Notary pool
 # - notary_pool: array of active notary addresses
@@ -49,33 +44,10 @@ current_period_notary_sample_size: public(int128)
 next_period_notary_sample_size: public(int128)
 notary_sample_size_updated_period: public(int128)
 
-# Collation headers: (parent_hash || score)
-# parent_hash: 26 bytes
-# score: 6 bytes
-collation_headers: public(bytes32[bytes32][int128])
 
-# Receipt data
-receipts: public({
-    shard_id: int128,
-    tx_startgas: int128,
-    tx_gasprice: int128,
-    value: wei_value,
-    sender: address,
-    to: address,
-    data: bytes <= 4096,
-}[int128])
-
-# Current head of each shard
-shard_head: public(bytes32[int128])
-
-# Number of receipts
-num_receipts: int128
-
-# Log the latest period number of the shard
-period_head: public(int128[int128])
-
-
-# Configuration Parameter
+#
+# Configuration Parameters
+# 
 
 # The total number of shards within a network.
 # Provisionally SHARD_COUNT := 100 for the phase 1 testnet.
@@ -404,58 +376,4 @@ def add_header(
         _score,
     )
 
-    return True
-
-
-# Returns the gas limit that collations can currently have (by default make
-# this function always answer 10 million).
-@public
-@constant
-def get_collation_gas_limit() -> int128:
-    return 10000000
-
-
-# Records a request to deposit msg.value ETH to address to in shard shard_id
-# during a future collation. Saves a `receipt ID` for this request,
-# also saving `msg.sender`, `msg.value`, `to`, `shard_id`, `startgas`,
-# `gasprice`, and `data`.
-@public
-@payable
-def tx_to_shard(
-        to: address,
-        shard_id: int128,
-        tx_startgas: int128,
-        tx_gasprice: int128,
-        data: bytes <= 4096) -> int128:
-    self.receipts[self.num_receipts] = {
-        shard_id: shard_id,
-        tx_startgas: tx_startgas,
-        tx_gasprice: tx_gasprice,
-        value: msg.value,
-        sender: msg.sender,
-        to: to,
-        data: data,
-    }
-    receipt_id: int128 = self.num_receipts
-    self.num_receipts += 1
-
-    # TODO: determine the signature of the log TxToShard
-    raw_log(
-        [
-            sha3("tx_to_shard(address,int128,int128,int128,bytes4096)"),
-            convert(to, 'bytes32'),
-            convert(shard_id, 'bytes32'),
-        ],
-        concat('', convert(receipt_id, 'bytes32')),
-    )
-
-    return receipt_id
-
-
-# Updates the tx_gasprice in receipt receipt_id, and returns True on success.
-@public
-@payable
-def update_gasprice(receipt_id: int128, tx_gasprice: int128) -> bool:
-    assert self.receipts[receipt_id].sender == msg.sender
-    self.receipts[receipt_id].tx_gasprice = tx_gasprice
     return True
