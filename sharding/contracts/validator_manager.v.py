@@ -8,6 +8,7 @@
 RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
 DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
 ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
+AddHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
 
 
 #
@@ -43,6 +44,30 @@ does_notary_exist: public(bool[address])
 current_period_notary_sample_size: public(int128)
 next_period_notary_sample_size: public(int128)
 notary_sample_size_updated_period: public(int128)
+
+# Collation
+# - collation_records: the collation records that have been appended by the proposer.
+# Mapping [period][shard_id] to chunk_root and proposer. is_elected is used to indicate if
+# this collation has received enough votes.
+# - records_updated_period: the latest period in which new collation header has been
+# submitted for the given shard.
+# - head_collation_period: period number of the head collation in the given shard, e.g., if
+# a collation which is added in period P in shard 3 receives enough votes, then
+# head_collation_period[3] is set to P.
+collation_records: {
+    chunk_root: bytes32,
+    proposer: address,
+    is_elected: bool
+}[int128][int128]
+records_updated_period: public(int128[int128])
+head_collation_period: public(int128[int128])
+
+# Notarization
+# - current_vote: vote count of collation in current period in each shard.
+# First 31 bytes: bitfield of which notary has voted and which has not. First bit
+# represents notary's vote(notary with index 0 in get_committee_member) and second
+# bit represents next notary's vote(notary with index 1) and so on.
+current_vote: public(bytes32[int128])
 
 
 #
@@ -258,122 +283,59 @@ def get_member_of_committee(
     return self.notary_pool[sampled_index]
 
 
-# Helper function to get collation header score
+# Helper function to get collation chunk root
 @public
 @constant
-def get_collation_header_score(shard_id: int128, collation_header_hash: bytes32) -> int128:
-    collation_score: int128 = convert(
-        uint256_mod(
-            convert(self.collation_headers[shard_id][collation_header_hash], 'uint256'),
-            # Mod 2^48, i.e., extract right most 6 bytes
-            convert(281474976710656, 'uint256')
-        ),
-        'int128'
-    )
-    return collation_score
+def get_collation_chunk_root(period: int128, shard_id: int128) -> bytes32:
+    return self.collation_records[period][shard_id].chunk_root
+
+
+# Helper function to get collation proposer
+@public
+@constant
+def get_collation_proposer(period: int128, shard_id: int128) -> address:
+    return self.collation_records[period][shard_id].proposer
+
+
+# Helper function to get collation is_elected
+@public
+@constant
+def get_collation_is_elected(period: int128, shard_id: int128) -> bool:
+    return self.collation_records[period][shard_id].is_elected
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.
 @public
 def add_header(
+        period: int128,
         shard_id: int128,
-        expected_period_number: int128,
-        period_start_prevhash: bytes32,
-        parent_hash: bytes32,
-        transaction_root: bytes32,
-        collation_coinbase: address,  # TODO: cannot be named `coinbase` since it is reserved
-        state_root: bytes32,
-        receipt_root: bytes32,
-        collation_number: int128) -> bool:  # TODO: cannot be named `number` since it is reserved
+        chunk_root: bytes32
+    ) -> bool:
 
-    # Check if the header is valid
-    assert (shard_id >= 0) and (shard_id < self.SHARD_COUNT)
-    assert block.number >= self.PERIOD_LENGTH
-    assert expected_period_number == floor(block.number / self.PERIOD_LENGTH)
-    assert period_start_prevhash == blockhash(expected_period_number * self.PERIOD_LENGTH - 1)
-    # Check if only one collation in one period perd shard
-    assert self.period_head[shard_id] < expected_period_number
+    # Check that it's current period
+    current_period: int128 = floor(block.number / self.PERIOD_LENGTH)
+    assert current_period == period
+    # Check that no header is added yet in this period in this shard
+    assert self.records_updated_period[shard_id] < period
 
     # Update notary_sample_size
     self.update_notary_sample_size()
 
-    # Check if this header already exists
-    header_bytes: bytes <= 288 = concat(
-        convert(shard_id, 'bytes32'),
-        convert(expected_period_number, 'bytes32'),
-        period_start_prevhash,
-        parent_hash,
-        transaction_root,
-        convert(collation_coinbase, 'bytes32'),
-        state_root,
-        receipt_root,
-        convert(collation_number, 'bytes32'),
-    )
-    entire_header_hash: bytes32 = convert(
-        uint256_mod(
-            convert(sha3(header_bytes), 'uint256'),
-            # Mod 2^208, i.e., extract right most 26 bytes
-            convert(411376139330301510538742295639337626245683966408394965837152256, 'uint256')
-        ),
-        'bytes32'
-    )
+    # Add header
+    self.collation_records[period][shard_id] = {
+        chunk_root: chunk_root,
+        proposer: msg.sender,
+        is_elected: False,
+    }
+
+    # Update records_updated_period
+    self.records_updated_period[shard_id] = current_period
     
-    # Check if parent header exists.
-    # If it exist, check that it's score is greater than 0.
-    parent_collation_score: int128 = self.get_collation_header_score(
-        shard_id,
-        parent_hash,
-    )
-    if not not parent_hash:
-        assert parent_collation_score > 0
-
-    # Check score == collation_number
-    _score: int128 = parent_collation_score + 1
-    assert collation_number == _score
-
-    # Add the header
-    self.collation_headers[shard_id][entire_header_hash] = convert(
-        uint256_add(
-            uint256_mul(
-                convert(parent_hash, 'uint256'),
-                # Multiplied by 2^48, i.e., left shift 6 bytes
-                convert(281474976710656, 'uint256')
-            ),
-            uint256_mod(
-                convert(_score, 'uint256'),
-                # Mod 2^48, i.e. confine it's range to 6 bytes
-                convert(281474976710656, 'uint256')
-            ),
-        ),
-        'bytes32'
-    )
-
-    # Update the latest period number
-    self.period_head[shard_id] = expected_period_number
-
-    # Determine the head
-    is_new_head: bool = False
-    shard_head_score: int128 = self.get_collation_header_score(
-        shard_id,
-        self.shard_head[shard_id],
-    )
-    if _score > shard_head_score:
-        self.shard_head[shard_id] = entire_header_hash
-        is_new_head = True
-
     # Emit log
-    log.CollationAdded(
+    log.AddHeader(
+        period,
         shard_id,
-        expected_period_number,
-        period_start_prevhash,
-        parent_hash,
-        transaction_root,
-        collation_coinbase,
-        state_root,
-        receipt_root,
-        collation_number,
-        is_new_head,
-        _score,
+        chunk_root,
     )
 
     return True
