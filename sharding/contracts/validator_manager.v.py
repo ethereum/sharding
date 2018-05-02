@@ -54,11 +54,11 @@ notary_sample_size_updated_period: public(int128)
 # - head_collation_period: period number of the head collation in the given shard, e.g., if
 # a collation which is added in period P in shard 3 receives enough votes, then
 # head_collation_period[3] is set to P.
-collation_records: {
+collation_records: public({
     chunk_root: bytes32,
     proposer: address,
     is_elected: bool
-}[int128][int128]
+}[int128][int128])
 records_updated_period: public(int128[int128])
 head_collation_period: public(int128[int128])
 
@@ -283,27 +283,6 @@ def get_member_of_committee(
         'int128',
     )
     return self.notary_pool[sampled_index]
-
-
-# Helper function to get collation chunk root
-@public
-@constant
-def get_collation_chunk_root(period: int128, shard_id: int128) -> bytes32:
-    return self.collation_records[period][shard_id].chunk_root
-
-
-# Helper function to get collation proposer
-@public
-@constant
-def get_collation_proposer(period: int128, shard_id: int128) -> address:
-    return self.collation_records[period][shard_id].proposer
-
-
-# Helper function to get collation is_elected
-@public
-@constant
-def get_collation_is_elected(period: int128, shard_id: int128) -> bool:
-    return self.collation_records[period][shard_id].is_elected
 
 
 # Attempts to process a collation header, returns True on success, reverts on failure.

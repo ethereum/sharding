@@ -90,19 +90,19 @@ class SMCHandler(Contract):
         ).call(self.basic_call_context)
 
     def get_collation_chunk_root(self, period, shard_id):
-        return self.functions.get_collation_chunk_root(
+        return self.functions.collation_records__chunk_root(
             period,
             shard_id,
         ).call(self.basic_call_context)
 
     def get_collation_proposer(self, period, shard_id):
-        return self.functions.get_collation_proposer(
+        return self.functions.collation_records__proposer(
             period,
             shard_id,
         ).call(self.basic_call_context)
 
     def get_collation_is_elected(self, period, shard_id):
-        return self.functions.get_collation_is_elected(
+        return self.functions.collation_records__is_elected(
             period,
             shard_id,
         ).call(self.basic_call_context)
