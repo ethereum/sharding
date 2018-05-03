@@ -333,7 +333,7 @@ def test_get_member_of_committee_with_non_member(smc_handler):  # noqa: F811
         assert not (smc_handler.get_member_of_committee(0, i) == next_notary)
 
 
-def test_get_member_of_committee_with_deregistered_notary(smc_handler):  # noqa: F811
+def test_committee_change_with_deregister_then_register(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
@@ -349,7 +349,14 @@ def test_get_member_of_committee_with_deregistered_notary(smc_handler):  # noqa:
     notary_index = notary_pool_list.index(notary)
     smc_handler.deregister_notary(private_key=NotaryAccount(notary_index).private_key)
     mine(web3, 1)
-    assert not (smc_handler.get_member_of_committee(0, 0) == notary_pool_list[notary_index])
+    # Check that first slot in committee is now empty
+    assert smc_handler.get_member_of_committee(0, 0) == '0x' + '00' * 20
+
+    # Register notary 9
+    smc_handler.register_notary(private_key=NotaryAccount(9).private_key)
+    mine(web3, 1)
+    # Check that first slot in committee is replaced by notary 9
+    assert smc_handler.get_member_of_committee(0, 0) == NotaryAccount(9).checksum_address
 
 
 def test_get_sample_result(smc_handler):  # noqa: F811
