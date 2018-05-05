@@ -185,7 +185,7 @@ class SMCHandler(Contract):
             chunk_root,
             private_key=None,
             gas=None,
-            gas_price=None,):
+            gas_price=None):
         tx_hash = self._send_transaction(
             'add_header',
             [
