@@ -8,6 +8,7 @@
 RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
 DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
 ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
+AddHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
 
 
 #
@@ -312,5 +313,12 @@ def add_header(
 
     # Update records_updated_period
     self.records_updated_period[shard_id] = current_period
+
+    # Emit log
+    log.AddHeader(
+        period,
+        shard_id,
+        chunk_root,
+    )
 
     return True
