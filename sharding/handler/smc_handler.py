@@ -3,9 +3,6 @@ import logging
 from web3.contract import (
     Contract,
 )
-from eth_utils import (
-    to_checksum_address,
-)
 
 from sharding.handler.utils.smc_handler_utils import (
     make_call_context,
@@ -80,22 +77,34 @@ class SMCHandler(Contract):
     def notary_sample_size_updated_period(self):
         return self.functions.notary_sample_size_updated_period().call(self.basic_call_context)
 
+    def records_updated_period(self, shard_id):
+        return self.functions.records_updated_period(shard_id).call(self.basic_call_context)
+
+    def head_collation_period(self, shard_id):
+        return self.functions.head_collation_period(shard_id).call(self.basic_call_context)
+
     def get_member_of_committee(self, shard_id, index):
         return self.functions.get_member_of_committee(
             shard_id,
             index,
         ).call(self.basic_call_context)
 
-    def get_parent_hash(self, shard_id, collation_hash):
-        return self.functions.get_collation_header_parent_hash(
+    def get_collation_chunk_root(self, period, shard_id):
+        return self.functions.collation_records__chunk_root(
+            period,
             shard_id,
-            collation_hash,
         ).call(self.basic_call_context)
 
-    def get_collation_score(self, shard_id, collation_hash):
-        return self.functions.get_collation_header_score(
+    def get_collation_proposer(self, period, shard_id):
+        return self.functions.collation_records__proposer(
+            period,
             shard_id,
-            collation_hash,
+        ).call(self.basic_call_context)
+
+    def get_collation_is_elected(self, period, shard_id):
+        return self.functions.collation_records__is_elected(
+            period,
+            shard_id,
         ).call(self.basic_call_context)
 
     def _send_transaction(self,
@@ -169,51 +178,22 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def add_header(self,
-                   collation_header,
-                   gas=None,
-                   gas_price=None):
-        """Add the collation header with the given parameters
-        """
+    def add_header(
+            self,
+            period,
+            shard_id,
+            chunk_root,
+            private_key=None,
+            gas=None,
+            gas_price=None):
         tx_hash = self._send_transaction(
             'add_header',
             [
-                collation_header.shard_id,
-                collation_header.expected_period_number,
-                collation_header.period_start_prevhash,
-                collation_header.parent_hash,
-                collation_header.transaction_root,
-                to_checksum_address(collation_header.coinbase),
-                collation_header.state_root,
-                collation_header.receipt_root,
-                collation_header.number,
-            ],
-            gas=gas,
-            gas_price=gas_price,
-        )
-        return tx_hash
-
-    def tx_to_shard(self,
-                    to,
-                    shard_id,
-                    tx_startgas,
-                    tx_gasprice,
-                    data,
-                    value,
-                    gas=None,
-                    gas_price=None):
-        """Make a receipt with the given parameters
-        """
-        tx_hash = self._send_transaction(
-            'tx_to_shard',
-            [
-                to_checksum_address(to),
+                period,
                 shard_id,
-                tx_startgas,
-                tx_gasprice,
-                data,
+                chunk_root,
             ],
-            value=value,
+            private_key=private_key,
             gas=gas,
             gas_price=gas_price,
         )
