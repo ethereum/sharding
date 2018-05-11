@@ -350,7 +350,7 @@ def get_vote_count(shard_id: int128) -> int128:
 # Helper function to get vote count
 @public
 @constant
-def if_notary_has_vote(shard_id: int128, index: int128) -> bool:
+def has_notary_voted(shard_id: int128, index: int128) -> bool:
     # Right shift current_vote then AND(bitwise) it's value with value 1 to see if
     # notary of given index in bitfield had voted.
     current_vote_in_uint: uint256 = convert(self.current_vote[shard_id], 'uint256')
@@ -381,7 +381,7 @@ def submit_vote(
         period: int128,
         shard_id: int128,
         chunk_root: bytes32,
-        index: int128
+        index: int128,
     ) -> bool:
 
     # Check that shard_id is valid
@@ -396,8 +396,8 @@ def submit_vote(
     # Check that collation record exists and matches
     assert self.records_updated_period[shard_id] == period
     assert self.collation_records[period][shard_id].chunk_root == chunk_root
-    # Check that notary has not yet vote
-    assert not self.if_notary_has_vote(shard_id, index)
+    # Check that notary has not yet voted
+    assert not self.has_notary_voted(shard_id, index)
 
     # Update bitfield and vote count
     assert self.update_vote(shard_id, index)

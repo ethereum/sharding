@@ -45,7 +45,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     pool_index = sampling(smc_handler, shard_id)[sample_index]
     # Check that voting record does not exist prior to voting
     assert smc_handler.get_vote_count(shard_id) == 0
-    assert not smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert not smc_handler.has_notary_voted(shard_id, sample_index)
     # First notary vote
     smc_handler.submit_vote(
         current_period,
@@ -57,7 +57,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     mine(web3, 1)
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
-    assert smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert smc_handler.has_notary_voted(shard_id, sample_index)
 
     # Check that collation is not elected and forward to next period
     assert not smc_handler.get_collation_is_elected(current_period, shard_id)
@@ -83,7 +83,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
             assert smc_handler.get_vote_count(shard_id) == smc_handler.config['QUORUM_SIZE']
             break
         # Check that voting record does not exist prior to voting
-        assert not smc_handler.if_notary_has_vote(shard_id, sample_index)
+        assert not smc_handler.has_notary_voted(shard_id, sample_index)
         # Vote
         smc_handler.submit_vote(
             current_period,
@@ -94,7 +94,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         )
         mine(web3, 1)
         # Check that vote has been casted successfully
-        assert smc_handler.if_notary_has_vote(shard_id, sample_index)
+        assert smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_double_submit_vote(smc_handler):  # noqa: F811
@@ -132,7 +132,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     mine(web3, 1)
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
-    assert smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert smc_handler.has_notary_voted(shard_id, sample_index)
 
     # Attempt to double vote
     tx_hash = smc_handler.submit_vote(
@@ -231,7 +231,7 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     # Check that transaction failed and vote count remains the same
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert smc_handler.get_vote_count(shard_id) == 0
-    assert not smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
@@ -261,7 +261,7 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     # Check that transaction failed and vote count remains the same
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert smc_handler.get_vote_count(shard_id) == 0
-    assert not smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 @pytest.mark.parametrize(  # noqa: F811
@@ -308,7 +308,7 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
     # Check that transaction failed and vote count remains the same
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert smc_handler.get_vote_count(shard_id) == 0
-    assert not smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
@@ -346,14 +346,14 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
 
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
-    assert smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert smc_handler.has_notary_voted(shard_id, sample_index)
 
     # The notary deregisters
     smc_handler.deregister_notary(private_key=NotaryAccount(pool_index).private_key)
     mine(web3, 1)
     # Check that vote was not effected by deregistration
     assert smc_handler.get_vote_count(shard_id) == 1
-    assert smc_handler.if_notary_has_vote(shard_id, sample_index)
+    assert smc_handler.has_notary_voted(shard_id, sample_index)
 
     # Notary 9 registers and takes retired notary's place in pool
     smc_handler.register_notary(private_key=NotaryAccount(9).private_key)

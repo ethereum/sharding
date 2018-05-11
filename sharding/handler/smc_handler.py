@@ -117,8 +117,8 @@ class SMCHandler(Contract):
             shard_id,
         ).call(self.basic_call_context)
 
-    def if_notary_has_vote(self, shard_id, index):
-        return self.functions.if_notary_has_vote(
+    def has_notary_voted(self, shard_id, index):
+        return self.functions.has_notary_voted(
             shard_id,
             index,
         ).call(self.basic_call_context)
@@ -223,7 +223,7 @@ class SMCHandler(Contract):
             index,
             private_key=None,
             gas=None,
-            gas_price=None,):
+            gas_price=None):
         tx_hash = self._send_transaction(
             'submit_vote',
             [
