@@ -107,6 +107,22 @@ class SMCHandler(Contract):
             shard_id,
         ).call(self.basic_call_context)
 
+    def current_vote(self, shard_id):
+        return self.functions.current_vote(
+            shard_id,
+        ).call(self.basic_call_context)
+
+    def get_vote_count(self, shard_id):
+        return self.functions.get_vote_count(
+            shard_id,
+        ).call(self.basic_call_context)
+
+    def has_notary_voted(self, shard_id, index):
+        return self.functions.has_notary_voted(
+            shard_id,
+            index,
+        ).call(self.basic_call_context)
+
     def _send_transaction(self,
                           func_name,
                           args,
@@ -192,6 +208,29 @@ class SMCHandler(Contract):
                 period,
                 shard_id,
                 chunk_root,
+            ],
+            private_key=private_key,
+            gas=gas,
+            gas_price=gas_price,
+        )
+        return tx_hash
+
+    def submit_vote(
+            self,
+            period,
+            shard_id,
+            chunk_root,
+            index,
+            private_key=None,
+            gas=None,
+            gas_price=None):
+        tx_hash = self._send_transaction(
+            'submit_vote',
+            [
+                period,
+                shard_id,
+                chunk_root,
+                index,
             ],
             private_key=private_key,
             gas=gas,

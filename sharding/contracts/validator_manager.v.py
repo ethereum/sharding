@@ -9,6 +9,7 @@ RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
 DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
 ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
 AddHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
+SubmitVote: __log__({period: int128, shard_id: int128, chunk_root: bytes32, notary: address})
 
 
 #
@@ -314,11 +315,109 @@ def add_header(
     # Update records_updated_period
     self.records_updated_period[shard_id] = current_period
 
+    # Clear previous vote count
+    self.current_vote[shard_id] = None
+
     # Emit log
     log.AddHeader(
         period,
         shard_id,
         chunk_root,
+    )
+
+    return True
+
+
+# Helper function to get vote count
+@public
+@constant
+def get_vote_count(shard_id: int128) -> int128:
+    current_vote_in_uint: uint256 = convert(self.current_vote[shard_id], 'uint256')
+
+    # Extract current vote count(last byte of current_vote)
+    return convert(
+        uint256_mod(
+            current_vote_in_uint,
+            convert(
+                2**8,
+                'uint256'
+            )
+        ),
+        'int128'
+    )
+
+
+# Helper function to get vote count
+@public
+@constant
+def has_notary_voted(shard_id: int128, index: int128) -> bool:
+    # Right shift current_vote then AND(bitwise) it's value with value 1 to see if
+    # notary of given index in bitfield had voted.
+    current_vote_in_uint: uint256 = convert(self.current_vote[shard_id], 'uint256')
+    # Convert the result from integer to bool
+    return not not bitwise_and(
+        current_vote_in_uint,
+        shift(convert(1, 'uint256'), 255 - index),
+    )
+
+
+@private
+def update_vote(shard_id: int128, index: int128) -> bool:
+    current_vote_in_uint: uint256 = convert(self.current_vote[shard_id], 'uint256')
+    index_in_bitfield: uint256 = shift(convert(1, 'uint256'), 255 - index)
+    old_vote_count: int128 = self.get_vote_count(shard_id)
+
+    # Update bitfield
+    current_vote_in_uint = bitwise_or(current_vote_in_uint, index_in_bitfield)
+    # Update vote count
+    # Add an upper bound check to prevent 1-byte vote count overflow
+    if old_vote_count < 255:
+        current_vote_in_uint = uint256_add(current_vote_in_uint, convert(1, 'uint256'))
+    self.current_vote[shard_id] = convert(current_vote_in_uint, 'bytes32')
+
+    return True
+
+
+# Notary submit a vote
+@public
+def submit_vote(
+        period: int128,
+        shard_id: int128,
+        chunk_root: bytes32,
+        index: int128,
+    ) -> bool:
+
+    # Check that shard_id is valid
+    assert shard_id >= 0 and shard_id < self.SHARD_COUNT
+    # Check that it's current period
+    current_period: int128 = floor(block.number / self.PERIOD_LENGTH)
+    assert current_period == period
+    # Check that index is valid
+    assert index >= 0 and index < self.COMMITTEE_SIZE
+    # Check that notary is eligible to cast a vote
+    assert self.get_member_of_committee(shard_id, index) == msg.sender
+    # Check that collation record exists and matches
+    assert self.records_updated_period[shard_id] == period
+    assert self.collation_records[period][shard_id].chunk_root == chunk_root
+    # Check that notary has not yet voted
+    assert not self.has_notary_voted(shard_id, index)
+
+    # Update bitfield and vote count
+    assert self.update_vote(shard_id, index)
+
+    # Check if we have enough vote and make update accordingly
+    current_vote_count: int128 = self.get_vote_count(shard_id)
+    if current_vote_count >= self.QUORUM_SIZE and \
+        not self.collation_records[shard_id][period].is_elected:
+        self.head_collation_period[shard_id] = period
+        self.collation_records[shard_id][period].is_elected = True
+
+    # Emit log
+    log.SubmitVote(
+        period,
+        shard_id,
+        chunk_root,
+        msg.sender,
     )
 
     return True
