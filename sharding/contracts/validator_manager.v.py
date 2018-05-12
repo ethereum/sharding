@@ -365,11 +365,14 @@ def has_notary_voted(shard_id: int128, index: int128) -> bool:
 def update_vote(shard_id: int128, index: int128) -> bool:
     current_vote_in_uint: uint256 = convert(self.current_vote[shard_id], 'uint256')
     index_in_bitfield: uint256 = shift(convert(1, 'uint256'), 255 - index)
+    old_vote_count: int128 = self.get_vote_count(shard_id)
 
     # Update bitfield
     current_vote_in_uint = bitwise_or(current_vote_in_uint, index_in_bitfield)
     # Update vote count
-    current_vote_in_uint = uint256_add(current_vote_in_uint, convert(1, 'uint256'))
+    # Add an upper bound check to prevent 1-byte vote count overflow
+    if old_vote_count < 255:
+        current_vote_in_uint = uint256_add(current_vote_in_uint, convert(1, 'uint256'))
     self.current_vote[shard_id] = convert(current_vote_in_uint, 'bytes32')
 
     return True
