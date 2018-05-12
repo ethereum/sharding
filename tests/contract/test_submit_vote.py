@@ -144,7 +144,9 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that transaction failed and vote count remains the same
+    # and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1
 
 
@@ -229,7 +231,9 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that transaction failed and vote count remains the same
+    # and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
@@ -259,7 +263,9 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that transaction failed and vote count remains the same
+    # and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
@@ -306,7 +312,9 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
     )
     mine(web3, 1)
     # Check that transaction failed and vote count remains the same
+    # and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
@@ -368,5 +376,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
     mine(web3, 1)
 
     # Check that transaction failed and vote count remains the same
+    # and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1
