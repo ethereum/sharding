@@ -74,9 +74,11 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
+    # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Second attempt to add collation record with wrong period specified
     tx_hash = smc_handler.add_header(
@@ -87,9 +89,11 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
+    # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Add correct collation record
     smc_handler.add_header(1, 0, CHUNK_ROOT_1_0, private_key=NotaryAccount(0).private_key)
@@ -121,9 +125,11 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
+    # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Second attempt to add collation record with illegal shard_id specified
     tx_hash = smc_handler.add_header(
@@ -134,9 +140,11 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
+    # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Add correct collation record
     smc_handler.add_header(1, 0, CHUNK_ROOT_1_0, private_key=NotaryAccount(0).private_key)
@@ -171,8 +179,9 @@ def test_double_add_header(smc_handler):  # noqa: F811
         private_key=NotaryAccount(0).private_key
     )
     mine(web3, 1)
-    # Check that transaction consume all gas
+    # Check that transaction consume all gas and no logs has been emitted
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Attempt to add collation record again with different chunk root
     tx_hash = smc_handler.add_header(
@@ -183,6 +192,8 @@ def test_double_add_header(smc_handler):  # noqa: F811
     )
     mine(web3, 1)
     # Check that collation record of shard 0 remains the same and transaction consume all gas
+    # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 1
     assert smc_handler.get_collation_chunk_root(1, 0) == CHUNK_ROOT_1_0
     assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
