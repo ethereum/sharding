@@ -3,13 +3,13 @@ from cytoolz import (
 )
 
 from eth_utils import (
-    event_signature_to_log_topic,
     to_tuple,
     encode_hex,
 )
 
 from sharding.handler.utils.shard_tracker_utils import (
-    parse_collation_added_log,
+    parse_add_header_log,
+    get_event_signature_from_abi,
 )
 
 
@@ -19,14 +19,6 @@ class NextLogUnavailable(Exception):
 
 class NoCandidateHead(Exception):
     pass
-
-
-# For handling logs filtering
-# Event:
-#   CollationAdded(indexed uint256 shard, bytes collationHeader, bool isNewHead, uint256 score)
-COLLATION_ADDED_TOPIC = event_signature_to_log_topic(
-    "CollationAdded(int128,int128,bytes32,bytes32,bytes32,address,bytes32,bytes32,int128,bool,int128)"  # noqa: E501
-)
 
 
 class ShardTracker:
@@ -53,12 +45,12 @@ class ShardTracker:
         new_logs = self.log_handler.get_new_logs(
             address=self.smc_handler_address,
             topics=[
-                encode_hex(COLLATION_ADDED_TOPIC),
+                encode_hex(get_event_signature_from_abi('AddHeader')),
                 shard_id_topic_hex,
             ],
         )
         for log in new_logs:
-            yield parse_collation_added_log(log)
+            yield parse_add_header_log(log)
 
     def get_next_log(self):
         new_logs = self._get_new_logs()
