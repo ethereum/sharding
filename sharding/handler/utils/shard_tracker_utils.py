@@ -1,9 +1,14 @@
 from eth_utils import (
+    event_abi_to_log_topic,
     to_dict,
+    encode_hex,
     decode_hex,
     big_endian_to_int,
 )
 
+from sharding.contracts.utils.smc_utils import (
+    get_smc_json,
+)
 from sharding.handler.utils.headers import (
     CollationHeader,
 )
@@ -21,3 +26,9 @@ def parse_collation_added_log(log):
     yield 'header', collation_header
     yield 'is_new_head', is_new_head
     yield 'score', score
+
+
+def get_event_signature_from_abi(event_name):
+    for function in get_smc_json()['abi']:
+        if function['name'] == event_name and function['type'] == 'event':
+            return encode_hex(event_abi_to_log_topic(function))
