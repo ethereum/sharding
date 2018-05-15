@@ -29,9 +29,11 @@ empty_slots_stack_top: public(int128)
 # Notary registry
 # - deregistered: the period when the notary deregister. It defaults to 0 for not yet deregistered notarys
 # - pool_index: indicates notary's index in the notary pool
+# - deposit: notary's deposit value
 notary_registry: {
     deregistered: int128,
-    pool_index: int128
+    pool_index: int128,
+    deposit: wei_value
 }[address]
 # - does_notary_exist: returns true if notary's record exist in notary registry
 does_notary_exist: public(bool[address])
@@ -193,6 +195,7 @@ def register_notary() -> bool:
     self.notary_registry[msg.sender] = {
         deregistered: 0,
         pool_index: pool_index,
+        deposit: msg.value,
     }
     self.does_notary_exist[msg.sender] = True
 
@@ -232,14 +235,16 @@ def release_notary() -> bool:
     assert floor(block.number / self.PERIOD_LENGTH) > self.notary_registry[msg.sender].deregistered + self.NOTARY_LOCKUP_LENGTH
 
     pool_index: int128 = self.notary_registry[msg.sender].pool_index
+    deposit: wei_value = self.notary_registry[msg.sender].deposit
     # Delete entry in notary registry
     self.notary_registry[msg.sender] = {
         deregistered: 0,
         pool_index: 0,
+        deposit: 0,
     }
     self.does_notary_exist[msg.sender] = False
 
-    send(msg.sender, self.NOTARY_DEPOSIT)
+    send(msg.sender, deposit)
 
     log.ReleaseNotary(pool_index, msg.sender)
 
