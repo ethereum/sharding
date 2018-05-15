@@ -2,13 +2,6 @@ import logging
 
 import pytest
 
-from sharding.handler.log_handler import (
-    LogHandler,
-)
-from sharding.handler.shard_tracker import (
-    NoCandidateHead,
-    ShardTracker,
-)
 from sharding.handler.utils.shard_tracker_utils import (
     parse_add_header_log,
 )
@@ -43,46 +36,3 @@ def test_parse_add_header_log(raw_log, period, shard_id, chunk_root):
     assert log['period'] == period
     assert log['shard_id'] == shard_id
     assert log['chunk_root'] == chunk_root
-
-
-@pytest.mark.parametrize(  # noqa: F811
-    'mock_score,mock_is_new_head,expected_score,expected_is_new_head',
-    (
-        # test case in doc.md
-        (
-            (10, 11, 12, 11, 13, 14, 15, 11, 12, 13, 14, 12, 13, 14, 15, 16, 17, 18, 19, 16),
-            (True, True, True, False, True, True, True, False, False, False, False, False, False, False, False, True, True, True, True, False),  # noqa: E501
-            (19, 18, 17, 16, 16, 15, 15, 14, 14, 14, 13, 13, 13, 12, 12, 12, 11, 11, 11, 10),
-            (True, True, True, True, False, True, False, True, False, False, True, False, False, True, False, False, True, False, False, True),  # noqa: E501
-        ),
-        (
-            (1, 2, 3, 2, 2, 2),
-            (True, True, True, False, False, False),
-            (3, 2, 2, 2, 2, 1),
-            (True, True, False, False, False, True),
-        ),
-    )
-)
-def test_shard_tracker_fetch_candidate_head(smc_handler,
-                                            mock_score,
-                                            mock_is_new_head,
-                                            expected_score,
-                                            expected_is_new_head):
-    shard_id = 0
-    log_handler = LogHandler(smc_handler.web3)
-    shard_0_tracker = ShardTracker(shard_id, log_handler, smc_handler.address)
-    mock_collation_added_logs = [
-        {
-            'header': [None] * 10,
-            'score': mock_score[i],
-            'is_new_head': mock_is_new_head[i],
-        } for i in range(len(mock_score))
-    ]
-    # mock collation_added_logs
-    shard_0_tracker.new_logs = mock_collation_added_logs
-    for i in range(len(mock_score)):
-        log = shard_0_tracker.fetch_candidate_head()
-        assert log['score'] == expected_score[i]
-        assert log['is_new_head'] == expected_is_new_head[i]
-    with pytest.raises(NoCandidateHead):
-        log = shard_0_tracker.fetch_candidate_head()
