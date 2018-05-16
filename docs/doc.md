@@ -86,7 +86,7 @@ Where:
 -   `receipt_root` is the root hash of the receipt trie;
 -   `number` is the collation number, which is also the score for the fork choice rule now; and
 
-A **collation header** is valid if calling ``add_header(shard_id, expected_period_number, period_start_prevhash, parent_hash, transaction_root, coinbase, state_root, receipt_root, number)` returns true. The validator manager contract should do this if:
+A **collation header** is valid if calling `add_header(shard_id, expected_period_number, period_start_prevhash, parent_hash, transaction_root, coinbase, state_root, receipt_root, number)` returns true. The validator manager contract should do this if:
 
 -   the `shard_id` is at least 0, and less than `SHARD_COUNT`;
 -   the `expected_period_number` equals the actual current period number (i.e., `floor(block.number / PERIOD_LENGTH)`)
