@@ -22,30 +22,34 @@ class ShardTracker:
         self.log_handler = log_handler
         self.smc_handler_address = smc_handler_address
 
-    def _get_logs_by_shard_id(self, event_name):
+    def _get_logs_by_shard_id(self, event_name, from_block=None, to_block=None):
         """Search logs by the shard id.
         """
-        return self.log_handler.get_new_logs(
+        return self.log_handler.get_logs(
             address=self.smc_handler_address,
             topics=[
                 encode_hex(get_event_signature_from_abi(event_name)),
                 encode_hex(self.shard_id.to_bytes(32, byteorder='big')),
             ],
+            from_block=from_block,
+            to_block=to_block,
         )
 
-    def _get_logs_by_notary(self, event_name, notary):
+    def _get_logs_by_notary(self, event_name, notary, from_block=None, to_block=None):
         """Search logs by notary address.
 
         NOTE: The notary address provided must be padded to 32 bytes
         and also hex-encoded. If notary address provided
         is `None`, it will return all logs related to the event.
         """
-        return self.log_handler.get_new_logs(
+        return self.log_handler.get_logs(
             address=self.smc_handler_address,
             topics=[
                 encode_hex(get_event_signature_from_abi(event_name)),
                 notary,
             ],
+            from_block=from_block,
+            to_block=to_block,
         )
 
     #

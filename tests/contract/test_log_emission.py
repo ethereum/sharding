@@ -19,12 +19,17 @@ from tests.contract.utils.notary_account import (
 from tests.contract.utils.sample_helper import (
     sampling,
 )
+from tests.handler.utils.config import (
+    get_sharding_testing_config,
+)
 
 
 def test_log_emission(smc_handler):  # noqa: F811
     web3 = smc_handler.web3
-    log_handler = LogHandler(w3=web3, history_size=1000)
+    config = get_sharding_testing_config()
+    log_handler = LogHandler(web3=web3, period_length=config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
+        config=config,
         shard_id=0,
         log_handler=log_handler,
         smc_handler_address=smc_handler.address,
