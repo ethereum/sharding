@@ -8,13 +8,35 @@ from sharding.handler.utils.shard_tracker_utils import (
     parse_add_header_log,
     parse_submit_vote_log,
 )
+from sharding.handler.log_handler import (  # noqa: F401
+    LogHandler,
+)
+from sharding.handler.shard_tracker import (  # noqa: F401
+    ShardTracker,
+)
+from sharding.handler.utils.web3_utils import (
+    mine,
+)
 
 from tests.handler.fixtures import (  # noqa: F401
     smc_handler,
 )
+from tests.handler.utils.config import (
+    get_sharding_testing_config,
+)
+from tests.contract.utils.common_utils import (
+    batch_register,
+    fast_forward,
+)
+from tests.contract.utils.notary_account import (
+    NotaryAccount,
+)
+from tests.contract.utils.sample_helper import (
+    sampling,
+)
 
 
-logger = logging.getLogger('evm.chain.sharding.mainchain_handler.ShardTracker')
+logger = logging.getLogger('sharding.handler.ShardTracker')
 
 
 @pytest.mark.parametrize(
@@ -111,3 +133,114 @@ def test_parse_submit_vote_log(raw_log, period, shard_id, chunk_root, notary):
     assert log['shard_id'] == shard_id
     assert log['chunk_root'] == chunk_root
     assert log['notary'] == notary
+
+
+def test_status_checking_functions(smc_handler):  # noqa: F811
+    web3 = smc_handler.web3
+    config = get_sharding_testing_config()
+    log_handler = LogHandler(web3=web3, period_length=config['PERIOD_LENGTH'])
+    shard_tracker = ShardTracker(
+        config=config,
+        shard_id=0,
+        log_handler=log_handler,
+        smc_handler_address=smc_handler.address,
+    )
+
+    # Register nine notaries
+    batch_register(smc_handler, 0, 8)
+    # Check that registration log was/was not emitted accordingly
+    assert shard_tracker.is_notary_registered(notary=NotaryAccount(0).checksum_address)
+    assert shard_tracker.is_notary_registered(notary=NotaryAccount(5).checksum_address)
+    assert not shard_tracker.is_notary_registered(notary=NotaryAccount(9).checksum_address)
+    fast_forward(smc_handler, 1)
+
+    # Check that add header log has not been emitted yet
+    current_period = web3.eth.blockNumber // config['PERIOD_LENGTH']
+    assert not shard_tracker.is_new_header_added(period=current_period)
+    # Add header in multiple shards
+    CHUNK_ROOT_1_0 = b'\x10' * 32
+    smc_handler.add_header(
+        period=current_period,
+        shard_id=0,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(0).private_key
+    )
+    CHUNK_ROOT_1_7 = b'\x17' * 32
+    smc_handler.add_header(
+        period=current_period,
+        shard_id=7,
+        chunk_root=CHUNK_ROOT_1_7,
+        private_key=NotaryAccount(7).private_key
+    )
+    CHUNK_ROOT_1_3 = b'\x13' * 32
+    smc_handler.add_header(
+        period=current_period,
+        shard_id=3,
+        chunk_root=CHUNK_ROOT_1_3,
+        private_key=NotaryAccount(3).private_key
+    )
+    mine(web3, 1)
+    # Check that add header log was successfully emitted
+    assert shard_tracker.is_new_header_added(period=current_period)
+
+    # Check that there has not been enough votes yet in shard 0
+    assert not shard_tracker.has_enough_vote(period=current_period)
+    # Submit three votes in shard 0 and one vote in shard 7
+    for sample_index in range(3):
+        pool_index = sampling(smc_handler, 0)[sample_index]
+        smc_handler.submit_vote(
+            period=current_period,
+            shard_id=0,
+            chunk_root=CHUNK_ROOT_1_0,
+            index=sample_index,
+            private_key=NotaryAccount(pool_index).private_key
+        )
+        mine(web3, 1)
+    sample_index = 0
+    pool_index = sampling(smc_handler, 7)[sample_index]
+    smc_handler.submit_vote(
+        period=current_period,
+        shard_id=7,
+        chunk_root=CHUNK_ROOT_1_7,
+        index=sample_index,
+        private_key=NotaryAccount(pool_index).private_key
+    )
+    mine(web3, 1)
+    # Check that there has not been enough votes yet in shard 0
+    # Only three votes in shard 0 while four is required
+    assert not shard_tracker.has_enough_vote(period=current_period)
+    # Cast the fourth vote
+    sample_index = 3
+    pool_index = sampling(smc_handler, 0)[sample_index]
+    smc_handler.submit_vote(
+        period=current_period,
+        shard_id=0,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(pool_index).private_key
+    )
+    mine(web3, 1)
+    # Check that there are enough votes now in shard 0
+    assert shard_tracker.has_enough_vote(period=current_period)
+    # Proceed to next period
+    fast_forward(smc_handler, 1)
+
+    # Go back and check the status of header and vote counts in last period
+    current_period = web3.eth.blockNumber // config['PERIOD_LENGTH']
+    assert shard_tracker.is_new_header_added(period=(current_period - 1))
+    assert shard_tracker.has_enough_vote(period=(current_period - 1))
+
+    # Deregister
+    smc_handler.deregister_notary(private_key=NotaryAccount(0).private_key)
+    mine(web3, 1)
+    # Check that deregistration log was/was not emitted accordingly
+    assert shard_tracker.is_notary_deregistered(NotaryAccount(0).checksum_address)
+    assert not shard_tracker.is_notary_deregistered(NotaryAccount(5).checksum_address)
+
+    # Fast foward to end of lock up
+    fast_forward(smc_handler, smc_handler.config['NOTARY_LOCKUP_LENGTH'] + 1)
+    # Release
+    smc_handler.release_notary(private_key=NotaryAccount(0).private_key)
+    mine(web3, 1)
+    # Check that log was successfully emitted
+    assert shard_tracker.is_notary_released(NotaryAccount(0).checksum_address)
