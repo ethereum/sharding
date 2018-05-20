@@ -37,8 +37,10 @@ from sharding.handler.utils.web3_utils import (
     mine,
     take_snapshot,
     revert_to_snapshot,
-    get_canonical_chain,
-    get_recent_block_hashes,
+)
+
+from tests.handler.utils.config import (
+    get_sharding_testing_config,
 )
 
 code = """
@@ -77,151 +79,43 @@ def contract():
     return w3.eth.contract(contract_address, abi=abi, bytecode=bytecode)
 
 
-def test_get_recent_block_hashes(contract):
+def test_get_logs_without_forks(contract):
+    period_length = get_sharding_testing_config()['PERIOD_LENGTH']
     w3 = contract.web3
-    block0 = w3.eth.getBlock(0)
-    block1 = w3.eth.getBlock(1)
-    recent_block_hashes = get_recent_block_hashes(w3, HISTORY_SIZE)
-    assert len(recent_block_hashes) == 2
-    assert block0['hash'] == recent_block_hashes[0]
-    assert block1['hash'] == recent_block_hashes[1]
-    mine(w3, 2)
-    block2 = w3.eth.getBlock(2)
-    block3 = w3.eth.getBlock(3)
-    recent_block_hashes = get_recent_block_hashes(w3, HISTORY_SIZE)
-    assert len(recent_block_hashes) == 4
-    assert block2['hash'] == recent_block_hashes[2]
-    assert block3['hash'] == recent_block_hashes[3]
-
-
-def test_get_canonical_chain_without_forks(contract):
-    w3 = contract.web3
-    recent_block_hashes = get_recent_block_hashes(w3, HISTORY_SIZE)
-    revoked_hashes, new_block_hashes = get_canonical_chain(w3, recent_block_hashes, HISTORY_SIZE)
-    assert revoked_hashes == tuple()
-    assert new_block_hashes == tuple()
-    if len(revoked_hashes) != 0:
-        unchanged_block_hashes = recent_block_hashes[:-1 * len(revoked_hashes)]
-    else:
-        unchanged_block_hashes = recent_block_hashes
-    new_recent_block_hashes = unchanged_block_hashes + new_block_hashes
-    recent_block_hashes = new_recent_block_hashes[-1 * HISTORY_SIZE:]
-    mine(w3, 1)
-    block2 = w3.eth.getBlock('latest')
-    revoked_hashes, new_block_hashes = get_canonical_chain(
-        w3,
-        recent_block_hashes,
-        HISTORY_SIZE,
-    )
-    assert revoked_hashes == tuple()
-    assert len(new_block_hashes) == 1
-    assert block2['hash'] in new_block_hashes
-    if len(revoked_hashes) != 0:
-        unchanged_block_hashes = recent_block_hashes[:-1 * len(revoked_hashes)]
-    else:
-        unchanged_block_hashes = recent_block_hashes
-    new_recent_block_hashes = unchanged_block_hashes + new_block_hashes
-    recent_block_hashes = new_recent_block_hashes[-1 * HISTORY_SIZE:]
-
-    mine(w3, 3)
-    block3 = w3.eth.getBlock(3)
-    block4 = w3.eth.getBlock(4)
-    block5 = w3.eth.getBlock(5)
-    revoked_hashes, new_block_hashes = get_canonical_chain(
-        w3,
-        recent_block_hashes,
-        HISTORY_SIZE,
-    )
-    assert revoked_hashes == tuple()
-    assert len(new_block_hashes) == 3
-    assert block3['hash'] == new_block_hashes[0]
-    assert block4['hash'] == new_block_hashes[1]
-    assert block5['hash'] == new_block_hashes[2]
-
-
-def test_get_canonical_chain_with_forks(contract):
-    w3 = contract.web3
+    log_handler = LogHandler(w3, period_length=period_length)
     counter = itertools.count()
-    recent_block_hashes = get_recent_block_hashes(w3, HISTORY_SIZE)
-    # snapshot when blockNumber=1
-    snapshot_id = take_snapshot(w3)
-    current_block_number = w3.eth.blockNumber
-    # counter == 0 in block2
-    contract.transact(default_tx_detail).emit_log(next(counter))
-    mine(w3, 1)
-    block2 = w3.eth.getBlock('latest')
-    revoked_hashes, new_block_hashes = get_canonical_chain(
-        w3,
-        recent_block_hashes,
-        HISTORY_SIZE,
-    )
-    assert revoked_hashes == tuple()
-    assert block2['hash'] in new_block_hashes
-    if len(revoked_hashes) != 0:
-        unchanged_block_hashes = recent_block_hashes[:-1 * len(revoked_hashes)]
-    else:
-        unchanged_block_hashes = recent_block_hashes
-    new_recent_block_hashes = unchanged_block_hashes + new_block_hashes
-    recent_block_hashes = new_recent_block_hashes[-1 * HISTORY_SIZE:]
 
-    revert_to_snapshot(w3, snapshot_id)
-    assert w3.eth.blockNumber == current_block_number
-    mine(w3, 1)  # block2_prime
-    block2_prime = w3.eth.getBlock('latest')
-    # counter == 1 in block3_prime
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
-    block3_prime = w3.eth.getBlock('latest')
-    # counter == 2 in block4_prime
-    contract.transact(default_tx_detail).emit_log(next(counter))
-    mine(w3, 1)
-    block4_prime = w3.eth.getBlock('latest')
-    revoked_hashes, new_block_hashes = get_canonical_chain(
-        w3,
-        recent_block_hashes,
-        HISTORY_SIZE,
-    )
-    assert block2['hash'] in revoked_hashes
-    assert len(revoked_hashes) == 1
-    # ensure that the block in the behind of new_block_hashes is newer
-    assert block2_prime['hash'] == new_block_hashes[-3]
-    assert block3_prime['hash'] == new_block_hashes[-2]
-    assert block4_prime['hash'] == new_block_hashes[-1]
-
-
-def test_log_handler_get_new_logs_without_forks(contract):
-    w3 = contract.web3
-    log_handler = LogHandler(w3)
-    counter = itertools.count()
-    contract.transact(default_tx_detail).emit_log(next(counter))
-    mine(w3, 1)
-    logs_block2 = log_handler.get_new_logs(address=contract.address)
+    logs_block2 = log_handler.get_logs(address=contract.address)
     assert len(logs_block2) == 1
     assert int(logs_block2[0]['data'], 16) == 0
-    assert log_handler.get_new_logs() == tuple()
+    mine(w3, period_length - 1)
+
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
-    logs_block3 = log_handler.get_new_logs(address=contract.address)
+    logs_block3 = log_handler.get_logs(address=contract.address)
     assert len(logs_block3) == 1
     assert int(logs_block3[0]['data'], 16) == 1
-    assert log_handler.get_new_logs() == tuple()
+    mine(w3, period_length - 1)
+
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
-    logs_block4_5 = log_handler.get_new_logs(address=contract.address)
+    logs_block4_5 = log_handler.get_logs(address=contract.address)
     assert len(logs_block4_5) == 2
     assert int(logs_block4_5[0]['data'], 16) == 2
     assert int(logs_block4_5[1]['data'], 16) == 3
-    assert log_handler.get_new_logs() == tuple()
 
 
-def test_log_handler_get_new_logs_with_forks(contract):
+def test_get_logs_with_forks(contract):
     w3 = contract.web3
-    log_handler = LogHandler(w3)
+    log_handler = LogHandler(w3, period_length=get_sharding_testing_config()['PERIOD_LENGTH'])
     counter = itertools.count()
     snapshot_id = take_snapshot(w3)
     current_block_number = w3.eth.blockNumber
+
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
     revert_to_snapshot(w3, snapshot_id)
@@ -230,8 +124,7 @@ def test_log_handler_get_new_logs_with_forks(contract):
     mine(w3, 1)
     contract.transact(default_tx_detail).emit_log(next(counter))
     mine(w3, 1)
-    logs = log_handler.get_new_logs()
+    logs = log_handler.get_logs()
     # assert len(logs) == 2
     assert int(logs[0]['data'], 16) == 1
     assert int(logs[1]['data'], 16) == 2
-    assert log_handler.get_new_logs() == tuple()
