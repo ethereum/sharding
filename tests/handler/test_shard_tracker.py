@@ -136,9 +136,9 @@ def test_parse_submit_vote_log(raw_log, period, shard_id, chunk_root, notary):
 
 
 def test_status_checking_functions(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     config = get_sharding_testing_config()
-    log_handler = LogHandler(web3=web3, period_length=config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3=w3, period_length=config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=config,
         shard_id=0,
@@ -155,7 +155,7 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
     fast_forward(smc_handler, 1)
 
     # Check that add header log has not been emitted yet
-    current_period = web3.eth.blockNumber // config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // config['PERIOD_LENGTH']
     assert not shard_tracker.is_new_header_added(period=current_period)
     # Add header in multiple shards
     CHUNK_ROOT_1_0 = b'\x10' * 32
@@ -179,7 +179,7 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
         chunk_root=CHUNK_ROOT_1_3,
         private_key=NotaryAccount(3).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that add header log was successfully emitted
     assert shard_tracker.is_new_header_added(period=current_period)
 
@@ -195,7 +195,7 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
             index=sample_index,
             private_key=NotaryAccount(pool_index).private_key
         )
-        mine(web3, 1)
+        mine(w3, 1)
     sample_index = 0
     pool_index = sampling(smc_handler, 7)[sample_index]
     smc_handler.submit_vote(
@@ -205,7 +205,7 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
         index=sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that there has not been enough votes yet in shard 0
     # Only three votes in shard 0 while four is required
     assert not shard_tracker.has_enough_vote(period=current_period)
@@ -219,20 +219,20 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
         index=sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that there are enough votes now in shard 0
     assert shard_tracker.has_enough_vote(period=current_period)
     # Proceed to next period
     fast_forward(smc_handler, 1)
 
     # Go back and check the status of header and vote counts in last period
-    current_period = web3.eth.blockNumber // config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // config['PERIOD_LENGTH']
     assert shard_tracker.is_new_header_added(period=(current_period - 1))
     assert shard_tracker.has_enough_vote(period=(current_period - 1))
 
     # Deregister
     smc_handler.deregister_notary(private_key=NotaryAccount(0).private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that deregistration log was/was not emitted accordingly
     assert shard_tracker.is_notary_deregistered(NotaryAccount(0).checksum_address)
     assert not shard_tracker.is_notary_deregistered(NotaryAccount(5).checksum_address)
@@ -241,6 +241,6 @@ def test_status_checking_functions(smc_handler):  # noqa: F811
     fast_forward(smc_handler, smc_handler.config['NOTARY_LOCKUP_LENGTH'] + 1)
     # Release
     smc_handler.release_notary(private_key=NotaryAccount(0).private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     assert shard_tracker.is_notary_released(NotaryAccount(0).checksum_address)

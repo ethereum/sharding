@@ -75,25 +75,25 @@ def get_contract_address_from_deploy_tx(transaction):
     )
 
 
-def deploy_smc_contract(web3, gas_price, privkey):
+def deploy_smc_contract(w3, gas_price, privkey):
     deploy_smc_tx = make_deploy_smc_tx(ByzantiumTransaction, gas_price=gas_price)
 
     # fund the smc contract deployer
     fund_deployer_tx = ByzantiumTransaction.create_unsigned_transaction(
-        get_nonce(web3, privkey.public_key.to_canonical_address()),
+        get_nonce(w3, privkey.public_key.to_canonical_address()),
         gas_price,
         500000,
         deploy_smc_tx.sender,
         deploy_smc_tx.gas * deploy_smc_tx.gas_price + deploy_smc_tx.value,
         b'',
     ).as_signed_transaction(privkey)
-    fund_deployer_tx_hash = send_raw_transaction(web3, fund_deployer_tx)
-    mine(web3, 1)
-    assert web3.eth.getTransactionReceipt(fund_deployer_tx_hash) is not None
+    fund_deployer_tx_hash = send_raw_transaction(w3, fund_deployer_tx)
+    mine(w3, 1)
+    assert w3.eth.getTransactionReceipt(fund_deployer_tx_hash) is not None
 
     # deploy smc contract
-    deploy_smc_tx_hash = send_raw_transaction(web3, deploy_smc_tx)
-    mine(web3, 1)
-    assert web3.eth.getTransactionReceipt(deploy_smc_tx_hash) is not None
+    deploy_smc_tx_hash = send_raw_transaction(w3, deploy_smc_tx)
+    mine(w3, 1)
+    assert w3.eth.getTransactionReceipt(deploy_smc_tx_hash) is not None
 
     return get_contract_address_from_deploy_tx(deploy_smc_tx)

@@ -20,13 +20,13 @@ from tests.contract.utils.sample_helper import (
 
 
 def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     _, notary_0_pool_index = smc_handler.get_notary_info(
         notary_0.checksum_address
     )
@@ -38,7 +38,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
 
     # Register notary 1
     smc_handler.register_notary(private_key=notary_1.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
 
     _, notary_1_pool_index = smc_handler.get_notary_info(
         notary_1.checksum_address
@@ -49,7 +49,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
 
     # Check that it's not yet the time to update notary sample size,
     # i.e., current period is the same as latest period the notary sample size was updated.
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
     assert current_period == notary_sample_size_updated_period
 
@@ -70,7 +70,7 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
     # NOTE: Registration would also invoke update_notary_sample_size function
     notary_2 = NotaryAccount(2)
     smc_handler.register_notary(private_key=notary_2.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Check that current_period_notary_sample_size is updated,
     # i.e., it is assigned the value of next_period_notary_sample_size.
@@ -78,19 +78,19 @@ def test_normal_update_notary_sample_size(smc_handler):  # noqa: F811
     assert next_period_notary_sample_size == current_period_notary_sample_size
 
     # Check that notary sample size is updated in this period
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
     assert current_period == notary_sample_size_updated_period
 
 
 def test_register_then_deregister(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0 first
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     _, notary_0_pool_index = smc_handler.get_notary_info(
         notary_0.checksum_address
     )
@@ -100,14 +100,14 @@ def test_register_then_deregister(smc_handler):  # noqa: F811
 
     # Then deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that next_period_notary_sample_size remains the same
     next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
     assert (notary_0_pool_index + 1) == next_period_notary_sample_size
 
 
 def test_deregister_then_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
@@ -118,7 +118,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     # Deregister notary 0 first
     # NOTE: Deregistration would also invoke update_notary_sample_size function
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that current_period_notary_sample_size is updated
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
     assert current_period_notary_sample_size == 1
@@ -127,7 +127,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 
     # Then register notary 1
     smc_handler.register_notary(private_key=notary_1.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
 
     _, notary_1_pool_index = smc_handler.get_notary_info(
         notary_1.checksum_address
@@ -139,7 +139,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 
 
 def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
     notary_1 = NotaryAccount(1)
@@ -156,7 +156,7 @@ def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # no
     # Deregister from notary 2 to notary 0
     # Deregister notary 2
     smc_handler.deregister_notary(private_key=notary_2.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that current_period_notary_sample_size is updated
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
     assert current_period_notary_sample_size == 3
@@ -165,13 +165,13 @@ def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # no
     assert next_period_notary_sample_size == 3
     # Deregister notary 1
     smc_handler.deregister_notary(private_key=notary_1.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that next_period_notary_sample_size remains the same
     next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
     assert next_period_notary_sample_size == 3
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that next_period_notary_sample_size remains the same
     next_period_notary_sample_size = smc_handler.next_period_notary_sample_size()
     assert next_period_notary_sample_size == 3
@@ -186,7 +186,7 @@ def test_series_of_deregister_starting_from_top_of_the_stack(smc_handler):  # no
 
 
 def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
     notary_1 = NotaryAccount(1)
@@ -201,7 +201,7 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
     # Deregister from notary 0 to notary 2
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     _, notary_0_pool_index = smc_handler.get_notary_info(
         notary_0.checksum_address
     )
@@ -210,7 +210,7 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
     assert next_period_notary_sample_size == 3
     # Deregister notary 1
     smc_handler.deregister_notary(private_key=notary_1.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     _, notary_1_pool_index = smc_handler.get_notary_info(
         notary_1.checksum_address
     )
@@ -219,7 +219,7 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
     assert next_period_notary_sample_size == 3
     # Deregister notary 2
     smc_handler.deregister_notary(private_key=notary_2.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that current_period_notary_sample_size is updated
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
     assert current_period_notary_sample_size == 3
@@ -239,7 +239,7 @@ def test_series_of_deregister_starting_from_bottom_of_the_stack(smc_handler):  #
 
 
 def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     # Register notary 0~5 and fast forward to next period
     batch_register(smc_handler, 0, 5)
@@ -249,7 +249,7 @@ def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # n
     batch_register(smc_handler, 6, 8)
 
     # Check that sample-size-related values match
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
     assert notary_sample_size_updated_period == current_period
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
@@ -259,7 +259,7 @@ def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # n
 
     # Fast forward to next period
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
     assert notary_sample_size_updated_period == current_period - 1
 
@@ -271,7 +271,7 @@ def test_get_member_of_committee_without_updating_sample_size(smc_handler):  # n
 
 
 def test_get_member_of_committee_with_updated_sample_size(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
@@ -280,7 +280,7 @@ def test_get_member_of_committee_with_updated_sample_size(smc_handler):  # noqa:
     # Update notary sample size
     update_notary_sample_size(smc_handler)
     # Check that sample-size-related values match
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     notary_sample_size_updated_period = smc_handler.notary_sample_size_updated_period()
     assert notary_sample_size_updated_period == current_period
     current_period_notary_sample_size = smc_handler.current_period_notary_sample_size()
@@ -334,7 +334,7 @@ def test_get_member_of_committee_with_non_member(smc_handler):  # noqa: F811
 
 
 def test_committee_change_with_deregister_then_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
@@ -348,26 +348,26 @@ def test_committee_change_with_deregister_then_register(smc_handler):  # noqa: F
     notary = get_committee_list(smc_handler, 0)[0]
     notary_index = notary_pool_list.index(notary)
     smc_handler.deregister_notary(private_key=NotaryAccount(notary_index).private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that first slot in committee is now empty
     assert smc_handler.get_member_of_committee(0, 0) == '0x' + '00' * 20
 
     # Register notary 9
     smc_handler.register_notary(private_key=NotaryAccount(9).private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that first slot in committee is replaced by notary 9
     assert smc_handler.get_member_of_committee(0, 0) == NotaryAccount(9).checksum_address
 
 
 def test_get_sample_result(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
 
     # Update notary sample size
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     update_notary_sample_size(smc_handler)
 
     # Get all committee of current period

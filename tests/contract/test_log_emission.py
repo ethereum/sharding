@@ -25,9 +25,9 @@ from tests.handler.utils.config import (
 
 
 def test_log_emission(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     config = get_sharding_testing_config()
-    log_handler = LogHandler(web3=web3, period_length=config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3=w3, period_length=config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=config,
         shard_id=0,
@@ -38,7 +38,7 @@ def test_log_emission(smc_handler):  # noqa: F811
 
     # Register
     smc_handler.register_notary(private_key=notary.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_register_notary_logs()[0]
     assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address
@@ -52,7 +52,7 @@ def test_log_emission(smc_handler):  # noqa: F811
         chunk_root=CHUNK_ROOT_1_0,
         private_key=notary.private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_add_header_logs()[0]
     assert log['period'] == 1 and log['shard_id'] == 0 and log['chunk_root'] == CHUNK_ROOT_1_0
@@ -67,7 +67,7 @@ def test_log_emission(smc_handler):  # noqa: F811
         index=sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_submit_vote_logs()[0]
     assert log['period'] == 1 and log['shard_id'] == 0 and log['chunk_root'] == CHUNK_ROOT_1_0 \
@@ -76,7 +76,7 @@ def test_log_emission(smc_handler):  # noqa: F811
 
     # Deregister
     smc_handler.deregister_notary(private_key=notary.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_deregister_notary_logs()[0]
     assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address \
@@ -86,7 +86,7 @@ def test_log_emission(smc_handler):  # noqa: F811
 
     # Release
     smc_handler.release_notary(private_key=notary.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_release_notary_logs()[0]
     assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address

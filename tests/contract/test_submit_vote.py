@@ -20,14 +20,14 @@ from tests.contract.utils.sample_helper import (
 
 
 def test_normal_submit_vote(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add collation record
@@ -38,7 +38,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         CHUNK_ROOT_1_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Get the first notary in the sample list in this period
     sample_index = 0
@@ -54,7 +54,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
     assert smc_handler.has_notary_voted(shard_id, sample_index)
@@ -62,7 +62,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     # Check that collation is not elected and forward to next period
     assert not smc_handler.get_collation_is_elected(current_period, shard_id)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 2
 
     # Add collation record
@@ -73,7 +73,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         CHUNK_ROOT_2_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Check that vote count is zero
     assert smc_handler.get_vote_count(shard_id) == 0
@@ -92,13 +92,13 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
             sample_index,
             private_key=NotaryAccount(pool_index).private_key
         )
-        mine(web3, 1)
+        mine(w3, 1)
         # Check that vote has been casted successfully
         assert smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_double_submit_vote(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
@@ -106,7 +106,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add collation record
@@ -117,7 +117,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         CHUNK_ROOT_1_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Get the first notary in the sample list in this period and vote
     sample_index = 0
@@ -129,7 +129,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
     assert smc_handler.has_notary_voted(shard_id, sample_index)
@@ -142,16 +142,16 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1
 
 
 def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
@@ -160,7 +160,7 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
     # Register notary 0~4 and fast forward to next period
     batch_register(smc_handler, 0, 4)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add collation record
@@ -171,7 +171,7 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
         CHUNK_ROOT_1_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Find the notary that's sampled more than one time
     for pool_index in range(5):
@@ -190,14 +190,14 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
                     sample_index,
                     private_key=NotaryAccount(pool_index).private_key
                 )
-                mine(web3, 1)
+                mine(w3, 1)
             # Check that every vote is successfully casted even by the same notary
             assert smc_handler.get_vote_count(shard_id) == vote_count
             break
 
 
 def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
@@ -205,7 +205,7 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add collation record
@@ -216,7 +216,7 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
         CHUNK_ROOT_1_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     sample_index = 0
     pool_index = sampling(smc_handler, shard_id)[sample_index]
@@ -229,17 +229,17 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
         # Vote by non-eligible notary
         private_key=NotaryAccount(wrong_pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
@@ -247,7 +247,7 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     CHUNK_ROOT_1_0 = b'\x10' * 32
@@ -261,11 +261,11 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
@@ -283,13 +283,13 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     )
 )
 def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root, sample_index):
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add correct collation record
@@ -299,7 +299,7 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
         b'\x10' * 32,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     pool_index = sampling(smc_handler, 0)[0]
     # Vote with provided incorrect arguments
@@ -310,17 +310,17 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
 
 
 def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
@@ -328,7 +328,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
     fast_forward(smc_handler, 1)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 1
 
     # Add collation record
@@ -339,7 +339,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         CHUNK_ROOT_1_0,
         private_key=NotaryAccount(0).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     sample_index = 0
     pool_index = sampling(smc_handler, shard_id)[sample_index]
@@ -350,7 +350,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(pool_index).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Check that vote has been casted successfully
     assert smc_handler.get_vote_count(shard_id) == 1
@@ -358,7 +358,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
 
     # The notary deregisters
     smc_handler.deregister_notary(private_key=NotaryAccount(pool_index).private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check that vote was not effected by deregistration
     assert smc_handler.get_vote_count(shard_id) == 1
     assert smc_handler.has_notary_voted(shard_id, sample_index)
@@ -373,10 +373,10 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         sample_index,
         private_key=NotaryAccount(9).private_key
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1

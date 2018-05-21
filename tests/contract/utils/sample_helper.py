@@ -26,8 +26,8 @@ def sampling(smc_handler, shard_id):
     if you want to get the complete sampling result since you have to make
     a total of `SHARD_COUNT`*`COMMITTEE_SIZE` times of contract calls.
     """
-    web3 = smc_handler.web3
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    w3 = smc_handler.web3
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
 
     # Determine sample size
     if smc_handler.notary_sample_size_updated_period() < current_period:
@@ -40,7 +40,7 @@ def sampling(smc_handler, shard_id):
     # Get source for pseudo random number generation
     bytes32_shard_id = int_to_bytes32(shard_id)
     entropy_block_number = current_period * smc_handler.config['PERIOD_LENGTH'] - 1
-    entropy_block_hash = web3.eth.getBlock(entropy_block_number)['hash']
+    entropy_block_hash = w3.eth.getBlock(entropy_block_number)['hash']
 
     for i in range(smc_handler.config['COMMITTEE_SIZE']):
         yield big_endian_to_int(

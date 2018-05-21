@@ -5,8 +5,8 @@ class LogHandler:
 
     logger = logging.getLogger("sharding.handler.LogHandler")
 
-    def __init__(self, web3, period_length):
-        self.web3 = web3
+    def __init__(self, w3, period_length):
+        self.w3 = w3
         self.period_length = period_length
 
     def get_logs(
@@ -16,7 +16,7 @@ class LogHandler:
             topics=None,
             from_block=None,
             to_block=None):
-        current_block_number = self.web3.eth.blockNumber
+        current_block_number = self.w3.eth.blockNumber
         if from_block is None:
             # Search from the start of current period
             fromBlock = current_block_number - current_block_number % self.period_length
@@ -32,7 +32,7 @@ class LogHandler:
         else:
             toBlock = min(current_block_number, to_block)
 
-        return self.web3.eth.getLogs(
+        return self.w3.eth.getLogs(
             {
                 # Block number must be integer
                 'fromBlock': int(fromBlock),
