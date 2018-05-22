@@ -18,6 +18,10 @@ from sharding.handler.utils.shard_tracker_utils import (
 )
 
 
+def to_log_topic_address(address):
+    return '0x' + to_checksum_address(address)[2:].rjust(64, '0')
+
+
 class ShardTracker:
     """Track emitted logs of specific shard.
     """
@@ -99,22 +103,22 @@ class ShardTracker:
     #
     def is_notary_registered(self, notary):
         assert is_address(notary)
-        # Normalize the notary address and padded to 32 bytes
-        normalized_address = '0x' + to_checksum_address(notary)[2:].rjust(64, '0')
+        # Normalize the notary address
+        normalized_address = to_log_topic_address(notary)
         log = self._get_logs_by_notary(event_name='RegisterNotary', notary=normalized_address)
         return False if not log else True
 
     def is_notary_deregistered(self, notary):
         assert is_address(notary)
-        # Normalize the notary address and padded to 32 bytes
-        normalized_address = '0x' + to_checksum_address(notary)[2:].rjust(64, '0')
+        # Normalize the notary address
+        normalized_address = to_log_topic_address(notary)
         log = self._get_logs_by_notary(event_name='DeregisterNotary', notary=normalized_address)
         return False if not log else True
 
     def is_notary_released(self, notary):
         assert is_address(notary)
-        # Normalize the notary address and padded to 32 bytes
-        normalized_address = '0x' + to_checksum_address(notary)[2:].rjust(64, '0')
+        # Normalize the notary address
+        normalized_address = to_log_topic_address(notary)
         log = self._get_logs_by_notary(event_name='ReleaseNotary', notary=normalized_address)
         return False if not log else True
 
