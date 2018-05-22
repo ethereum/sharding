@@ -1,5 +1,7 @@
 import logging
 
+from evm.exceptions import BlockNotFound
+
 
 class LogHandler:
 
@@ -28,9 +30,11 @@ class LogHandler:
                 current_block_number % self.period_length
         else:
             if from_block > current_block_number:
-                raise Exception(
-                    "Can not search logs starting with block number"
-                    "larger than current block number"
+                raise BlockNotFound(
+                    "Try to search from block number {} while current block number is {}".format(
+                        from_block,
+                        current_block_number
+                    )
                 )
             # Block number must be integer
             filter_params['fromBlock'] = int(from_block)
