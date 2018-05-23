@@ -8,6 +8,9 @@ from eth_utils import (
 from sharding.contracts.utils.smc_utils import (
     get_smc_json,
 )
+from sharding.handler.exceptions import (
+    LogParsingError,
+)
 
 
 class LogParser(object):
@@ -29,11 +32,11 @@ class LogParser(object):
         for func in get_smc_json()['abi']:
             if func['name'] == event_name and func['type'] == 'event':
                 return func
-        raise Exception("Can not find event {}".format(event_name))
+        raise LogParsingError("Can not find event {}".format(event_name))
 
     def _set_topic_value(self, *, topics, log):
         if len(topics) != len(log['topics'][1:]):
-            raise Exception(
+            raise LogParsingError(
                 "Error parsing log topics, expect"
                 "{} topics but get {}.".format(len(topics), len(log['topics'][1:]))
             )
@@ -44,7 +47,7 @@ class LogParser(object):
     def _set_data_value(self, *, datas, log):
         data_bytes = decode_hex(log['data'])
         if len(datas) * 32 != len(data_bytes):
-            raise Exception(
+            raise LogParsingError(
                 "Error parsing log data, expect"
                 "{} data but get {}.".format(len(datas), len(data_bytes))
             )
@@ -62,7 +65,7 @@ class LogParser(object):
         elif 'int' in val_type:
             return big_endian_to_int(val)
         else:
-            raise Exception(
+            raise LogParsingError(
                 "Error parsing the type of given value. Expect bool/address/bytes32/int*"
                 "but get {}.".format(val_type)
             )
