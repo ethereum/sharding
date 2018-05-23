@@ -41,7 +41,8 @@ def test_log_emission(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_register_notary_logs()[0]
-    assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address
+    assert getattr(log, 'index_in_notary_pool') == 0 and \
+        getattr(log, 'notary') == notary.checksum_address
     fast_forward(smc_handler, 1)
 
     # Add header
@@ -55,7 +56,8 @@ def test_log_emission(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_add_header_logs()[0]
-    assert log['period'] == 1 and log['shard_id'] == 0 and log['chunk_root'] == CHUNK_ROOT_1_0
+    assert getattr(log, 'period') == 1 and getattr(log, 'shard_id') == 0 and \
+        getattr(log, 'chunk_root') == CHUNK_ROOT_1_0
 
     # Submit vote
     sample_index = 0
@@ -70,8 +72,9 @@ def test_log_emission(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_submit_vote_logs()[0]
-    assert log['period'] == 1 and log['shard_id'] == 0 and log['chunk_root'] == CHUNK_ROOT_1_0 \
-        and log['notary'] == NotaryAccount(pool_index).checksum_address
+    assert getattr(log, 'period') == 1 and getattr(log, 'shard_id') == 0 and \
+        getattr(log, 'chunk_root') == CHUNK_ROOT_1_0 and \
+        getattr(log, 'notary') == NotaryAccount(pool_index).checksum_address
     fast_forward(smc_handler, 1)
 
     # Deregister
@@ -79,8 +82,9 @@ def test_log_emission(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_deregister_notary_logs()[0]
-    assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address \
-        and log['deregistered_period'] == 2
+    assert getattr(log, 'index_in_notary_pool') == 0 and \
+        getattr(log, 'notary') == notary.checksum_address and \
+        getattr(log, 'deregistered_period') == 2
     # Fast foward to end of lock up
     fast_forward(smc_handler, smc_handler.config['NOTARY_LOCKUP_LENGTH'] + 1)
 
@@ -89,4 +93,5 @@ def test_log_emission(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that log was successfully emitted
     log = shard_tracker.get_release_notary_logs()[0]
-    assert log['index_in_notary_pool'] == 0 and log['notary'] == notary.checksum_address
+    assert getattr(log, 'index_in_notary_pool') == 0 and \
+        getattr(log, 'notary') == notary.checksum_address

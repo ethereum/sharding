@@ -9,11 +9,7 @@ from sharding.contracts.utils.config import (
     get_sharding_config,
 )
 from sharding.handler.utils.shard_tracker_utils import (
-    parse_register_notary_log,
-    parse_deregister_notary_log,
-    parse_release_notary_log,
-    parse_add_header_log,
-    parse_submit_vote_log,
+    LogParser,
     get_event_signature_from_abi,
 )
 
@@ -72,31 +68,31 @@ class ShardTracker:
     def get_register_notary_logs(self):
         logs = self._get_logs_by_notary(event_name='RegisterNotary', notary=None)
         for log in logs:
-            yield parse_register_notary_log(log)
+            yield LogParser(event_name='RegisterNotary', log=log)
 
     @to_list
     def get_deregister_notary_logs(self):
         logs = self._get_logs_by_notary(event_name='DeregisterNotary', notary=None)
         for log in logs:
-            yield parse_deregister_notary_log(log)
+            yield LogParser(event_name='DeregisterNotary', log=log)
 
     @to_list
     def get_release_notary_logs(self):
         logs = self._get_logs_by_notary(event_name='ReleaseNotary', notary=None)
         for log in logs:
-            yield parse_release_notary_log(log)
+            yield LogParser(event_name='ReleaseNotary', log=log)
 
     @to_list
     def get_add_header_logs(self):
         logs = self._get_logs_by_shard_id(event_name='AddHeader')
         for log in logs:
-            yield parse_add_header_log(log)
+            yield LogParser(event_name='AddHeader', log=log)
 
     @to_list
     def get_submit_vote_logs(self):
         logs = self._get_logs_by_shard_id(event_name='SubmitVote')
         for log in logs:
-            yield parse_submit_vote_log(log)
+            yield LogParser(event_name='SubmitVote', log=log)
 
     #
     # Functions for user to check the status of registration or votes
