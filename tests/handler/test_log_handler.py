@@ -85,23 +85,23 @@ def test_get_logs_without_forks(contract):
     log_handler = LogHandler(w3, period_length=period_length)
     counter = itertools.count()
 
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
     logs_block2 = log_handler.get_logs(address=contract.address)
     assert len(logs_block2) == 1
     assert int(logs_block2[0]['data'], 16) == 0
     mine(w3, period_length - 1)
 
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
     logs_block3 = log_handler.get_logs(address=contract.address)
     assert len(logs_block3) == 1
     assert int(logs_block3[0]['data'], 16) == 1
     mine(w3, period_length - 1)
 
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
     logs_block4_5 = log_handler.get_logs(address=contract.address)
     assert len(logs_block4_5) == 2
@@ -116,13 +116,13 @@ def test_get_logs_with_forks(contract):
     snapshot_id = take_snapshot(w3)
     current_block_number = w3.eth.blockNumber
 
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
     revert_to_snapshot(w3, snapshot_id)
     assert w3.eth.blockNumber == current_block_number
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
-    contract.transact(default_tx_detail).emit_log(next(counter))
+    contract.functions.emit_log(next(counter)).transact(default_tx_detail)
     mine(w3, 1)
     logs = log_handler.get_logs()
     # assert len(logs) == 2
