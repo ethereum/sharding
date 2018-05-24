@@ -95,23 +95,26 @@ class ShardTracker:
     #
     def is_notary_registered(self, notary):
         assert is_address(notary)
-        # Normalize the notary address
-        normalized_address = to_log_topic_address(notary)
-        log = self._get_logs_by_notary(event_name='RegisterNotary', notary=normalized_address)
+        log = self._get_logs_by_notary(
+            event_name='RegisterNotary',
+            notary=to_log_topic_address(notary)
+        )
         return False if not log else True
 
     def is_notary_deregistered(self, notary):
         assert is_address(notary)
-        # Normalize the notary address
-        normalized_address = to_log_topic_address(notary)
-        log = self._get_logs_by_notary(event_name='DeregisterNotary', notary=normalized_address)
+        log = self._get_logs_by_notary(
+            event_name='DeregisterNotary',
+            notary=to_log_topic_address(notary)
+        )
         return False if not log else True
 
     def is_notary_released(self, notary):
         assert is_address(notary)
-        # Normalize the notary address
-        normalized_address = to_log_topic_address(notary)
-        log = self._get_logs_by_notary(event_name='ReleaseNotary', notary=normalized_address)
+        log = self._get_logs_by_notary(
+            event_name='ReleaseNotary',
+            notary=to_log_topic_address(notary)
+        )
         return False if not log else True
 
     def is_new_header_added(self, period):

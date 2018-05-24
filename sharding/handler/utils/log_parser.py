@@ -17,15 +17,15 @@ class LogParser(object):
         event_abi = self._extract_event_abi(event_name=event_name)
 
         topics = []
-        datas = []
-        for inp in event_abi["inputs"]:
-            if inp['indexed'] is True:
-                topics.append((inp['name'], inp['type']))
+        data = []
+        for item in event_abi["inputs"]:
+            if item['indexed'] is True:
+                topics.append((item['name'], item['type']))
             else:
-                datas.append((inp['name'], inp['type']))
+                data.append((item['name'], item['type']))
 
         self._set_topic_value(topics=topics, log=log)
-        self._set_data_value(datas=datas, log=log)
+        self._set_data_value(data=data, log=log)
 
     def _extract_event_abi(self, *, event_name):
         for func in get_smc_json()['abi']:
@@ -43,14 +43,14 @@ class LogParser(object):
             val = self._parse_value(val_type=topic[1], val=log['topics'][i + 1])
             setattr(self, topic[0], val)
 
-    def _set_data_value(self, *, datas, log):
+    def _set_data_value(self, *, data, log):
         data_bytes = decode_hex(log['data'])
-        if len(datas) * 32 != len(data_bytes):
+        if len(data) * 32 != len(data_bytes):
             raise LogParsingError(
                 "Error parsing log data, expect"
-                "{} data but get {}.".format(len(datas), len(data_bytes))
+                "{} data but get {}.".format(len(data), len(data_bytes))
             )
-        for (i, data) in enumerate(datas):
+        for (i, data) in enumerate(data):
             val = self._parse_value(val_type=data[1], val=data_bytes[i * 32: (i + 1) * 32])
             setattr(self, data[0], val)
 
