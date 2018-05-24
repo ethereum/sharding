@@ -5,7 +5,7 @@ import pytest
 from sharding.handler.exceptions import (
     LogParsingError,
 )
-from sharding.handler.utils.shard_tracker_utils import (
+from sharding.handler.utils.log_parser import (
     LogParser,
 )
 from sharding.handler.log_handler import (  # noqa: F401

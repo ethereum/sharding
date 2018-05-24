@@ -2,20 +2,16 @@ from eth_utils import (
     encode_hex,
     to_list,
     is_address,
-    to_checksum_address,
 )
 
 from sharding.contracts.utils.config import (
     get_sharding_config,
 )
+from sharding.handler.utils.log_parser import LogParser
 from sharding.handler.utils.shard_tracker_utils import (
-    LogParser,
+    to_log_topic_address,
     get_event_signature_from_abi,
 )
-
-
-def to_log_topic_address(address):
-    return '0x' + to_checksum_address(address)[2:].rjust(64, '0')
 
 
 class ShardTracker:
