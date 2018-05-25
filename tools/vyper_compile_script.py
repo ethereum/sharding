@@ -24,10 +24,10 @@ def generate_compiled_json(file_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("vyper_contract_file_path")
+    parser.add_argument("path", type=str, help="the path of the contract")
     args = parser.parse_args()
-    vyper_contract_file_path = args.vyper_contract_file_path
-    generate_compiled_json(vyper_contract_file_path)
+    path = args.path
+    generate_compiled_json(path)
 
 
 if __name__ == '__main__':
