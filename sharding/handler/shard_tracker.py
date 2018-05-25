@@ -93,27 +93,33 @@ class ShardTracker:
     #
     # Functions for user to check the status of registration or votes
     #
-    def is_notary_registered(self, notary):
+    def is_notary_registered(self, notary, from_period=None):
         assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
             event_name='RegisterNotary',
-            notary=to_log_topic_address(notary)
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
         )
         return False if not log else True
 
-    def is_notary_deregistered(self, notary):
+    def is_notary_deregistered(self, notary, from_period=None):
         assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
             event_name='DeregisterNotary',
-            notary=to_log_topic_address(notary)
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
         )
         return False if not log else True
 
-    def is_notary_released(self, notary):
+    def is_notary_released(self, notary, from_period=None):
         assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
             event_name='ReleaseNotary',
-            notary=to_log_topic_address(notary)
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
         )
         return False if not log else True
 
