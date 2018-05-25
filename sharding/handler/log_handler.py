@@ -36,13 +36,11 @@ class LogHandler:
                         current_block_number
                     )
                 )
-            # Block number must be integer
-            filter_params['fromBlock'] = int(from_block)
+            filter_params['fromBlock'] = from_block
 
         if to_block is None:
-            filter_params['toBlock'] = current_block_number
+            filter_params['toBlock'] = 'latest'
         else:
-            # Block number must be integer
-            filter_params['toBlock'] = min(current_block_number, int(to_block))
+            filter_params['toBlock'] = min(current_block_number, to_block)
 
         return self.w3.eth.getLogs(filter_params)
