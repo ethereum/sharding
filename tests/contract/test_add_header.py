@@ -55,7 +55,6 @@ def test_normal_add_header(smc_handler):  # noqa: F811
 
 def test_add_header_wrong_period(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     # Register notary 0~2 and fast forward to next period
     batch_register(smc_handler, 0, 2)
@@ -77,7 +76,6 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
     # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Second attempt to add collation record with wrong period specified
@@ -92,7 +90,6 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
     # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Add correct collation record
@@ -105,7 +102,6 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
 
 def test_add_header_wrong_shard(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
     shard_count = smc_handler.config['SHARD_COUNT']
 
     # Register notary 0~2 and fast forward to next period
@@ -128,7 +124,6 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
     # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Second attempt to add collation record with illegal shard_id specified
@@ -143,7 +138,6 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
     # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 0
     assert smc_handler.get_collation_chunk_root(1, 0) == BLANK_CHUNK_ROOT
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Add correct collation record
@@ -156,7 +150,6 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
 
 def test_double_add_header(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     # Register notary 0~2 and fast forward to next period
     batch_register(smc_handler, 0, 2)
@@ -180,7 +173,6 @@ def test_double_add_header(smc_handler):  # noqa: F811
     )
     mine(w3, 1)
     # Check that transaction consume all gas and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
     # Attempt to add collation record again with different chunk root
@@ -195,5 +187,4 @@ def test_double_add_header(smc_handler):  # noqa: F811
     # and no logs has been emitted
     assert smc_handler.records_updated_period(0) == 1
     assert smc_handler.get_collation_chunk_root(1, 0) == CHUNK_ROOT_1_0
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0

@@ -85,7 +85,6 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
 
 def test_double_register(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
@@ -104,7 +103,6 @@ def test_double_register(smc_handler):  # noqa: F811
     # and no logs has been emitted
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
@@ -140,7 +138,6 @@ def test_normal_deregister(smc_handler):  # noqa: F811
 
 def test_deregister_then_register(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
@@ -175,7 +172,6 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     # and no logs has been emitted
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
@@ -213,7 +209,6 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
 
 def test_instant_release_notary(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
@@ -241,7 +236,6 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
     # and no logs has been emitted
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
