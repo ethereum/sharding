@@ -20,6 +20,7 @@ setup(
             "tests.*",
             "old_sharding_poc",
             "tools",
+            "docs",
         ]
     ),
     python_requires='>=3.5, <4',
