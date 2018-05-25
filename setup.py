@@ -14,7 +14,14 @@ setup(
     version='0.0.1',
     description='Ethereum Sharding Manager Contract',
     url='https://github.com/ethereum/sharding',
-    packages=find_packages(exclude=["tests", "tests.*", "old_sharding_poc"]),
+    packages=find_packages(
+        exclude=[
+            "tests",
+            "tests.*",
+            "old_sharding_poc",
+            "tools",
+        ]
+    ),
     python_requires='>=3.5, <4',
     py_modules=['sharding'],
     setup_requires=['setuptools-markdown'],
