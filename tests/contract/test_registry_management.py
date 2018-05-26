@@ -14,7 +14,7 @@ from tests.contract.utils.notary_account import (
 
 
 def test_normal_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
@@ -22,7 +22,7 @@ def test_normal_register(smc_handler):  # noqa: F811
     assert not does_notary_exist
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
@@ -58,7 +58,7 @@ def test_normal_register(smc_handler):  # noqa: F811
 
 
 def test_register_without_enough_ether(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
@@ -74,7 +74,7 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
         value=smc_handler.config['NOTARY_DEPOSIT'] // 10000,
         gas=default_gas,
     )
-    mine(web3, 1)
+    mine(w3, 1)
 
     # Check that the registration failed
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
@@ -84,14 +84,14 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
 
 
 def test_double_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
@@ -99,35 +99,35 @@ def test_double_register(smc_handler):  # noqa: F811
 
     # Try register notary 0 again
     tx_hash = smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check pool remain the same and the transaction consume all gas
     # and no logs has been emitted
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
 def test_normal_deregister(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(web3, 100 - web3.eth.blockNumber)
+    mine(w3, 100 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
-    mine(web3, 1)
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
@@ -139,26 +139,26 @@ def test_normal_deregister(smc_handler):  # noqa: F811
 
 
 def test_deregister_then_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(web3, 100 - web3.eth.blockNumber)
+    mine(w3, 100 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    current_period = web3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
-    mine(web3, 1)
+    current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_deregistered_period, notary_pool_index = smc_handler.get_notary_info(
@@ -170,34 +170,34 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
 
     # Register again right away
     tx_hash = smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check pool remain the same and the transaction consume all gas
     # and no logs has been emitted
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
 def test_normal_release_notary(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(web3, 50 - web3.eth.blockNumber)
+    mine(w3, 50 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
 
@@ -206,53 +206,53 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
 
     # Release notary 0
     smc_handler.release_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert not does_notary_exist
 
 
 def test_instant_release_notary(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
     default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(web3, 50 - web3.eth.blockNumber)
+    mine(w3, 50 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 0
 
     # Instant release notary 0
     tx_hash = smc_handler.release_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     # Check registry remain the same and the transaction consume all gas
     # and no logs has been emitted
     does_notary_exist = smc_handler.does_notary_exist(notary_0.checksum_address)
     assert does_notary_exist
-    assert web3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
-    assert len(web3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
+    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
+    assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
 
 
 def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
-    web3 = smc_handler.web3
+    w3 = smc_handler.web3
 
     notary_0 = NotaryAccount(0)
 
     # Register notary 0
     smc_handler.register_notary(private_key=notary_0.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 1
 
@@ -268,11 +268,11 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     assert empty_slots_stack_top == 0
 
     # Fast foward
-    mine(web3, 50 - web3.eth.blockNumber)
+    mine(w3, 50 - w3.eth.blockNumber)
 
     # Deregister notary 2
     smc_handler.deregister_notary(private_key=notary_2.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 3
 
@@ -288,7 +288,7 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
 
     # Register notary 4
     smc_handler.register_notary(private_key=notary_4.private_key)
-    mine(web3, 1)
+    mine(w3, 1)
 
     notary_pool_length = smc_handler.notary_pool_len()
     assert notary_pool_length == 4

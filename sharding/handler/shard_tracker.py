@@ -1,107 +1,142 @@
-from cytoolz import (
-    pipe,
-)
-
 from eth_utils import (
-    event_signature_to_log_topic,
-    to_tuple,
     encode_hex,
+    to_list,
+    is_address,
 )
 
+from sharding.contracts.utils.config import (
+    get_sharding_config,
+)
+from sharding.handler.utils.log_parser import LogParser
 from sharding.handler.utils.shard_tracker_utils import (
-    parse_collation_added_log,
-)
-
-
-class NextLogUnavailable(Exception):
-    pass
-
-
-class NoCandidateHead(Exception):
-    pass
-
-
-# For handling logs filtering
-# Event:
-#   CollationAdded(indexed uint256 shard, bytes collationHeader, bool isNewHead, uint256 score)
-COLLATION_ADDED_TOPIC = event_signature_to_log_topic(
-    "CollationAdded(int128,int128,bytes32,bytes32,bytes32,address,bytes32,bytes32,int128,bool,int128)"  # noqa: E501
+    to_log_topic_address,
+    get_event_signature_from_abi,
 )
 
 
 class ShardTracker:
-    """Track logs `CollationAdded` in mainchain
+    """Track emitted logs of specific shard.
     """
 
-    current_score = None
-    new_logs = None
-    unchecked_logs = None
-
-    def __init__(self, shard_id, log_handler, smc_handler_address):
-        # TODO: currently set one log_handler for each shard. Should see if there is a better way
-        #       to make one log_handler shared over all shards.
+    def __init__(self, config, shard_id, log_handler, smc_handler_address):
+        if config is None:
+            self.config = get_sharding_config()
+        else:
+            self.config = config
         self.shard_id = shard_id
         self.log_handler = log_handler
         self.smc_handler_address = smc_handler_address
-        self.current_score = None
-        self.new_logs = []
-        self.unchecked_logs = []
 
-    @to_tuple
-    def _get_new_logs(self):
-        shard_id_topic_hex = encode_hex(self.shard_id.to_bytes(32, byteorder='big'))
-        new_logs = self.log_handler.get_new_logs(
+    def _get_logs_by_shard_id(self, event_name, from_block=None, to_block=None):
+        """Search logs by the shard id.
+        """
+        return self.log_handler.get_logs(
             address=self.smc_handler_address,
             topics=[
-                encode_hex(COLLATION_ADDED_TOPIC),
-                shard_id_topic_hex,
+                encode_hex(get_event_signature_from_abi(event_name)),
+                encode_hex(self.shard_id.to_bytes(32, byteorder='big')),
             ],
+            from_block=from_block,
+            to_block=to_block,
         )
-        for log in new_logs:
-            yield parse_collation_added_log(log)
 
-    def get_next_log(self):
-        new_logs = self._get_new_logs()
-        self.new_logs.extend(new_logs)
-        if len(self.new_logs) == 0:
-            raise NextLogUnavailable("No more next logs")
-        return self.new_logs.pop()
+    def _get_logs_by_notary(self, event_name, notary, from_block=None, to_block=None):
+        """Search logs by notary address.
 
-    # TODO: this method may return wrong result when new logs arrive before the logs inside
-    #       `self.new_logs` are consumed entirely. This issue can be resolved by saving the
-    #       status of `new_logs`, `unchecked_logs`, and `current_score`, when it start to run
-    #       `GUESS_HEAD`. If there is a new block arriving, just restore them to the saved status,
-    #       append new logs to `new_logs`, and re-run `GUESS_HEAD`
-    def fetch_candidate_head(self):
-        # Try to return a log that has the score that we are checking for,
-        # checking in order of oldest to most recent.
-        unchecked_logs = pipe(
-            self.unchecked_logs,
-            enumerate,
-            tuple,
-            reversed,
-            tuple,
+        NOTE: The notary address provided must be padded to 32 bytes
+        and also hex-encoded. If notary address provided
+        is `None`, it will return all logs related to the event.
+        """
+        return self.log_handler.get_logs(
+            address=self.smc_handler_address,
+            topics=[
+                encode_hex(get_event_signature_from_abi(event_name)),
+                notary,
+            ],
+            from_block=from_block,
+            to_block=to_block,
         )
-        current_score = self.current_score
 
-        for idx, log_entry in unchecked_logs:
-            if log_entry['score'] == current_score:
-                return self.unchecked_logs.pop(idx)
-        # If no further recorded but unchecked logs exist, go to the next
-        # is_new_head = true log
-        while True:
-            try:
-                log_entry = self.get_next_log()
-            # TODO: currently just raise when there is no log anymore
-            except NextLogUnavailable:
-                # TODO: should returns the genesis collation instead or just leave it?
-                raise NoCandidateHead("No candidate head available")
-            if log_entry['is_new_head']:
-                break
-            self.unchecked_logs.append(log_entry)
-        self.current_score = log_entry['score']
-        return log_entry
+    #
+    # Basic functions to get emitted logs
+    #
+    @to_list
+    def get_register_notary_logs(self):
+        logs = self._get_logs_by_notary(event_name='RegisterNotary', notary=None)
+        for log in logs:
+            yield LogParser(event_name='RegisterNotary', log=log)
 
-    def clean_logs(self):
-        self.new_logs = []
-        self.unchecked_logs = []
+    @to_list
+    def get_deregister_notary_logs(self):
+        logs = self._get_logs_by_notary(event_name='DeregisterNotary', notary=None)
+        for log in logs:
+            yield LogParser(event_name='DeregisterNotary', log=log)
+
+    @to_list
+    def get_release_notary_logs(self):
+        logs = self._get_logs_by_notary(event_name='ReleaseNotary', notary=None)
+        for log in logs:
+            yield LogParser(event_name='ReleaseNotary', log=log)
+
+    @to_list
+    def get_add_header_logs(self):
+        logs = self._get_logs_by_shard_id(event_name='AddHeader')
+        for log in logs:
+            yield LogParser(event_name='AddHeader', log=log)
+
+    @to_list
+    def get_submit_vote_logs(self):
+        logs = self._get_logs_by_shard_id(event_name='SubmitVote')
+        for log in logs:
+            yield LogParser(event_name='SubmitVote', log=log)
+
+    #
+    # Functions for user to check the status of registration or votes
+    #
+    def is_notary_registered(self, notary, from_period=None):
+        assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        log = self._get_logs_by_notary(
+            event_name='RegisterNotary',
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
+        )
+        return False if not log else True
+
+    def is_notary_deregistered(self, notary, from_period=None):
+        assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        log = self._get_logs_by_notary(
+            event_name='DeregisterNotary',
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
+        )
+        return False if not log else True
+
+    def is_notary_released(self, notary, from_period=None):
+        assert is_address(notary)
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        log = self._get_logs_by_notary(
+            event_name='ReleaseNotary',
+            notary=to_log_topic_address(notary),
+            from_block=from_block,
+        )
+        return False if not log else True
+
+    def is_new_header_added(self, period):
+        # Get the header added in the specified period
+        log = self._get_logs_by_shard_id(
+            event_name='AddHeader',
+            from_block=period * self.config['PERIOD_LENGTH'],
+            to_block=(period + 1) * self.config['PERIOD_LENGTH'] - 1,
+        )
+        return False if not log else True
+
+    def has_enough_vote(self, period):
+        # Get the votes submitted in the specified period
+        logs = self._get_logs_by_shard_id(
+            event_name='SubmitVote',
+            from_block=period * self.config['PERIOD_LENGTH'],
+            to_block=(period + 1) * self.config['PERIOD_LENGTH'] - 1,
+        )
+        return False if not logs else len(logs) >= self.config['QUORUM_SIZE']

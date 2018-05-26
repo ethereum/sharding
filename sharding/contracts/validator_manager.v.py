@@ -5,11 +5,11 @@
 # Events
 #
 
-RegisterNotary: __log__({index_in_notary_pool: int128, notary: address})
-DeregisterNotary: __log__({index_in_notary_pool: int128, notary: address, deregistered_period: int128})
-ReleaseNotary: __log__({index_in_notary_pool: int128, notary: address})
-AddHeader: __log__({period: int128, shard_id: int128, chunk_root: bytes32})
-SubmitVote: __log__({period: int128, shard_id: int128, chunk_root: bytes32, notary: address})
+RegisterNotary: __log__({index_in_notary_pool: int128, notary: indexed(address)})
+DeregisterNotary: __log__({index_in_notary_pool: int128, notary: indexed(address), deregistered_period: int128})
+ReleaseNotary: __log__({index_in_notary_pool: int128, notary: indexed(address)})
+AddHeader: __log__({period: int128, shard_id: indexed(int128), chunk_root: bytes32})
+SubmitVote: __log__({period: int128, shard_id: indexed(int128), chunk_root: bytes32, notary: address})
 
 
 #
