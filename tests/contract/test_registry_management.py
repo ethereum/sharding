@@ -1,9 +1,7 @@
 from sharding.handler.utils.web3_utils import (
     mine,
 )
-from tests.handler.fixtures import (  # noqa: F401
-    smc_handler,
-)
+
 from tests.contract.utils.common_utils import (
     batch_register,
     fast_forward,
@@ -120,7 +118,7 @@ def test_normal_deregister(smc_handler):  # noqa: F811
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(w3, 100 - w3.eth.blockNumber)
+    mine(w3, 20 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
@@ -150,7 +148,7 @@ def test_deregister_then_register(smc_handler):  # noqa: F811
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(w3, 100 - w3.eth.blockNumber)
+    mine(w3, 20 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
@@ -189,7 +187,7 @@ def test_normal_release_notary(smc_handler):  # noqa: F811
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(w3, 50 - w3.eth.blockNumber)
+    mine(w3, 20 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
@@ -221,7 +219,7 @@ def test_instant_release_notary(smc_handler):  # noqa: F811
     assert notary_pool_length == 1
 
     # Fast foward
-    mine(w3, 50 - w3.eth.blockNumber)
+    mine(w3, 20 - w3.eth.blockNumber)
 
     # Deregister notary 0
     smc_handler.deregister_notary(private_key=notary_0.private_key)
@@ -262,7 +260,7 @@ def test_deregister_and_new_notary_register(smc_handler):  # noqa: F811
     assert empty_slots_stack_top == 0
 
     # Fast foward
-    mine(w3, 50 - w3.eth.blockNumber)
+    mine(w3, 20 - w3.eth.blockNumber)
 
     # Deregister notary 2
     smc_handler.deregister_notary(private_key=notary_2.private_key)

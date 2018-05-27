@@ -7,9 +7,7 @@ from sharding.handler.shard_tracker import (  # noqa: F401
 from sharding.handler.utils.web3_utils import (
     mine,
 )
-from tests.handler.fixtures import (  # noqa: F401
-    smc_handler,
-)
+
 from tests.contract.utils.common_utils import (
     fast_forward,
 )
@@ -19,17 +17,13 @@ from tests.contract.utils.notary_account import (
 from tests.contract.utils.sample_helper import (
     sampling,
 )
-from tests.handler.utils.config import (
-    get_sharding_testing_config,
-)
 
 
 def test_log_emission(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    config = get_sharding_testing_config()
-    log_handler = LogHandler(w3=w3, period_length=config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3=w3, period_length=smc_handler.config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
-        config=config,
+        config=smc_handler.config,
         shard_id=0,
         log_handler=log_handler,
         smc_handler_address=smc_handler.address,

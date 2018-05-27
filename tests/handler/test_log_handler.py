@@ -35,9 +35,6 @@ from sharding.handler.utils.web3_utils import (
     revert_to_snapshot,
 )
 
-from tests.handler.utils.config import (
-    get_sharding_testing_config,
-)
 
 code = """
 Test: __log__({amount1: num})
@@ -75,8 +72,8 @@ def contract():
     return w3.eth.contract(contract_address, abi=abi, bytecode=bytecode)
 
 
-def test_get_logs_without_forks(contract):
-    period_length = get_sharding_testing_config()['PERIOD_LENGTH']
+def test_get_logs_without_forks(contract, smc_testing_config):
+    period_length = smc_testing_config['PERIOD_LENGTH']
     w3 = contract.web3
     log_handler = LogHandler(w3, period_length=period_length)
     counter = itertools.count()
@@ -105,9 +102,9 @@ def test_get_logs_without_forks(contract):
     assert int(logs_block4_5[1]['data'], 16) == 3
 
 
-def test_get_logs_with_forks(contract):
+def test_get_logs_with_forks(contract, smc_testing_config):
     w3 = contract.web3
-    log_handler = LogHandler(w3, period_length=get_sharding_testing_config()['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3, period_length=smc_testing_config['PERIOD_LENGTH'])
     counter = itertools.count()
     snapshot_id = take_snapshot(w3)
     current_block_number = w3.eth.blockNumber

@@ -13,7 +13,7 @@ def get_sharding_testing_config():
         'PERIOD_LENGTH': 10,
         'COMMITTEE_SIZE': 6,
         'QUORUM_SIZE': 4,
-        'NOTARY_LOCKUP_LENGTH': 60,
+        'NOTARY_LOCKUP_LENGTH': 30,
     }
     return merge(
         get_sharding_config(),
