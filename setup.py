@@ -18,7 +18,6 @@ setup(
         exclude=[
             "tests",
             "tests.*",
-            "old_sharding_poc",
             "tools",
             "docs",
         ]

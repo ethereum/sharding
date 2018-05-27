@@ -1,4 +1,0 @@
-rlp>=0.6.0
-ethereum>=2.1.0
-future>=0.16.0
-git+git://github.com/ethereum/viper.git@master#egg=viper
