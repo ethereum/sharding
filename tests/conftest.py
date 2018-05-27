@@ -20,7 +20,6 @@ from eth_tester import (
 from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
-
 from sharding.handler.smc_handler import (
     SMCHandler,
 )
@@ -30,16 +29,21 @@ from sharding.contracts.utils.smc_utils import (
 from sharding.handler.utils.web3_utils import (
     get_code,
 )
-from tests.handler.utils.deploy import (
-    deploy_smc_contract,
-)
 from tests.handler.utils.config import (
     get_sharding_testing_config,
 )
+from tests.handler.utils.deploy import (
+    deploy_smc_contract,
+)
+
+
+@pytest.fixture(scope="session")
+def smc_testing_config():
+    return get_sharding_testing_config()
 
 
 @pytest.fixture
-def smc_handler():
+def smc_handler(smc_testing_config):
     eth_tester = EthereumTester(
         backend=PyEVMBackend(),
         auto_mine_transactions=False,
@@ -53,7 +57,7 @@ def smc_handler():
     # deploy smc contract
     smc_addr = deploy_smc_contract(
         w3,
-        get_sharding_testing_config()['GAS_PRICE'],
+        smc_testing_config['GAS_PRICE'],
         default_privkey,
     )
     assert get_code(w3, smc_addr) != b''
@@ -66,7 +70,7 @@ def smc_handler():
     smc_handler = SMCHandlerClass(
         to_checksum_address(smc_addr),
         default_privkey=default_privkey,
-        config=get_sharding_testing_config(),
+        config=smc_testing_config,
     )
 
     return smc_handler
