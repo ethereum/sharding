@@ -14,9 +14,6 @@ from eth_utils import (
 
 from eth_tester import (
     EthereumTester,
-)
-
-from eth_tester.backends.pyevm import (
     PyEVMBackend,
 )
 

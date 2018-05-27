@@ -99,7 +99,6 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
 
 def test_double_submit_vote(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
@@ -145,7 +144,6 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1
 
@@ -198,7 +196,6 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
 
 def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
@@ -232,7 +229,6 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
@@ -240,7 +236,6 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
 
 def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
@@ -264,7 +259,6 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
@@ -284,7 +278,6 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
 )
 def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root, sample_index):
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     # Register notary 0~8 and fast forward to next period
     batch_register(smc_handler, 0, 8)
@@ -313,7 +306,6 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 0
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
@@ -321,7 +313,6 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
 
 def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
     # We only vote in shard 0 for ease of testing
     shard_id = 0
 
@@ -377,6 +368,5 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
 
     # Check that transaction failed and vote count remains the same
     # and no logs has been emitted
-    assert w3.eth.getTransactionReceipt(tx_hash)['gasUsed'] == default_gas
     assert len(w3.eth.getTransactionReceipt(tx_hash)['logs']) == 0
     assert smc_handler.get_vote_count(shard_id) == 1

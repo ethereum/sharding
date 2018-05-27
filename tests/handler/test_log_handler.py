@@ -20,12 +20,8 @@ from eth_utils import (
 
 from eth_tester import (
     EthereumTester,
-)
-
-from eth_tester.backends.pyevm import (
     PyEVMBackend,
 )
-
 from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )

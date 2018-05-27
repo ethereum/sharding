@@ -5,11 +5,11 @@
 # Events
 #
 
-RegisterNotary: __log__({index_in_notary_pool: int128, notary: indexed(address)})
-DeregisterNotary: __log__({index_in_notary_pool: int128, notary: indexed(address), deregistered_period: int128})
-ReleaseNotary: __log__({index_in_notary_pool: int128, notary: indexed(address)})
-AddHeader: __log__({period: int128, shard_id: indexed(int128), chunk_root: bytes32})
-SubmitVote: __log__({period: int128, shard_id: indexed(int128), chunk_root: bytes32, notary: address})
+RegisterNotary: event({index_in_notary_pool: int128, notary: indexed(address)})
+DeregisterNotary: event({index_in_notary_pool: int128, notary: indexed(address), deregistered_period: int128})
+ReleaseNotary: event({index_in_notary_pool: int128, notary: indexed(address)})
+AddHeader: event({period: int128, shard_id: indexed(int128), chunk_root: bytes32})
+SubmitVote: event({period: int128, shard_id: indexed(int128), chunk_root: bytes32, notary: address})
 
 
 #
@@ -273,19 +273,16 @@ def get_member_of_committee(
     entropy_block_number: int128 = period * self.PERIOD_LENGTH - 1
 
     sampled_index: int128 = convert(
-        uint256_mod(
-            convert(
-                sha3(
-                    concat(
-                        blockhash(entropy_block_number),
-                        convert(shard_id, "bytes32"),
-                        convert(index, "bytes32"),
-                    )
-                ),
-                "uint256",
+        convert(
+            sha3(
+                concat(
+                    blockhash(entropy_block_number),
+                    convert(shard_id, "bytes32"),
+                    convert(index, "bytes32"),
+                )
             ),
-            convert(sample_size, "uint256"),
-        ),
+            "uint256",
+        ) % convert(sample_size, "uint256"),
         'int128',
     )
     return self.notary_pool[sampled_index]
@@ -341,12 +338,9 @@ def get_vote_count(shard_id: int128) -> int128:
 
     # Extract current vote count(last byte of current_vote)
     return convert(
-        uint256_mod(
-            current_vote_in_uint,
-            convert(
-                2**8,
-                'uint256'
-            )
+        current_vote_in_uint % convert(
+            2**8,
+            'uint256'
         ),
         'int128'
     )
@@ -377,7 +371,7 @@ def update_vote(shard_id: int128, index: int128) -> bool:
     # Update vote count
     # Add an upper bound check to prevent 1-byte vote count overflow
     if old_vote_count < 255:
-        current_vote_in_uint = uint256_add(current_vote_in_uint, convert(1, 'uint256'))
+        current_vote_in_uint = current_vote_in_uint + convert(1, 'uint256')
     self.current_vote[shard_id] = convert(current_vote_in_uint, 'bytes32')
 
     return True
