@@ -1,3 +1,11 @@
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple,
+    Union,
+)
+
 from eth_utils import (
     to_checksum_address,
     decode_hex,
@@ -13,7 +21,7 @@ from sharding.handler.exceptions import (
 
 
 class LogParser(object):
-    def __init__(self, *, event_name, log):
+    def __init__(self, *, event_name: str, log: Dict[str, Any]) -> None:
         event_abi = self._extract_event_abi(event_name=event_name)
 
         topics = []
@@ -27,13 +35,13 @@ class LogParser(object):
         self._set_topic_value(topics=topics, log=log)
         self._set_data_value(data=data, log=log)
 
-    def _extract_event_abi(self, *, event_name):
+    def _extract_event_abi(self, *, event_name: str) -> Dict[str, Any]:
         for func in get_smc_json()['abi']:
             if func['name'] == event_name and func['type'] == 'event':
                 return func
         raise LogParsingError("Can not find event {}".format(event_name))
 
-    def _set_topic_value(self, *, topics, log):
+    def _set_topic_value(self, *, topics: List[Tuple[str, Any]], log: Dict[str, Any]) -> None:
         if len(topics) != len(log['topics'][1:]):
             raise LogParsingError(
                 "Error parsing log topics, expect"
@@ -43,18 +51,18 @@ class LogParser(object):
             val = self._parse_value(val_type=topic[1], val=log['topics'][i + 1])
             setattr(self, topic[0], val)
 
-    def _set_data_value(self, *, data, log):
+    def _set_data_value(self, *, data: List[Tuple[str, Any]], log: Dict[str, Any]) -> None:
         data_bytes = decode_hex(log['data'])
         if len(data) * 32 != len(data_bytes):
             raise LogParsingError(
                 "Error parsing log data, expect"
                 "{} data but get {}.".format(len(data), len(data_bytes))
             )
-        for (i, data) in enumerate(data):
-            val = self._parse_value(val_type=data[1], val=data_bytes[i * 32: (i + 1) * 32])
-            setattr(self, data[0], val)
+        for (i, (name, type_)) in enumerate(data):
+            val = self._parse_value(val_type=type_, val=data_bytes[i * 32: (i + 1) * 32])
+            setattr(self, name, val)
 
-    def _parse_value(self, *, val_type, val):
+    def _parse_value(self, *, val_type: str, val: bytes) -> Union[bool, str, bytes, int]:
         if val_type == 'bool':
             return bool(big_endian_to_int(val))
         elif val_type == 'address':
