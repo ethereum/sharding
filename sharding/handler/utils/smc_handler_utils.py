@@ -46,9 +46,9 @@ def make_transaction_context(nonce: int,
     Makes the context for transaction call.
     """
 
-    if not nonce >= 0:
+    if not (isinstance(nonce, int) and nonce >= 0):
         raise ValueError('nonce should be provided as non-negative integer')
-    if not gas > 0:
+    if not (isinstance(gas, int) and gas >= 0):
         raise ValueError('gas should be provided as positive integer')
     yield 'nonce', nonce
     yield 'gas', gas
