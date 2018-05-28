@@ -1,17 +1,22 @@
-
 from eth_utils import (
     is_canonical_address,
     to_checksum_address,
     to_dict,
 )
 
+from typing import (
+    Any,
+    Generator,
+    Tuple,
+)
+
 
 @to_dict
-def make_call_context(sender_address,
-                      gas,
-                      value=None,
-                      gas_price=None,
-                      data=None):
+def make_call_context(sender_address: bytes,
+                      gas: int,
+                      value: int=None,
+                      gas_price: int=None,
+                      data: bytes=None) -> Generator[Tuple[str, Any], None, None]:
     """
     Makes the context for message call.
     """
@@ -31,19 +36,19 @@ def make_call_context(sender_address,
 
 
 @to_dict
-def make_transaction_context(nonce,
-                             gas,
-                             chain_id=None,
-                             value=None,
-                             gas_price=None,
-                             data=None):
+def make_transaction_context(nonce: int,
+                             gas: int,
+                             chain_id: int=None,
+                             value: int=None,
+                             gas_price: int=None,
+                             data: bytes=None) -> Generator[Tuple[str, Any], None, None]:
     """
     Makes the context for transaction call.
     """
 
     if not (isinstance(nonce, int) and nonce >= 0):
         raise ValueError('nonce should be provided as non-negative integer')
-    if not (isinstance(gas, int) and gas > 0):
+    if not (isinstance(gas, int) and gas >= 0):
         raise ValueError('gas should be provided as positive integer')
     yield 'nonce', nonce
     yield 'gas', gas
