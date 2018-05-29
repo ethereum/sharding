@@ -5,7 +5,7 @@ import os
 from vyper import compiler
 
 
-def generate_compiled_json(file_path):
+def generate_compiled_json(file_path: str) -> None:
     vmc_code = open(file_path).read()
     abi = compiler.mk_full_signature(vmc_code)
     bytecode = compiler.compile(vmc_code)
@@ -22,7 +22,7 @@ def generate_compiled_json(file_path):
         json.dump(contract_json, f_write)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="the path of the contract")
     args = parser.parse_args()

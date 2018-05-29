@@ -1,3 +1,7 @@
+from typing import (
+    Any,
+    Dict,
+)
 from eth_utils import (
     to_wei,
 )
@@ -7,7 +11,7 @@ from evm.utils import (
 )
 
 
-def get_sharding_config():
+def get_sharding_config() -> Dict[str, Any]:
     return {
         # the number of shards
         'SHARD_COUNT': env.get('PYEVM_SHARDING_SHARD_COUNT', type=int, default=100),

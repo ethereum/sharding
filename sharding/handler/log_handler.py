@@ -1,27 +1,35 @@
 import logging
+from typing import (
+    Any,
+    Dict,
+    List,
+    Union,
+)
 
 from evm.exceptions import BlockNotFound
+
+from web3 import Web3
 
 
 class LogHandler:
 
     logger = logging.getLogger("sharding.handler.LogHandler")
 
-    def __init__(self, w3, period_length):
+    def __init__(self, w3: Web3, period_length: int) -> None:
         self.w3 = w3
         self.period_length = period_length
 
     def get_logs(
             self,
             *,
-            address=None,
-            topics=None,
-            from_block=None,
-            to_block=None):
+            address: bytes=None,
+            topics: List[Union[str, None]]=None,
+            from_block: Union[int, str]=None,
+            to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
         filter_params = {
             'address': address,
             'topics': topics,
-        }
+        }  # type: Dict[str, Any]
 
         current_block_number = self.w3.eth.blockNumber
         if from_block is None:

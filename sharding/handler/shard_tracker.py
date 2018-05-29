@@ -1,3 +1,12 @@
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Union,
+)
+
 from eth_utils import (
     encode_hex,
     to_list,
@@ -6,6 +15,9 @@ from eth_utils import (
 
 from sharding.contracts.utils.config import (
     get_sharding_config,
+)
+from sharding.handler.log_handler import (
+    LogHandler,
 )
 from sharding.handler.utils.log_parser import LogParser
 from sharding.handler.utils.shard_tracker_utils import (
@@ -18,7 +30,11 @@ class ShardTracker:
     """Track emitted logs of specific shard.
     """
 
-    def __init__(self, config, shard_id, log_handler, smc_handler_address):
+    def __init__(self,
+                 config: Optional[Dict[str, Any]],
+                 shard_id: int,
+                 log_handler: LogHandler,
+                 smc_handler_address: bytes) -> None:
         if config is None:
             self.config = get_sharding_config()
         else:
@@ -27,7 +43,10 @@ class ShardTracker:
         self.log_handler = log_handler
         self.smc_handler_address = smc_handler_address
 
-    def _get_logs_by_shard_id(self, event_name, from_block=None, to_block=None):
+    def _get_logs_by_shard_id(self,
+                              event_name: str,
+                              from_block: Union[int, str]=None,
+                              to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
         """Search logs by the shard id.
         """
         return self.log_handler.get_logs(
@@ -40,7 +59,11 @@ class ShardTracker:
             to_block=to_block,
         )
 
-    def _get_logs_by_notary(self, event_name, notary, from_block=None, to_block=None):
+    def _get_logs_by_notary(self,
+                            event_name: str,
+                            notary: Union[str, None],
+                            from_block: Union[int, str]=None,
+                            to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
         """Search logs by notary address.
 
         NOTE: The notary address provided must be padded to 32 bytes
@@ -61,31 +84,31 @@ class ShardTracker:
     # Basic functions to get emitted logs
     #
     @to_list
-    def get_register_notary_logs(self):
+    def get_register_notary_logs(self) -> Generator[LogParser, None, None]:
         logs = self._get_logs_by_notary(event_name='RegisterNotary', notary=None)
         for log in logs:
             yield LogParser(event_name='RegisterNotary', log=log)
 
     @to_list
-    def get_deregister_notary_logs(self):
+    def get_deregister_notary_logs(self) -> Generator[LogParser, None, None]:
         logs = self._get_logs_by_notary(event_name='DeregisterNotary', notary=None)
         for log in logs:
             yield LogParser(event_name='DeregisterNotary', log=log)
 
     @to_list
-    def get_release_notary_logs(self):
+    def get_release_notary_logs(self) -> Generator[LogParser, None, None]:
         logs = self._get_logs_by_notary(event_name='ReleaseNotary', notary=None)
         for log in logs:
             yield LogParser(event_name='ReleaseNotary', log=log)
 
     @to_list
-    def get_add_header_logs(self):
+    def get_add_header_logs(self) -> Generator[LogParser, None, None]:
         logs = self._get_logs_by_shard_id(event_name='AddHeader')
         for log in logs:
             yield LogParser(event_name='AddHeader', log=log)
 
     @to_list
-    def get_submit_vote_logs(self):
+    def get_submit_vote_logs(self) -> Generator[LogParser, None, None]:
         logs = self._get_logs_by_shard_id(event_name='SubmitVote')
         for log in logs:
             yield LogParser(event_name='SubmitVote', log=log)
@@ -93,7 +116,7 @@ class ShardTracker:
     #
     # Functions for user to check the status of registration or votes
     #
-    def is_notary_registered(self, notary, from_period=None):
+    def is_notary_registered(self, notary: str, from_period: Union[int, str]=None) -> bool:
         assert is_address(notary)
         from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
@@ -103,7 +126,7 @@ class ShardTracker:
         )
         return False if not log else True
 
-    def is_notary_deregistered(self, notary, from_period=None):
+    def is_notary_deregistered(self, notary: str, from_period: Union[int, str]=None) -> bool:
         assert is_address(notary)
         from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
@@ -113,7 +136,7 @@ class ShardTracker:
         )
         return False if not log else True
 
-    def is_notary_released(self, notary, from_period=None):
+    def is_notary_released(self, notary: str, from_period: Union[int, str]=None) -> bool:
         assert is_address(notary)
         from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
@@ -123,7 +146,7 @@ class ShardTracker:
         )
         return False if not log else True
 
-    def is_new_header_added(self, period):
+    def is_new_header_added(self, period: int) -> bool:
         # Get the header added in the specified period
         log = self._get_logs_by_shard_id(
             event_name='AddHeader',
@@ -132,7 +155,7 @@ class ShardTracker:
         )
         return False if not log else True
 
-    def has_enough_vote(self, period):
+    def has_enough_vote(self, period: int) -> bool:
         # Get the votes submitted in the specified period
         logs = self._get_logs_by_shard_id(
             event_name='SubmitVote',
