@@ -18,12 +18,6 @@ from sharding.handler.utils.web3_utils import (
     mine,
 )
 
-from tests.handler.fixtures import (  # noqa: F401
-    smc_handler,
-)
-from tests.handler.utils.config import (
-    get_sharding_testing_config,
-)
 from tests.contract.utils.common_utils import (
     batch_register,
     fast_forward,
@@ -157,9 +151,9 @@ def test_log_parser_with_wrong_log_content(raw_log, event_name):
         LogParser(event_name=event_name, log=raw_log)
 
 
-def test_status_checking_functions(smc_handler):  # noqa: F811
+def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F811
     w3 = smc_handler.web3
-    config = get_sharding_testing_config()
+    config = smc_testing_config
     log_handler = LogHandler(w3=w3, period_length=config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=config,

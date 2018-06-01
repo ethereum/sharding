@@ -1,9 +1,7 @@
 from sharding.handler.utils.web3_utils import (
     mine,
 )
-from tests.handler.fixtures import (  # noqa: F401
-    smc_handler,
-)
+
 from tests.contract.utils.common_utils import (
     update_notary_sample_size,
     batch_register,

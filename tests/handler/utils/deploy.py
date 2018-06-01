@@ -32,17 +32,17 @@ from tests.handler.utils.config import (
 )
 
 
-def constructor_arguments():
+def constructor_arguments(config):
     """Encode system parameters passed into SMC constructor
     """
     arguments = (
-        int_to_bytes32(get_sharding_testing_config()['SHARD_COUNT']) +
-        int_to_bytes32(get_sharding_testing_config()['PERIOD_LENGTH']) +
-        int_to_bytes32(get_sharding_testing_config()['LOOKAHEAD_PERIODS']) +
-        int_to_bytes32(get_sharding_testing_config()['COMMITTEE_SIZE']) +
-        int_to_bytes32(get_sharding_testing_config()['QUORUM_SIZE']) +
-        int_to_bytes32(get_sharding_testing_config()['NOTARY_DEPOSIT']) +
-        int_to_bytes32(get_sharding_testing_config()['NOTARY_LOCKUP_LENGTH'])
+        int_to_bytes32(config['SHARD_COUNT']) +
+        int_to_bytes32(config['PERIOD_LENGTH']) +
+        int_to_bytes32(config['LOOKAHEAD_PERIODS']) +
+        int_to_bytes32(config['COMMITTEE_SIZE']) +
+        int_to_bytes32(config['QUORUM_SIZE']) +
+        int_to_bytes32(config['NOTARY_DEPOSIT']) +
+        int_to_bytes32(config['NOTARY_LOCKUP_LENGTH'])
     )
     return arguments
 
@@ -50,7 +50,7 @@ def constructor_arguments():
 def make_deploy_smc_tx(TransactionClass, gas_price):
     smc_json = get_smc_json()
     smc_bytecode = decode_hex(smc_json['bytecode'])
-    tx_data = smc_bytecode + constructor_arguments()
+    tx_data = smc_bytecode + constructor_arguments(get_sharding_testing_config())
     v = 27
     r = 1000000000000000000000000000000000000000000000000000000000000000000000000000
     s = 1000000000000000000000000000000000000000000000000000000000000000000000000000
