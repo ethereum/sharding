@@ -84,32 +84,85 @@ class ShardTracker:
     # Basic functions to get emitted logs
     #
     @to_list
-    def get_register_notary_logs(self) -> Generator[LogParser, None, None]:
-        logs = self._get_logs_by_notary(event_name='RegisterNotary', notary=None)
+    def get_register_notary_logs(self,
+                                 *,
+                                 from_period: Union[int, str]=None,
+                                 to_period: Union[int, str]=None
+                                 ) -> Generator[LogParser, None, None]:
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        logs = self._get_logs_by_notary(
+            event_name='RegisterNotary',
+            notary=None,
+            from_block=from_block,
+            to_block=to_block,
+        )
         for log in logs:
             yield LogParser(event_name='RegisterNotary', log=log)
 
     @to_list
-    def get_deregister_notary_logs(self) -> Generator[LogParser, None, None]:
-        logs = self._get_logs_by_notary(event_name='DeregisterNotary', notary=None)
+    def get_deregister_notary_logs(self,
+                                   *,
+                                   from_period: Union[int, str]=None,
+                                   to_period: Union[int, str]=None
+                                   ) -> Generator[LogParser, None, None]:
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        logs = self._get_logs_by_notary(
+            event_name='DeregisterNotary',
+            notary=None,
+            from_block=from_block,
+            to_block=to_block,
+        )
         for log in logs:
             yield LogParser(event_name='DeregisterNotary', log=log)
 
     @to_list
-    def get_release_notary_logs(self) -> Generator[LogParser, None, None]:
-        logs = self._get_logs_by_notary(event_name='ReleaseNotary', notary=None)
+    def get_release_notary_logs(self,
+                                *,
+                                from_period: Union[int, str]=None,
+                                to_period: Union[int, str]=None
+                                ) -> Generator[LogParser, None, None]:
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        logs = self._get_logs_by_notary(
+            event_name='ReleaseNotary',
+            notary=None,
+            from_block=from_block,
+            to_block=to_block,
+        )
         for log in logs:
             yield LogParser(event_name='ReleaseNotary', log=log)
 
     @to_list
-    def get_add_header_logs(self) -> Generator[LogParser, None, None]:
-        logs = self._get_logs_by_shard_id(event_name='AddHeader')
+    def get_add_header_logs(self,
+                            *,
+                            from_period: Union[int, str]=None,
+                            to_period: Union[int, str]=None
+                            ) -> Generator[LogParser, None, None]:
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        logs = self._get_logs_by_shard_id(
+            event_name='AddHeader',
+            from_block=from_block,
+            to_block=to_block,
+        )
         for log in logs:
             yield LogParser(event_name='AddHeader', log=log)
 
     @to_list
-    def get_submit_vote_logs(self) -> Generator[LogParser, None, None]:
-        logs = self._get_logs_by_shard_id(event_name='SubmitVote')
+    def get_submit_vote_logs(self,
+                             *,
+                             from_period: Union[int, str]=None,
+                             to_period: Union[int, str]=None
+                             ) -> Generator[LogParser, None, None]:
+        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        logs = self._get_logs_by_shard_id(
+            event_name='SubmitVote',
+            from_block=from_block,
+            to_block=to_block,
+        )
         for log in logs:
             yield LogParser(event_name='SubmitVote', log=log)
 
