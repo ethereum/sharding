@@ -89,8 +89,8 @@ class ShardTracker:
                                  from_period: Union[int, str]=None,
                                  to_period: Union[int, str]=None
                                  ) -> Generator[LogParser, None, None]:
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
-        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
             event_name='RegisterNotary',
             notary=None,
@@ -106,8 +106,8 @@ class ShardTracker:
                                    from_period: Union[int, str]=None,
                                    to_period: Union[int, str]=None
                                    ) -> Generator[LogParser, None, None]:
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
-        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
             event_name='DeregisterNotary',
             notary=None,
@@ -123,8 +123,8 @@ class ShardTracker:
                                 from_period: Union[int, str]=None,
                                 to_period: Union[int, str]=None
                                 ) -> Generator[LogParser, None, None]:
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
-        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
             event_name='ReleaseNotary',
             notary=None,
@@ -140,8 +140,8 @@ class ShardTracker:
                             from_period: Union[int, str]=None,
                             to_period: Union[int, str]=None
                             ) -> Generator[LogParser, None, None]:
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
-        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_shard_id(
             event_name='AddHeader',
             from_block=from_block,
@@ -156,8 +156,8 @@ class ShardTracker:
                              from_period: Union[int, str]=None,
                              to_period: Union[int, str]=None
                              ) -> Generator[LogParser, None, None]:
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
-        to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1 if to_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_shard_id(
             event_name='SubmitVote',
             from_block=from_block,
@@ -171,7 +171,7 @@ class ShardTracker:
     #
     def is_notary_registered(self, notary: str, from_period: Union[int, str]=None) -> bool:
         assert is_address(notary)
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         log = self._get_logs_by_notary(
             event_name='RegisterNotary',
             notary=to_log_topic_address(notary),
