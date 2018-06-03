@@ -42,8 +42,8 @@ def test_log_emission(smc_handler):  # noqa: F811
     # Add header
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        period=1,
         shard_id=0,
+        period=1,
         chunk_root=CHUNK_ROOT_1_0,
         private_key=notary.private_key
     )
@@ -57,8 +57,8 @@ def test_log_emission(smc_handler):  # noqa: F811
     sample_index = 0
     pool_index = sampling(smc_handler, 0)[sample_index]
     smc_handler.submit_vote(
-        period=1,
         shard_id=0,
+        period=1,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
         private_key=NotaryAccount(pool_index).private_key

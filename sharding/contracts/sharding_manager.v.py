@@ -291,8 +291,8 @@ def get_member_of_committee(
 # Attempts to process a collation header, returns True on success, reverts on failure.
 @public
 def add_header(
-        period: int128,
         shard_id: int128,
+        period: int128,
         chunk_root: bytes32
     ) -> bool:
 
@@ -308,7 +308,7 @@ def add_header(
     self.update_notary_sample_size()
 
     # Add header
-    self.collation_records[period][shard_id] = {
+    self.collation_records[shard_id][period] = {
         chunk_root: chunk_root,
         proposer: msg.sender,
         is_elected: False,
@@ -380,8 +380,8 @@ def update_vote(shard_id: int128, index: int128) -> bool:
 # Notary submit a vote
 @public
 def submit_vote(
-        period: int128,
         shard_id: int128,
+        period: int128,
         chunk_root: bytes32,
         index: int128,
     ) -> bool:
@@ -397,7 +397,7 @@ def submit_vote(
     assert self.get_member_of_committee(shard_id, index) == msg.sender
     # Check that collation record exists and matches
     assert self.records_updated_period[shard_id] == period
-    assert self.collation_records[period][shard_id].chunk_root == chunk_root
+    assert self.collation_records[shard_id][period].chunk_root == chunk_root
     # Check that notary has not yet voted
     assert not self.has_notary_voted(shard_id, index)
 

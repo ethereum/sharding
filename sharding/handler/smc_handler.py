@@ -104,22 +104,22 @@ class SMCHandler(Contract):
             index,
         ).call(self.basic_call_context)
 
-    def get_collation_chunk_root(self, period: int, shard_id: int) -> bytes:
+    def get_collation_chunk_root(self, shard_id: int, period: int) -> bytes:
         return self.functions.collation_records__chunk_root(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
-    def get_collation_proposer(self, period: int, shard_id: int) -> bytes:
+    def get_collation_proposer(self, shard_id: int, period: int) -> bytes:
         return self.functions.collation_records__proposer(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
-    def get_collation_is_elected(self, period: int, shard_id: int) -> bool:
+    def get_collation_is_elected(self, shard_id: int, period: int) -> bool:
         return self.functions.collation_records__is_elected(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
     def current_vote(self, shard_id: int) -> bytes:
@@ -220,8 +220,8 @@ class SMCHandler(Contract):
 
     def add_header(
             self,
-            period: int,
             shard_id: int,
+            period: int,
             chunk_root: bytes,
             private_key: datatypes.PrivateKey=None,
             gas: int=None,
@@ -229,8 +229,8 @@ class SMCHandler(Contract):
         tx_hash = self._send_transaction(
             'add_header',
             [
-                period,
                 shard_id,
+                period,
                 chunk_root,
             ],
             private_key=private_key,
@@ -241,8 +241,8 @@ class SMCHandler(Contract):
 
     def submit_vote(
             self,
-            period: int,
             shard_id: int,
+            period: int,
             chunk_root: bytes,
             index: int,
             private_key: datatypes.PrivateKey=None,
@@ -251,8 +251,8 @@ class SMCHandler(Contract):
         tx_hash = self._send_transaction(
             'submit_vote',
             [
-                period,
                 shard_id,
+                period,
                 chunk_root,
                 index,
             ],
