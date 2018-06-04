@@ -19,13 +19,12 @@ class LogHandler:
         self.w3 = w3
         self.period_length = period_length
 
-    def get_logs(
-            self,
-            *,
-            address: bytes=None,
-            topics: List[Union[str, None]]=None,
-            from_block: Union[int, str]=None,
-            to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
+    def get_logs(self,
+                 *,
+                 address: bytes=None,
+                 topics: List[Union[str, None]]=None,
+                 from_block: Union[int, str]=None,
+                 to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
         filter_params = {
             'address': address,
             'topics': topics,

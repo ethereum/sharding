@@ -218,14 +218,13 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def add_header(
-            self,
-            shard_id: int,
-            period: int,
-            chunk_root: bytes,
-            private_key: datatypes.PrivateKey=None,
-            gas: int=None,
-            gas_price: int=None) -> bytes:
+    def add_header(self,
+                   shard_id: int,
+                   period: int,
+                   chunk_root: bytes,
+                   private_key: datatypes.PrivateKey=None,
+                   gas: int=None,
+                   gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
             'add_header',
             [
@@ -239,15 +238,14 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def submit_vote(
-            self,
-            shard_id: int,
-            period: int,
-            chunk_root: bytes,
-            index: int,
-            private_key: datatypes.PrivateKey=None,
-            gas: int=None,
-            gas_price: int=None) -> bytes:
+    def submit_vote(self,
+                    shard_id: int,
+                    period: int,
+                    chunk_root: bytes,
+                    index: int,
+                    private_key: datatypes.PrivateKey=None,
+                    gas: int=None,
+                    gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
             'submit_vote',
             [
