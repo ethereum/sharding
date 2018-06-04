@@ -8,10 +8,6 @@ from web3.providers.eth_tester import (
     EthereumTesterProvider,
 )
 
-from eth_utils import (
-    to_checksum_address,
-)
-
 from eth_tester import (
     EthereumTester,
     PyEVMBackend,
@@ -21,19 +17,13 @@ from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
 from sharding.handler.smc_handler import (
-    SMCHandler,
-)
-from sharding.contracts.utils.smc_utils import (
-    get_smc_json,
+    SMCHandler as SMCHandlerFactory,
 )
 from sharding.handler.utils.web3_utils import (
     get_code,
 )
 from tests.handler.utils.config import (
     get_sharding_testing_config,
-)
-from tests.handler.utils.deploy import (
-    deploy_smc_contract,
 )
 
 
@@ -53,23 +43,28 @@ def smc_handler(smc_testing_config):
     if hasattr(w3.eth, "enable_unaudited_features"):
         w3.eth.enable_unaudited_features()
 
-    default_privkey = get_default_account_keys()[0]
-    # deploy smc contract
-    smc_addr = deploy_smc_contract(
-        w3,
-        smc_testing_config['GAS_PRICE'],
-        default_privkey,
-    )
-    assert get_code(w3, smc_addr) != b''
+    private_key = get_default_account_keys()[0]
 
-    # setup smc_handler's web3.eth.contract instance
-    smc_json = get_smc_json()
-    smc_abi = smc_json['abi']
-    smc_bytecode = smc_json['bytecode']
-    SMCHandlerClass = SMCHandler.factory(w3, abi=smc_abi, bytecode=smc_bytecode)
-    smc_handler = SMCHandlerClass(
-        to_checksum_address(smc_addr),
-        default_privkey=default_privkey,
+    # deploy smc contract
+    SMCHandler = w3.eth.contract(ContractFactoryClass=SMCHandlerFactory)
+    constructor_kwargs = {
+        "_SHARD_COUNT": smc_testing_config["SHARD_COUNT"],
+        "_PERIOD_LENGTH": smc_testing_config["PERIOD_LENGTH"],
+        "_LOOKAHEAD_LENGTH": smc_testing_config["LOOKAHEAD_PERIODS"],
+        "_COMMITTEE_SIZE": smc_testing_config["COMMITTEE_SIZE"],
+        "_QUORUM_SIZE": smc_testing_config["QUORUM_SIZE"],
+        "_NOTARY_DEPOSIT": smc_testing_config["NOTARY_DEPOSIT"],
+        "_NOTARY_LOCKUP_LENGTH": smc_testing_config["NOTARY_LOCKUP_LENGTH"],
+    }
+    eth_tester.enable_auto_mine_transactions()
+    deployment_tx_hash = SMCHandler.constructor(**constructor_kwargs).transact()
+    deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash, timeout=0)
+    eth_tester.disable_auto_mine_transactions()
+
+    assert get_code(w3, deployment_receipt.contractAddress) != b''
+    smc_handler = SMCHandler(
+        address=deployment_receipt.contractAddress,
+        private_key=private_key,
         config=smc_testing_config,
     )
 
