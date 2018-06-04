@@ -93,6 +93,8 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         mine(w3, 1)
         # Check that vote has been casted successfully
         assert smc_handler.has_notary_voted(shard_id, sample_index)
+    # Check that the collation is indeed elected.
+    assert smc_handler.get_collation_is_elected(shard_id=shard_id, period=current_period)
 
 
 def test_double_submit_vote(smc_handler):  # noqa: F811
