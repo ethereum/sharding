@@ -10,10 +10,16 @@ from typing import (
 from web3.contract import (
     Contract,
 )
+from eth_utils import (
+    decode_hex,
+)
 
 from sharding.handler.utils.smc_handler_utils import (
     make_call_context,
     make_transaction_context,
+)
+from sharding.contracts.utils.smc_utils import (
+    get_smc_json,
 )
 
 from eth_keys import (
@@ -21,22 +27,27 @@ from eth_keys import (
 )
 
 
+smc_json = get_smc_json()
+
+
 class SMCHandler(Contract):
 
     logger = logging.getLogger("evm.chain.sharding.SMCHandler")
+    abi = smc_json["abi"]
+    bytecode = decode_hex(smc_json["bytecode"])
 
-    _privkey = None  # type: datatypes.PrivateKey
-    _sender_address = None  # type: bytes
-    _config = None  # type: Dict[str, Any]
+    private_key = None  # type: datatypes.PrivateKey
+    sender_address = None  # type: bytes
+    config = None  # type: Dict[str, Any]
 
     def __init__(self,
                  *args: Any,
-                 default_privkey: datatypes.PrivateKey,
+                 private_key: datatypes.PrivateKey,
                  config: Dict[str, Any],
                  **kwargs: Any) -> None:
-        self._privkey = default_privkey
-        self._sender_address = default_privkey.public_key.to_canonical_address()
-        self._config = config
+        self.private_key = private_key
+        self.sender_address = self.private_key.public_key.to_canonical_address()
+        self.config = config
 
         super().__init__(*args, **kwargs)
 
@@ -44,27 +55,15 @@ class SMCHandler(Contract):
     # property
     #
     @property
-    def private_key(self) -> datatypes.PrivateKey:
-        return self._privkey
-
-    @property
-    def sender_address(self) -> bytes:
-        return self._sender_address
-
-    @property
-    def config(self) -> Dict[str, Any]:
-        return self._config
-
-    @property
     def basic_call_context(self) -> Dict[str, Any]:
         return make_call_context(
             sender_address=self.sender_address,
             gas=self.config["DEFAULT_GAS"]
         )
+
     #
     # Public variable getter functions
     #
-
     def does_notary_exist(self, notary_address: bytes) -> bool:
         return self.functions.does_notary_exist(notary_address).call(self.basic_call_context)
 
