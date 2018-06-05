@@ -139,6 +139,7 @@ class SMCHandler(Contract):
         ).call(self.basic_call_context)
 
     def _send_transaction(self,
+                          *,
                           func_name: str,
                           args: Iterable[Any],
                           private_key: datatypes.PrivateKey=None,
@@ -183,8 +184,8 @@ class SMCHandler(Contract):
                         gas: int=None,
                         gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'register_notary',
-            [],
+            func_name='register_notary',
+            args=[],
             private_key=private_key,
             value=self.config['NOTARY_DEPOSIT'],
             gas=gas,
@@ -197,8 +198,8 @@ class SMCHandler(Contract):
                           gas: int=None,
                           gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'deregister_notary',
-            [],
+            func_name='deregister_notary',
+            args=[],
             private_key=private_key,
             gas=gas,
             gas_price=gas_price,
@@ -210,8 +211,8 @@ class SMCHandler(Contract):
                        gas: int=None,
                        gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'release_notary',
-            [],
+            func_name='release_notary',
+            args=[],
             private_key=private_key,
             gas=gas,
             gas_price=gas_price,
@@ -219,6 +220,7 @@ class SMCHandler(Contract):
         return tx_hash
 
     def add_header(self,
+                   *,
                    shard_id: int,
                    period: int,
                    chunk_root: bytes,
@@ -226,8 +228,8 @@ class SMCHandler(Contract):
                    gas: int=None,
                    gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'add_header',
-            [
+            func_name='add_header',
+            args=[
                 shard_id,
                 period,
                 chunk_root,
@@ -239,6 +241,7 @@ class SMCHandler(Contract):
         return tx_hash
 
     def submit_vote(self,
+                    *,
                     shard_id: int,
                     period: int,
                     chunk_root: bytes,
@@ -247,8 +250,8 @@ class SMCHandler(Contract):
                     gas: int=None,
                     gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'submit_vote',
-            [
+            func_name='submit_vote',
+            args=[
                 shard_id,
                 period,
                 chunk_root,

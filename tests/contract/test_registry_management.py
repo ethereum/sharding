@@ -66,8 +66,8 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
 
     # Register without enough ether
     smc_handler._send_transaction(
-        'register_notary',
-        [],
+        func_name='register_notary',
+        args=[],
         private_key=notary_0.private_key,
         value=smc_handler.config['NOTARY_DEPOSIT'] // 10000,
         gas=default_gas,

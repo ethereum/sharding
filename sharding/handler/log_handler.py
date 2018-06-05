@@ -20,7 +20,6 @@ class LogHandler:
         self.period_length = period_length
 
     def get_logs(self,
-                 *,
                  address: bytes=None,
                  topics: List[Union[str, None]]=None,
                  from_block: Union[int, str]=None,

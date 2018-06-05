@@ -154,7 +154,7 @@ def test_log_parser_with_wrong_log_content(raw_log, event_name):
 def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F811
     w3 = smc_handler.web3
     config = smc_testing_config
-    log_handler = LogHandler(w3=w3, period_length=config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3, config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=config,
         shard_id=0,

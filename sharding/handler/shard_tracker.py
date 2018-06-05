@@ -85,14 +85,13 @@ class ShardTracker:
     #
     @to_list
     def get_register_notary_logs(self,
-                                 *,
                                  from_period: int=None,
                                  to_period: int=None
                                  ) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
-            event_name='RegisterNotary',
+            'RegisterNotary',
             notary=None,
             from_block=from_block,
             to_block=to_block,
@@ -102,14 +101,13 @@ class ShardTracker:
 
     @to_list
     def get_deregister_notary_logs(self,
-                                   *,
                                    from_period: int=None,
                                    to_period: int=None
                                    ) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
-            event_name='DeregisterNotary',
+            'DeregisterNotary',
             notary=None,
             from_block=from_block,
             to_block=to_block,
@@ -119,14 +117,13 @@ class ShardTracker:
 
     @to_list
     def get_release_notary_logs(self,
-                                *,
                                 from_period: int=None,
                                 to_period: int=None
                                 ) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
-            event_name='ReleaseNotary',
+            'ReleaseNotary',
             notary=None,
             from_block=from_block,
             to_block=to_block,
@@ -136,14 +133,13 @@ class ShardTracker:
 
     @to_list
     def get_add_header_logs(self,
-                            *,
                             from_period: int=None,
                             to_period: int=None
                             ) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_shard_id(
-            event_name='AddHeader',
+            'AddHeader',
             from_block=from_block,
             to_block=to_block,
         )
@@ -152,14 +148,13 @@ class ShardTracker:
 
     @to_list
     def get_submit_vote_logs(self,
-                             *,
                              from_period: int=None,
                              to_period: int=None
                              ) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_shard_id(
-            event_name='SubmitVote',
+            'SubmitVote',
             from_block=from_block,
             to_block=to_block,
         )
@@ -173,7 +168,7 @@ class ShardTracker:
         assert is_address(notary)
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         log = self._get_logs_by_notary(
-            event_name='RegisterNotary',
+            'RegisterNotary',
             notary=to_log_topic_address(notary),
             from_block=from_block,
         )
@@ -183,7 +178,7 @@ class ShardTracker:
         assert is_address(notary)
         from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
-            event_name='DeregisterNotary',
+            'DeregisterNotary',
             notary=to_log_topic_address(notary),
             from_block=from_block,
         )
@@ -193,7 +188,7 @@ class ShardTracker:
         assert is_address(notary)
         from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
         log = self._get_logs_by_notary(
-            event_name='ReleaseNotary',
+            'ReleaseNotary',
             notary=to_log_topic_address(notary),
             from_block=from_block,
         )
@@ -202,7 +197,7 @@ class ShardTracker:
     def is_new_header_added(self, period: int) -> bool:
         # Get the header added in the specified period
         log = self._get_logs_by_shard_id(
-            event_name='AddHeader',
+            'AddHeader',
             from_block=period * self.config['PERIOD_LENGTH'],
             to_block=(period + 1) * self.config['PERIOD_LENGTH'] - 1,
         )
@@ -211,7 +206,7 @@ class ShardTracker:
     def has_enough_vote(self, period: int) -> bool:
         # Get the votes submitted in the specified period
         logs = self._get_logs_by_shard_id(
-            event_name='SubmitVote',
+            'SubmitVote',
             from_block=period * self.config['PERIOD_LENGTH'],
             to_block=(period + 1) * self.config['PERIOD_LENGTH'] - 1,
         )

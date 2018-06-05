@@ -8,8 +8,8 @@ from tests.contract.utils.notary_account import (
 
 def update_notary_sample_size(smc_handler):
     smc_handler._send_transaction(
-        'update_notary_sample_size',
-        [],
+        func_name='update_notary_sample_size',
+        args=[],
         private_key=NotaryAccount(0).private_key,
         gas=smc_handler.config['DEFAULT_GAS'],
     )

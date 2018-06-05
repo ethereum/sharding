@@ -21,7 +21,7 @@ from tests.contract.utils.sample_helper import (
 
 def test_log_emission(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    log_handler = LogHandler(w3=w3, period_length=smc_handler.config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3, smc_handler.config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=smc_handler.config,
         shard_id=0,

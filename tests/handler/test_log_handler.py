@@ -75,7 +75,7 @@ def contract():
 def test_get_logs_without_forks(contract, smc_testing_config):
     period_length = smc_testing_config['PERIOD_LENGTH']
     w3 = contract.web3
-    log_handler = LogHandler(w3, period_length=period_length)
+    log_handler = LogHandler(w3, period_length)
     counter = itertools.count()
 
     contract.functions.emit_log(next(counter)).transact(default_tx_detail)
@@ -104,7 +104,7 @@ def test_get_logs_without_forks(contract, smc_testing_config):
 
 def test_get_logs_with_forks(contract, smc_testing_config):
     w3 = contract.web3
-    log_handler = LogHandler(w3, period_length=smc_testing_config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3, smc_testing_config['PERIOD_LENGTH'])
     counter = itertools.count()
     snapshot_id = take_snapshot(w3)
     current_block_number = w3.eth.blockNumber
