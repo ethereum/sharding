@@ -103,22 +103,22 @@ class SMCHandler(Contract):
             index,
         ).call(self.basic_call_context)
 
-    def get_collation_chunk_root(self, period: int, shard_id: int) -> bytes:
+    def get_collation_chunk_root(self, shard_id: int, period: int) -> bytes:
         return self.functions.collation_records__chunk_root(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
-    def get_collation_proposer(self, period: int, shard_id: int) -> bytes:
+    def get_collation_proposer(self, shard_id: int, period: int) -> bytes:
         return self.functions.collation_records__proposer(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
-    def get_collation_is_elected(self, period: int, shard_id: int) -> bool:
+    def get_collation_is_elected(self, shard_id: int, period: int) -> bool:
         return self.functions.collation_records__is_elected(
-            period,
             shard_id,
+            period,
         ).call(self.basic_call_context)
 
     def current_vote(self, shard_id: int) -> bytes:
@@ -138,6 +138,7 @@ class SMCHandler(Contract):
         ).call(self.basic_call_context)
 
     def _send_transaction(self,
+                          *,
                           func_name: str,
                           args: Iterable[Any],
                           private_key: datatypes.PrivateKey=None,
@@ -182,8 +183,8 @@ class SMCHandler(Contract):
                         gas: int=None,
                         gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'register_notary',
-            [],
+            func_name='register_notary',
+            args=[],
             private_key=private_key,
             value=self.config['NOTARY_DEPOSIT'],
             gas=gas,
@@ -196,8 +197,8 @@ class SMCHandler(Contract):
                           gas: int=None,
                           gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'deregister_notary',
-            [],
+            func_name='deregister_notary',
+            args=[],
             private_key=private_key,
             gas=gas,
             gas_price=gas_price,
@@ -209,27 +210,27 @@ class SMCHandler(Contract):
                        gas: int=None,
                        gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'release_notary',
-            [],
+            func_name='release_notary',
+            args=[],
             private_key=private_key,
             gas=gas,
             gas_price=gas_price,
         )
         return tx_hash
 
-    def add_header(
-            self,
-            period: int,
-            shard_id: int,
-            chunk_root: bytes,
-            private_key: datatypes.PrivateKey=None,
-            gas: int=None,
-            gas_price: int=None) -> bytes:
+    def add_header(self,
+                   *,
+                   shard_id: int,
+                   period: int,
+                   chunk_root: bytes,
+                   private_key: datatypes.PrivateKey=None,
+                   gas: int=None,
+                   gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'add_header',
-            [
-                period,
+            func_name='add_header',
+            args=[
                 shard_id,
+                period,
                 chunk_root,
             ],
             private_key=private_key,
@@ -238,20 +239,20 @@ class SMCHandler(Contract):
         )
         return tx_hash
 
-    def submit_vote(
-            self,
-            period: int,
-            shard_id: int,
-            chunk_root: bytes,
-            index: int,
-            private_key: datatypes.PrivateKey=None,
-            gas: int=None,
-            gas_price: int=None) -> bytes:
+    def submit_vote(self,
+                    *,
+                    shard_id: int,
+                    period: int,
+                    chunk_root: bytes,
+                    index: int,
+                    private_key: datatypes.PrivateKey=None,
+                    gas: int=None,
+                    gas_price: int=None) -> bytes:
         tx_hash = self._send_transaction(
-            'submit_vote',
-            [
-                period,
+            func_name='submit_vote',
+            args=[
                 shard_id,
+                period,
                 chunk_root,
                 index,
             ],

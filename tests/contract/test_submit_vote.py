@@ -31,10 +31,10 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     # Add collation record
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -46,11 +46,11 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     assert not smc_handler.has_notary_voted(shard_id, sample_index)
     # First notary vote
     smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that vote has been casted successfully
@@ -58,7 +58,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     assert smc_handler.has_notary_voted(shard_id, sample_index)
 
     # Check that collation is not elected and forward to next period
-    assert not smc_handler.get_collation_is_elected(current_period, shard_id)
+    assert not smc_handler.get_collation_is_elected(shard_id=shard_id, period=current_period)
     fast_forward(smc_handler, 1)
     current_period = w3.eth.blockNumber // smc_handler.config['PERIOD_LENGTH']
     assert current_period == 2
@@ -66,10 +66,10 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     # Add collation record
     CHUNK_ROOT_2_0 = b'\x20' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_2_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_2_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -77,22 +77,24 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
     assert smc_handler.get_vote_count(shard_id) == 0
     # Keep voting until the collation is elected.
     for (sample_index, pool_index) in enumerate(sampling(smc_handler, shard_id)):
-        if smc_handler.get_collation_is_elected(current_period, shard_id):
+        if smc_handler.get_collation_is_elected(shard_id=shard_id, period=current_period):
             assert smc_handler.get_vote_count(shard_id) == smc_handler.config['QUORUM_SIZE']
             break
         # Check that voting record does not exist prior to voting
         assert not smc_handler.has_notary_voted(shard_id, sample_index)
         # Vote
         smc_handler.submit_vote(
-            current_period,
-            shard_id,
-            CHUNK_ROOT_2_0,
-            sample_index,
-            private_key=NotaryAccount(pool_index).private_key
+            shard_id=shard_id,
+            period=current_period,
+            chunk_root=CHUNK_ROOT_2_0,
+            index=sample_index,
+            private_key=NotaryAccount(index=pool_index).private_key,
         )
         mine(w3, 1)
         # Check that vote has been casted successfully
         assert smc_handler.has_notary_voted(shard_id, sample_index)
+    # Check that the collation is indeed elected.
+    assert smc_handler.get_collation_is_elected(shard_id=shard_id, period=current_period)
 
 
 def test_double_submit_vote(smc_handler):  # noqa: F811
@@ -109,10 +111,10 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     # Add collation record
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -120,11 +122,11 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
     sample_index = 0
     pool_index = sampling(smc_handler, shard_id)[sample_index]
     smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that vote has been casted successfully
@@ -133,11 +135,11 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
 
     # Attempt to double vote
     tx_hash = smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -162,10 +164,10 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
     # Add collation record
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -180,11 +182,11 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
             vote_count = len(sample_index_list)
             for sample_index in sample_index_list:
                 smc_handler.submit_vote(
-                    current_period,
-                    shard_id,
-                    CHUNK_ROOT_1_0,
-                    sample_index,
-                    private_key=NotaryAccount(pool_index).private_key
+                    shard_id=shard_id,
+                    period=current_period,
+                    chunk_root=CHUNK_ROOT_1_0,
+                    index=sample_index,
+                    private_key=NotaryAccount(index=pool_index).private_key,
                 )
                 mine(w3, 1)
             # Check that every vote is successfully casted even by the same notary
@@ -206,10 +208,10 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     # Add collation record
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -217,12 +219,12 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
     pool_index = sampling(smc_handler, shard_id)[sample_index]
     wrong_pool_index = 0 if pool_index != 0 else 1
     tx_hash = smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
         # Vote by non-eligible notary
-        private_key=NotaryAccount(wrong_pool_index).private_key
+        private_key=NotaryAccount(wrong_pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -248,11 +250,11 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
     sample_index = 0
     pool_index = sampling(smc_handler, shard_id)[sample_index]
     tx_hash = smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -285,21 +287,21 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
 
     # Add correct collation record
     smc_handler.add_header(
-        current_period,
-        0,
-        b'\x10' * 32,
-        private_key=NotaryAccount(0).private_key
+        shard_id=0,
+        period=current_period,
+        chunk_root=b'\x10' * 32,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
     pool_index = sampling(smc_handler, 0)[0]
     # Vote with provided incorrect arguments
     tx_hash = smc_handler.submit_vote(
-        period,
-        shard_id,
-        chunk_root,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=period,
+        chunk_root=chunk_root,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -323,21 +325,21 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
     # Add collation record
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
     sample_index = 0
     pool_index = sampling(smc_handler, shard_id)[sample_index]
     smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
 
@@ -356,11 +358,11 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
     smc_handler.register_notary(private_key=NotaryAccount(9).private_key)
     # Attempt to vote
     tx_hash = smc_handler.submit_vote(
-        current_period,
-        shard_id,
-        CHUNK_ROOT_1_0,
-        sample_index,
-        private_key=NotaryAccount(9).private_key
+        shard_id=shard_id,
+        period=current_period,
+        chunk_root=CHUNK_ROOT_1_0,
+        index=sample_index,
+        private_key=NotaryAccount(index=9).private_key,
     )
     mine(w3, 1)
 

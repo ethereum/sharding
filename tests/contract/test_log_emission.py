@@ -21,7 +21,7 @@ from tests.contract.utils.sample_helper import (
 
 def test_log_emission(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    log_handler = LogHandler(w3=w3, period_length=smc_handler.config['PERIOD_LENGTH'])
+    log_handler = LogHandler(w3, smc_handler.config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
         config=smc_handler.config,
         shard_id=0,
@@ -42,10 +42,10 @@ def test_log_emission(smc_handler):  # noqa: F811
     # Add header
     CHUNK_ROOT_1_0 = b'\x10' * 32
     smc_handler.add_header(
-        period=1,
         shard_id=0,
+        period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=notary.private_key
+        private_key=notary.private_key,
     )
     mine(w3, 1)
     # Check that log was successfully emitted
@@ -57,11 +57,11 @@ def test_log_emission(smc_handler):  # noqa: F811
     sample_index = 0
     pool_index = sampling(smc_handler, 0)[sample_index]
     smc_handler.submit_vote(
-        period=1,
         shard_id=0,
+        period=1,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        private_key=NotaryAccount(pool_index).private_key,
     )
     mine(w3, 1)
     # Check that log was successfully emitted
@@ -89,3 +89,13 @@ def test_log_emission(smc_handler):  # noqa: F811
     log = shard_tracker.get_release_notary_logs()[0]
     assert getattr(log, 'index_in_notary_pool') == 0 and \
         getattr(log, 'notary') == notary.checksum_address
+
+    # Test fetching logs in past period
+    assert shard_tracker.get_register_notary_logs(from_period=0, to_period=0)
+    assert shard_tracker.get_add_header_logs(from_period=1, to_period=1)
+    assert shard_tracker.get_submit_vote_logs(from_period=1, to_period=1)
+    assert shard_tracker.get_deregister_notary_logs(from_period=2, to_period=2)
+    assert shard_tracker.get_release_notary_logs(
+        from_period=(3 + smc_handler.config['NOTARY_LOCKUP_LENGTH']),
+        to_period=(3 + smc_handler.config['NOTARY_LOCKUP_LENGTH'])
+    )
