@@ -179,21 +179,21 @@ def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F8
         shard_id=0,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(0).private_key
+        private_key=NotaryAccount(0).private_key,
     )
     CHUNK_ROOT_1_7 = b'\x17' * 32
     smc_handler.add_header(
         shard_id=7,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_7,
-        private_key=NotaryAccount(7).private_key
+        private_key=NotaryAccount(7).private_key,
     )
     CHUNK_ROOT_1_3 = b'\x13' * 32
     smc_handler.add_header(
         shard_id=3,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_3,
-        private_key=NotaryAccount(3).private_key
+        private_key=NotaryAccount(3).private_key,
     )
     mine(w3, 1)
     # Check that add header log was successfully emitted
@@ -209,7 +209,7 @@ def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F8
             period=current_period,
             chunk_root=CHUNK_ROOT_1_0,
             index=sample_index,
-            private_key=NotaryAccount(pool_index).private_key
+            private_key=NotaryAccount(pool_index).private_key,
         )
         mine(w3, 1)
     sample_index = 0
@@ -219,7 +219,7 @@ def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F8
         period=current_period,
         chunk_root=CHUNK_ROOT_1_7,
         index=sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        private_key=NotaryAccount(pool_index).private_key,
     )
     mine(w3, 1)
     # Check that there has not been enough votes yet in shard 0
@@ -233,7 +233,7 @@ def test_status_checking_functions(smc_handler, smc_testing_config):  # noqa: F8
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        private_key=NotaryAccount(pool_index).private_key,
     )
     mine(w3, 1)
     # Check that there are enough votes now in shard 0

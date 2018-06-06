@@ -34,7 +34,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -50,7 +50,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that vote has been casted successfully
@@ -69,7 +69,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_2_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -88,7 +88,7 @@ def test_normal_submit_vote(smc_handler):  # noqa: F811
             period=current_period,
             chunk_root=CHUNK_ROOT_2_0,
             index=sample_index,
-            private_key=NotaryAccount(index=pool_index).private_key
+            private_key=NotaryAccount(index=pool_index).private_key,
         )
         mine(w3, 1)
         # Check that vote has been casted successfully
@@ -114,7 +114,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -126,7 +126,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that vote has been casted successfully
@@ -139,7 +139,7 @@ def test_double_submit_vote(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -167,7 +167,7 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -186,7 +186,7 @@ def test_submit_vote_by_notary_sampled_multiple_times(smc_handler):  # noqa: F81
                     period=current_period,
                     chunk_root=CHUNK_ROOT_1_0,
                     index=sample_index,
-                    private_key=NotaryAccount(index=pool_index).private_key
+                    private_key=NotaryAccount(index=pool_index).private_key,
                 )
                 mine(w3, 1)
             # Check that every vote is successfully casted even by the same notary
@@ -211,7 +211,7 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -224,7 +224,7 @@ def test_submit_vote_by_non_eligible_notary(smc_handler):  # noqa: F811
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
         # Vote by non-eligible notary
-        private_key=NotaryAccount(wrong_pool_index).private_key
+        private_key=NotaryAccount(wrong_pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -254,7 +254,7 @@ def test_submit_vote_without_add_header_first(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -290,7 +290,7 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
         shard_id=0,
         period=current_period,
         chunk_root=b'\x10' * 32,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -301,7 +301,7 @@ def test_submit_vote_with_invalid_args(smc_handler, period, shard_id, chunk_root
         period=period,
         chunk_root=chunk_root,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
     # Check that transaction failed and vote count remains the same
@@ -328,7 +328,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         shard_id=shard_id,
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
 
@@ -339,7 +339,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=pool_index).private_key
+        private_key=NotaryAccount(index=pool_index).private_key,
     )
     mine(w3, 1)
 
@@ -362,7 +362,7 @@ def test_submit_vote_then_deregister(smc_handler):  # noqa: F811
         period=current_period,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(index=9).private_key
+        private_key=NotaryAccount(index=9).private_key,
     )
     mine(w3, 1)
 

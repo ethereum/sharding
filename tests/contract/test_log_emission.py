@@ -45,7 +45,7 @@ def test_log_emission(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=notary.private_key
+        private_key=notary.private_key,
     )
     mine(w3, 1)
     # Check that log was successfully emitted
@@ -61,7 +61,7 @@ def test_log_emission(smc_handler):  # noqa: F811
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
         index=sample_index,
-        private_key=NotaryAccount(pool_index).private_key
+        private_key=NotaryAccount(pool_index).private_key,
     )
     mine(w3, 1)
     # Check that log was successfully emitted

@@ -28,7 +28,7 @@ def test_normal_add_header(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 0 has been updated
@@ -44,7 +44,7 @@ def test_normal_add_header(smc_handler):  # noqa: F811
         shard_id=0,
         period=2,
         chunk_root=CHUNK_ROOT_2_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 0 has been updated
@@ -58,7 +58,7 @@ def test_normal_add_header(smc_handler):  # noqa: F811
         shard_id=1,
         period=2,
         chunk_root=CHUNK_ROOT_2_1,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 1 has been updated
@@ -82,7 +82,7 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
         shard_id=0,
         period=0,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
@@ -96,7 +96,7 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
         shard_id=0,
         period=2,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
@@ -110,7 +110,7 @@ def test_add_header_wrong_period(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 0 has been updated
@@ -135,7 +135,7 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
         shard_id=shard_count + 1,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
@@ -149,7 +149,7 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
         shard_id=-1,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that collation record of shard 0 has not been updated and transaction consume all gas
@@ -163,7 +163,7 @@ def test_add_header_wrong_shard(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 0 has been updated
@@ -185,7 +185,7 @@ def test_double_add_header(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3=w3, num_blocks=1)
     # Check that collation record of shard 0 has been updated
@@ -197,7 +197,7 @@ def test_double_add_header(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=CHUNK_ROOT_1_0,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that transaction consume all gas and no logs has been emitted
@@ -208,7 +208,7 @@ def test_double_add_header(smc_handler):  # noqa: F811
         shard_id=0,
         period=1,
         chunk_root=b'\x56' * 32,
-        private_key=NotaryAccount(index=0).private_key
+        private_key=NotaryAccount(index=0).private_key,
     )
     mine(w3, 1)
     # Check that collation record of shard 0 remains the same and transaction consume all gas

@@ -86,8 +86,7 @@ class ShardTracker:
     @to_list
     def get_register_notary_logs(self,
                                  from_period: int=None,
-                                 to_period: int=None
-                                 ) -> Generator[LogParser, None, None]:
+                                 to_period: int=None) -> Generator[LogParser, None, None]:
         from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
         to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
         logs = self._get_logs_by_notary(
