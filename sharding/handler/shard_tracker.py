@@ -5,6 +5,7 @@ from typing import (
     List,
     Optional,
     Union,
+    Tuple,
 )
 
 from eth_utils import (
@@ -80,6 +81,22 @@ class ShardTracker:
             to_block=to_block,
         )
 
+    def _decide_period_block_number(self,
+                                    from_period: Union[int, None],
+                                    to_period: Union[int, None]
+                                    ) -> Tuple[Union[int, None], Union[int, None]]:
+        if from_period is None:
+            from_block = None
+        else:
+            from_block = from_period * self.config['PERIOD_LENGTH']
+
+        if to_period is None:
+            to_block = None
+        else:
+            to_block = (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+
+        return from_block, to_block
+
     #
     # Basic functions to get emitted logs
     #
@@ -87,8 +104,7 @@ class ShardTracker:
     def get_register_notary_logs(self,
                                  from_period: int=None,
                                  to_period: int=None) -> Generator[LogParser, None, None]:
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
-        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+        from_block, to_block = self._decide_period_block_number(from_period, to_period)
         logs = self._get_logs_by_notary(
             'RegisterNotary',
             notary=None,
@@ -103,8 +119,7 @@ class ShardTracker:
                                    from_period: int=None,
                                    to_period: int=None
                                    ) -> Generator[LogParser, None, None]:
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
-        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+        from_block, to_block = self._decide_period_block_number(from_period, to_period)
         logs = self._get_logs_by_notary(
             'DeregisterNotary',
             notary=None,
@@ -119,8 +134,7 @@ class ShardTracker:
                                 from_period: int=None,
                                 to_period: int=None
                                 ) -> Generator[LogParser, None, None]:
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
-        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+        from_block, to_block = self._decide_period_block_number(from_period, to_period)
         logs = self._get_logs_by_notary(
             'ReleaseNotary',
             notary=None,
@@ -135,8 +149,7 @@ class ShardTracker:
                             from_period: int=None,
                             to_period: int=None
                             ) -> Generator[LogParser, None, None]:
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
-        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+        from_block, to_block = self._decide_period_block_number(from_period, to_period)
         logs = self._get_logs_by_shard_id(
             'AddHeader',
             from_block=from_block,
@@ -150,8 +163,7 @@ class ShardTracker:
                              from_period: int=None,
                              to_period: int=None
                              ) -> Generator[LogParser, None, None]:
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
-        to_block = None if to_period is None else (to_period + 1) * self.config['PERIOD_LENGTH'] - 1
+        from_block, to_block = self._decide_period_block_number(from_period, to_period)
         logs = self._get_logs_by_shard_id(
             'SubmitVote',
             from_block=from_block,
@@ -165,7 +177,7 @@ class ShardTracker:
     #
     def is_notary_registered(self, notary: str, from_period: int=None) -> bool:
         assert is_address(notary)
-        from_block = None if from_period is None else from_period * self.config['PERIOD_LENGTH']
+        from_block, _ = self._decide_period_block_number(from_period, None)
         log = self._get_logs_by_notary(
             'RegisterNotary',
             notary=to_log_topic_address(notary),
@@ -175,7 +187,7 @@ class ShardTracker:
 
     def is_notary_deregistered(self, notary: str, from_period: int=None) -> bool:
         assert is_address(notary)
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        from_block, _ = self._decide_period_block_number(from_period, None)
         log = self._get_logs_by_notary(
             'DeregisterNotary',
             notary=to_log_topic_address(notary),
@@ -185,7 +197,7 @@ class ShardTracker:
 
     def is_notary_released(self, notary: str, from_period: int=None) -> bool:
         assert is_address(notary)
-        from_block = from_period * self.config['PERIOD_LENGTH'] if from_period else None
+        from_block, _ = self._decide_period_block_number(from_period, None)
         log = self._get_logs_by_notary(
             'ReleaseNotary',
             notary=to_log_topic_address(notary),
