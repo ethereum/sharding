@@ -27,7 +27,6 @@ setup(
     setup_requires=['setuptools-markdown'],
     long_description_markdown_filename='README.md',
     include_package_data=True,
-    data_files=[('sharding', ['sharding/contracts/sharding_manager.json'])],
     zip_safe=False,
     classifiers=[
         'Intended Audience :: Developers',
