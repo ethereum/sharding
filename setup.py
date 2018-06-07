@@ -11,7 +11,7 @@ with open('requirements.txt') as f:
 setup(
     name='sharding',
     # *IMPORTANT*: Don't manually change the version here. Use the 'bumpversion' utility.
-    version='0.0.1',
+    version='0.0.1-alpha.2',
     description='Ethereum Sharding Manager Contract',
     url='https://github.com/ethereum/sharding',
     packages=find_packages(
