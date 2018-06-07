@@ -1,3 +1,5 @@
 include README.md
 include requirements.txt
 include requirements-dev.txt
+
+include sharding/contracts/sharding_manager.json
