@@ -20,7 +20,7 @@ In this document, the term `Collation` is used to differentiate from `Block` bec
 
 ### Constants
 
-* `LOOKAHEAD_PERIODS`: 4
+* `LOOKAHEAD_LENGTH`: 4
 * `PERIOD_LENGTH`: 5
 * `COLLATION_GASLIMIT`: 10,000,000 gas
 * `SHARD_COUNT`: 100
@@ -33,7 +33,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 
 -   `deposit() returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (i.e., the amount of ETH deposited) in the function call. This function returns the validator index.
 -   `withdraw(uint256 validator_index) returns bool`: verifies that `msg.sender == validators[validator_index].addr`. if it is removes the validator from the validator set and refunds the deposited ETH.
--   `get_eligible_proposer(uint256 shard_id, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. The chance of being selected should be proportional to the validator's deposit. The function should be able to return a value for the current period or any future up to `LOOKAHEAD_PERIODS` periods ahead.
+-   `get_eligible_proposer(uint256 shard_id, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. The chance of being selected should be proportional to the validator's deposit. The function should be able to return a value for the current period or any future up to `LOOKAHEAD_LENGTH` periods ahead.
 -   `add_header(uint256 shard_id, uint256 expected_period_number, bytes32 period_start_prevhash, bytes32 parent_hash, bytes32 transaction_root, address coinbase, bytes32 state_root, bytes32 receipt_root, uint256 number) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `get_shard_head(uint256 shard_id) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
@@ -109,14 +109,14 @@ Here is one simple implementation in Viper:
 
 ```python
 def getEligibleProposer(shardId: num, period: num) -> address:
-    assert period >= LOOKAHEAD_PERIODS
-    assert (period - LOOKAHEAD_PERIODS) * PERIOD_LENGTH < block.number
+    assert period >= LOOKAHEAD_LENGTH
+    assert (period - LOOKAHEAD_LENGTH) * PERIOD_LENGTH < block.number
     assert self.num_validators > 0
 
     h = as_num256(
         sha3(
             concat(
-                blockhash((period - LOOKAHEAD_PERIODS) * PERIOD_LENGTH),
+                blockhash((period - LOOKAHEAD_LENGTH) * PERIOD_LENGTH),
                 as_bytes32(shardId)
             )
         )
@@ -133,7 +133,7 @@ def getEligibleProposer(shardId: num, period: num) -> address:
 
 ## Stateless clients
 
-A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS * PERIOD_LENGTH` blocks worth of notice) when they are asked to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement). Instead, we allow validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (i.e., Merkle branches), to prove the pre-state of the accounts that the transaction affects, and to provide enough information to calculate the post-state root after executing the transaction.
+A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_LENGTH * PERIOD_LENGTH` blocks worth of notice) when they are asked to create a block on a given shard. In Ethereum 1.0, creating a block requires having access to the entire state in order to validate transactions. Here, our goal is to avoid requiring validators to store the state of the entire system (as that would be an O(c^2) computational resource requirement). Instead, we allow validators to create collations knowing only the state root, pushing the responsibility onto transaction senders to provide "witness data" (i.e., Merkle branches), to prove the pre-state of the accounts that the transaction affects, and to provide enough information to calculate the post-state root after executing the transaction.
 
 (Note that it's theoretically possible to implement sharding in a non-stateless paradigm; however, this requires: (i) storage rent to keep storage size bounded; and (ii) validators to be assigned to create blocks in a single shard for O(c) time. This scheme avoids the need for these sacrifices.)
 
@@ -192,7 +192,7 @@ A client would have a config of the following form:
 }
 ```
 
-If a validator address is provided, then it checks (on the main chain) if the address is an active validator. If it is, then every time a new period on the main chain starts (i.e., when `floor(block.number / PERIOD_LENGTH)` changes), then it should call `getEligibleProposer` for all shards for period `floor(block.number / PERIOD_LENGTH) + LOOKAHEAD_PERIODS`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
+If a validator address is provided, then it checks (on the main chain) if the address is an active validator. If it is, then every time a new period on the main chain starts (i.e., when `floor(block.number / PERIOD_LENGTH)` changes), then it should call `getEligibleProposer` for all shards for period `floor(block.number / PERIOD_LENGTH) + LOOKAHEAD_LENGTH`. If it returns the validator's address for some shard `i`, then it runs the algorithm `CREATE_COLLATION(i)` (see below).
 
 For every shard `i` in the `watching` list, every time a new collation header appears in the main chain, it downloads the full collation from the shard network, and verifies it. It locally keeps track of all valid headers (where validity is defined recursively, i.e., for a header to be valid its parent must also be valid), and accepts as the main shard chain the shard chain whose head has the highest score, and where all collations from the genesis collation to the head are valid and available. Note that this implies the reorgs of the main chain *and* reorgs of the shard chain may both influence the shard head.
 
