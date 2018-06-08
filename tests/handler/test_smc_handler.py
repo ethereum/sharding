@@ -10,7 +10,7 @@ from sharding.handler.utils.smc_handler_utils import (
 
 ZERO_ADDR = b'\x00' * 20
 
-logger = logging.getLogger('evm.chain.sharding.mainchain_handler.SMCHandler')
+logger = logging.getLogger('evm.chain.sharding.mainchain_handler.SMC')
 
 
 def test_make_transaction_context():

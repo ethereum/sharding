@@ -17,7 +17,7 @@ from eth_tester.backends.pyevm.main import (
     get_default_account_keys,
 )
 from sharding.handler.smc_handler import (
-    SMCHandler as SMCHandlerFactory,
+    SMC as SMCFactory,
 )
 from sharding.handler.utils.web3_utils import (
     get_code,
@@ -46,23 +46,23 @@ def smc_handler(smc_testing_config):
     private_key = get_default_account_keys()[0]
 
     # deploy smc contract
-    SMCHandler = w3.eth.contract(ContractFactoryClass=SMCHandlerFactory)
+    SMC = w3.eth.contract(ContractFactoryClass=SMCFactory)
     constructor_kwargs = {
         "_SHARD_COUNT": smc_testing_config["SHARD_COUNT"],
         "_PERIOD_LENGTH": smc_testing_config["PERIOD_LENGTH"],
-        "_LOOKAHEAD_LENGTH": smc_testing_config["LOOKAHEAD_PERIODS"],
+        "_LOOKAHEAD_LENGTH": smc_testing_config["LOOKAHEAD_LENGTH"],
         "_COMMITTEE_SIZE": smc_testing_config["COMMITTEE_SIZE"],
         "_QUORUM_SIZE": smc_testing_config["QUORUM_SIZE"],
         "_NOTARY_DEPOSIT": smc_testing_config["NOTARY_DEPOSIT"],
         "_NOTARY_LOCKUP_LENGTH": smc_testing_config["NOTARY_LOCKUP_LENGTH"],
     }
     eth_tester.enable_auto_mine_transactions()
-    deployment_tx_hash = SMCHandler.constructor(**constructor_kwargs).transact()
+    deployment_tx_hash = SMC.constructor(**constructor_kwargs).transact()
     deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash, timeout=0)
     eth_tester.disable_auto_mine_transactions()
 
     assert get_code(w3, deployment_receipt.contractAddress) != b''
-    smc_handler = SMCHandler(
+    smc_handler = SMC(
         address=deployment_receipt.contractAddress,
         private_key=private_key,
         config=smc_testing_config,

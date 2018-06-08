@@ -34,9 +34,9 @@ from eth_typing import (
 smc_json = get_smc_json()
 
 
-class SMCHandler(Contract):
+class SMC(Contract):
 
-    logger = logging.getLogger("evm.chain.sharding.SMCHandler")
+    logger = logging.getLogger("evm.chain.sharding.SMC")
     abi = smc_json["abi"]
     bytecode = decode_hex(smc_json["bytecode"])
 
