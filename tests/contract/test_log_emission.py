@@ -1,6 +1,3 @@
-from sharding.handler.log_handler import (  # noqa: F401
-    LogHandler,
-)
 from sharding.handler.shard_tracker import (  # noqa: F401
     ShardTracker,
 )
@@ -21,11 +18,10 @@ from tests.contract.utils.sample_helper import (
 
 def test_log_emission(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    log_handler = LogHandler(w3, smc_handler.config['PERIOD_LENGTH'])
     shard_tracker = ShardTracker(
+        w3=w3,
         config=smc_handler.config,
         shard_id=0,
-        log_handler=log_handler,
         smc_handler_address=smc_handler.address,
     )
     notary = NotaryAccount(0)
