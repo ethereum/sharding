@@ -44,6 +44,8 @@ class SMC(Contract):
     sender_address = None  # type: Address
     config = None  # type: Dict[str, Any]
 
+    _estimate_gas_dict = dict()  # type: Dict[str, Any]
+
     def __init__(self,
                  *args: Any,
                  private_key: datatypes.PrivateKey,
@@ -52,6 +54,12 @@ class SMC(Contract):
         self.private_key = private_key
         self.sender_address = self.private_key.public_key.to_canonical_address()
         self.config = config
+
+        # Extract estimate gas from abi
+        for entry in self.abi:
+            if entry['type'] == 'function':
+                if not entry['constant']:
+                    self._estimate_gas_dict[entry['name']] = entry['gas']
 
         super().__init__(*args, **kwargs)
 
@@ -62,7 +70,6 @@ class SMC(Contract):
     def basic_call_context(self) -> Dict[str, Any]:
         return make_call_context(
             sender_address=self.sender_address,
-            gas=self.config["DEFAULT_GAS"]
         )
 
     #
@@ -152,8 +159,6 @@ class SMC(Contract):
                           value: int=0,
                           gas_price: int=None,
                           data: bytes=None) -> Hash32:
-        if gas is None:
-            gas = self.config['DEFAULT_GAS']
         if gas_price is None:
             gas_price = self.config['GAS_PRICE']
         if private_key is None:
@@ -184,8 +189,8 @@ class SMC(Contract):
     #
     def register_notary(self,
                         private_key: datatypes.PrivateKey=None,
-                        gas: int=None,
                         gas_price: int=None) -> Hash32:
+        gas = self._estimate_gas_dict['register_notary']
         tx_hash = self._send_transaction(
             func_name='register_notary',
             args=[],
@@ -198,8 +203,8 @@ class SMC(Contract):
 
     def deregister_notary(self,
                           private_key: datatypes.PrivateKey=None,
-                          gas: int=None,
                           gas_price: int=None) -> Hash32:
+        gas = self._estimate_gas_dict['deregister_notary']
         tx_hash = self._send_transaction(
             func_name='deregister_notary',
             args=[],
@@ -211,8 +216,8 @@ class SMC(Contract):
 
     def release_notary(self,
                        private_key: datatypes.PrivateKey=None,
-                       gas: int=None,
                        gas_price: int=None) -> Hash32:
+        gas = self._estimate_gas_dict['release_notary']
         tx_hash = self._send_transaction(
             func_name='release_notary',
             args=[],
@@ -228,8 +233,8 @@ class SMC(Contract):
                    period: int,
                    chunk_root: Hash32,
                    private_key: datatypes.PrivateKey=None,
-                   gas: int=None,
                    gas_price: int=None) -> Hash32:
+        gas = self._estimate_gas_dict['add_header']
         tx_hash = self._send_transaction(
             func_name='add_header',
             args=[
@@ -250,8 +255,8 @@ class SMC(Contract):
                     chunk_root: Hash32,
                     index: int,
                     private_key: datatypes.PrivateKey=None,
-                    gas: int=None,
                     gas_price: int=None) -> Hash32:
+        gas = self._estimate_gas_dict['submit_vote']
         tx_hash = self._send_transaction(
             func_name='submit_vote',
             args=[

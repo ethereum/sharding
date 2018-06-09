@@ -42,11 +42,6 @@ def test_make_call_context():
     assert 'gas' in call_context
     with pytest.raises(ValueError):
         call_context = make_call_context(
-            sender_address=ZERO_ADDR,
-            gas=None,
-        )
-    with pytest.raises(ValueError):
-        call_context = make_call_context(
             sender_address=None,
             gas=1000,
         )

@@ -11,7 +11,7 @@ def update_notary_sample_size(smc_handler):
         func_name='update_notary_sample_size',
         args=[],
         private_key=NotaryAccount(0).private_key,
-        gas=smc_handler.config['DEFAULT_GAS'],
+        gas=smc_handler._estimate_gas_dict['update_notary_sample_size'],
     )
     mine(smc_handler.web3, 1)
 

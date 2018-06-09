@@ -34,5 +34,4 @@ def get_sharding_config() -> Dict[str, Any]:
             default=to_wei('0.001', 'ether'),
         ),
         'GAS_PRICE': env.get('SHARDING_GAS_PRICE', type=int, default=1),
-        'DEFAULT_GAS': env.get('PYEVM_SHARDING_DEFAULT_GAS', type=int, default=510000),
     }
