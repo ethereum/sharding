@@ -25,6 +25,10 @@ from sharding.contracts.utils.smc_utils import (
 from eth_keys import (
     datatypes,
 )
+from eth_typing import (
+    Address,
+    Hash32,
+)
 
 
 smc_json = get_smc_json()
@@ -37,7 +41,7 @@ class SMCHandler(Contract):
     bytecode = decode_hex(smc_json["bytecode"])
 
     private_key = None  # type: datatypes.PrivateKey
-    sender_address = None  # type: bytes
+    sender_address = None  # type: Address
     config = None  # type: Dict[str, Any]
 
     def __init__(self,
@@ -64,16 +68,16 @@ class SMCHandler(Contract):
     #
     # Public variable getter functions
     #
-    def does_notary_exist(self, notary_address: bytes) -> bool:
+    def does_notary_exist(self, notary_address: Address) -> bool:
         return self.functions.does_notary_exist(notary_address).call(self.basic_call_context)
 
-    def get_notary_info(self, notary_address: bytes) -> Tuple[int, int]:
+    def get_notary_info(self, notary_address: Address) -> Tuple[int, int]:
         return self.functions.get_notary_info(notary_address).call(self.basic_call_context)
 
     def notary_pool_len(self) -> int:
         return self.functions.notary_pool_len().call(self.basic_call_context)
 
-    def notary_pool(self, pool_index: int) -> List[bytes]:
+    def notary_pool(self, pool_index: int) -> List[Address]:
         return self.functions.notary_pool(pool_index).call(self.basic_call_context)
 
     def empty_slots_stack_top(self) -> int:
@@ -97,19 +101,19 @@ class SMCHandler(Contract):
     def head_collation_period(self, shard_id: int) -> int:
         return self.functions.head_collation_period(shard_id).call(self.basic_call_context)
 
-    def get_member_of_committee(self, shard_id: int, index: int) -> bytes:
+    def get_member_of_committee(self, shard_id: int, index: int) -> Address:
         return self.functions.get_member_of_committee(
             shard_id,
             index,
         ).call(self.basic_call_context)
 
-    def get_collation_chunk_root(self, shard_id: int, period: int) -> bytes:
+    def get_collation_chunk_root(self, shard_id: int, period: int) -> Hash32:
         return self.functions.collation_records__chunk_root(
             shard_id,
             period,
         ).call(self.basic_call_context)
 
-    def get_collation_proposer(self, shard_id: int, period: int) -> bytes:
+    def get_collation_proposer(self, shard_id: int, period: int) -> Address:
         return self.functions.collation_records__proposer(
             shard_id,
             period,
@@ -147,7 +151,7 @@ class SMCHandler(Contract):
                           gas: int=None,
                           value: int=0,
                           gas_price: int=None,
-                          data: bytes=None) -> bytes:
+                          data: bytes=None) -> Hash32:
         if gas is None:
             gas = self.config['DEFAULT_GAS']
         if gas_price is None:
@@ -181,7 +185,7 @@ class SMCHandler(Contract):
     def register_notary(self,
                         private_key: datatypes.PrivateKey=None,
                         gas: int=None,
-                        gas_price: int=None) -> bytes:
+                        gas_price: int=None) -> Hash32:
         tx_hash = self._send_transaction(
             func_name='register_notary',
             args=[],
@@ -195,7 +199,7 @@ class SMCHandler(Contract):
     def deregister_notary(self,
                           private_key: datatypes.PrivateKey=None,
                           gas: int=None,
-                          gas_price: int=None) -> bytes:
+                          gas_price: int=None) -> Hash32:
         tx_hash = self._send_transaction(
             func_name='deregister_notary',
             args=[],
@@ -208,7 +212,7 @@ class SMCHandler(Contract):
     def release_notary(self,
                        private_key: datatypes.PrivateKey=None,
                        gas: int=None,
-                       gas_price: int=None) -> bytes:
+                       gas_price: int=None) -> Hash32:
         tx_hash = self._send_transaction(
             func_name='release_notary',
             args=[],
@@ -222,10 +226,10 @@ class SMCHandler(Contract):
                    *,
                    shard_id: int,
                    period: int,
-                   chunk_root: bytes,
+                   chunk_root: Hash32,
                    private_key: datatypes.PrivateKey=None,
                    gas: int=None,
-                   gas_price: int=None) -> bytes:
+                   gas_price: int=None) -> Hash32:
         tx_hash = self._send_transaction(
             func_name='add_header',
             args=[
@@ -243,11 +247,11 @@ class SMCHandler(Contract):
                     *,
                     shard_id: int,
                     period: int,
-                    chunk_root: bytes,
+                    chunk_root: Hash32,
                     index: int,
                     private_key: datatypes.PrivateKey=None,
                     gas: int=None,
-                    gas_price: int=None) -> bytes:
+                    gas_price: int=None) -> Hash32:
         tx_hash = self._send_transaction(
             func_name='submit_vote',
             args=[

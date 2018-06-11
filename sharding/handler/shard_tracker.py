@@ -13,6 +13,9 @@ from eth_utils import (
     to_list,
     is_address,
 )
+from eth_typing import (
+    Address,
+)
 
 from sharding.contracts.utils.config import (
     get_sharding_config,
@@ -35,7 +38,7 @@ class ShardTracker:
                  config: Optional[Dict[str, Any]],
                  shard_id: int,
                  log_handler: LogHandler,
-                 smc_handler_address: bytes) -> None:
+                 smc_handler_address: Address) -> None:
         if config is None:
             self.config = get_sharding_config()
         else:

@@ -10,6 +10,10 @@ from evm.exceptions import BlockNotFound
 
 from web3 import Web3
 
+from eth_typing import (
+    Address,
+)
+
 
 class LogHandler:
 
@@ -20,7 +24,7 @@ class LogHandler:
         self.period_length = period_length
 
     def get_logs(self,
-                 address: bytes=None,
+                 address: Address=None,
                  topics: List[Union[str, None]]=None,
                  from_block: Union[int, str]=None,
                  to_block: Union[int, str]=None) -> List[Dict[str, Any]]:
