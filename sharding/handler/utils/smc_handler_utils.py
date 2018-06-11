@@ -1,18 +1,21 @@
-from eth_utils import (
-    is_canonical_address,
-    to_checksum_address,
-    to_dict,
-)
-
 from typing import (
     Any,
     Generator,
     Tuple,
 )
 
+from eth_utils import (
+    is_canonical_address,
+    to_checksum_address,
+    to_dict,
+)
+from eth_typing import (
+    Address,
+)
+
 
 @to_dict
-def make_call_context(sender_address: bytes,
+def make_call_context(sender_address: Address,
                       gas: int,
                       value: int=None,
                       gas_price: int=None,

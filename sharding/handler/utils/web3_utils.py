@@ -15,13 +15,17 @@ from typing import (
     List,
     Tuple,
 )
+from eth_typing import (
+    Address,
+    Hash32,
+)
 
 
-def get_code(w3: Web3, address: bytes) -> bytes:
+def get_code(w3: Web3, address: Address) -> bytes:
     return w3.eth.getCode(to_checksum_address(address))
 
 
-def get_nonce(w3: Web3, address: bytes) -> int:
+def get_nonce(w3: Web3, address: Address) -> int:
     return w3.eth.getTransactionCount(to_checksum_address(address))
 
 
@@ -37,14 +41,14 @@ def mine(w3: Web3, num_blocks: int) -> None:
     w3.testing.mine(num_blocks)
 
 
-def send_raw_transaction(w3: Web3, raw_transaction: BaseTransaction) -> bytes:
+def send_raw_transaction(w3: Web3, raw_transaction: BaseTransaction) -> Hash32:
     raw_transaction_bytes = rlp.encode(raw_transaction)
     raw_transaction_hex = w3.toHex(raw_transaction_bytes)
     transaction_hash = w3.eth.sendRawTransaction(raw_transaction_hex)
     return transaction_hash
 
 
-def get_recent_block_hashes(w3: Web3, history_size: int) -> Tuple[bytes, ...]:
+def get_recent_block_hashes(w3: Web3, history_size: int) -> Tuple[Hash32, ...]:
     block = w3.eth.getBlock('latest')
     recent_hashes = []
 
@@ -59,8 +63,8 @@ def get_recent_block_hashes(w3: Web3, history_size: int) -> Tuple[bytes, ...]:
 
 
 def get_canonical_chain(w3: Web3,
-                        recent_block_hashes: List[bytes],
-                        history_size: int) -> Tuple[List[bytes], Tuple[bytes, ...]]:
+                        recent_block_hashes: List[Hash32],
+                        history_size: int) -> Tuple[List[Hash32], Tuple[Hash32, ...]]:
     block = w3.eth.getBlock('latest')
 
     new_block_hashes = []
