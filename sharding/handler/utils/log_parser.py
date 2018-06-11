@@ -7,7 +7,7 @@ from typing import (
 )
 
 from eth_utils import (
-    to_checksum_address,
+    to_canonical_address,
     decode_hex,
     big_endian_to_int,
 )
@@ -66,7 +66,7 @@ class LogParser(object):
         if val_type == 'bool':
             return bool(big_endian_to_int(val))
         elif val_type == 'address':
-            return to_checksum_address(val[-20:])
+            return to_canonical_address(val[-20:])
         elif val_type == 'bytes32':
             return val
         elif 'int' in val_type:

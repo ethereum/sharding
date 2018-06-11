@@ -16,3 +16,7 @@ class NotaryAccount:
     @property
     def checksum_address(self):
         return self.private_key.public_key.to_checksum_address()
+
+    @property
+    def canonical_address(self):
+        return self.private_key.public_key.to_canonical_address()

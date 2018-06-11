@@ -38,7 +38,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
             'RegisterNotary',
             [
                 ('index_in_notary_pool', 0),
-                ('notary', '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+                ('notary', b'~_ER\t\x1ai\x12]]\xfc\xb7\xb8\xc2e\x90)9[\xdf'),
             ]
         ),
         (
@@ -46,7 +46,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
             'RegisterNotary',
             [
                 ('index_in_notary_pool', 3),
-                ('notary', '0x1efF47bc3a10a45D4B230B5d10E37751FE6AA718'),
+                ('notary', b'\x1e\xffG\xbc:\x10\xa4]K#\x0b]\x10\xe3wQ\xfej\xa7\x18'),
             ]
         ),
         (
@@ -54,7 +54,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
             'DeregisterNotary',
             [
                 ('index_in_notary_pool', 5),
-                ('notary', '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+                ('notary', b'~_ER\t\x1ai\x12]]\xfc\xb7\xb8\xc2e\x90)9[\xdf'),
                 ('deregistered_period', 10),
             ]
         ),
@@ -63,7 +63,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
             'DeregisterNotary',
             [
                 ('index_in_notary_pool', 16),
-                ('notary', '0x1efF47bc3a10a45D4B230B5d10E37751FE6AA718'),
+                ('notary', b'\x1e\xffG\xbc:\x10\xa4]K#\x0b]\x10\xe3wQ\xfej\xa7\x18'),
                 ('deregistered_period', 5),
             ]
         ),
@@ -92,7 +92,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
                 ('period', 16),
                 ('shard_id', 1),
                 ('chunk_root', b'\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01\x10\x01'),  # noqa: E501
-                ('notary', '0x1efF47bc3a10a45D4B230B5d10E37751FE6AA718'),
+                ('notary', b'\x1e\xffG\xbc:\x10\xa4]K#\x0b]\x10\xe3wQ\xfej\xa7\x18'),
             ]
         ),
         (
@@ -102,7 +102,7 @@ logger = logging.getLogger('sharding.handler.ShardTracker')
                 ('period', 33),
                 ('shard_id', 99),
                 ('chunk_root', b'!c!c!c!c!c!c!c!c!c!c!c!c!c!c!c!c'),
-                ('notary', '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+                ('notary', b'~_ER\t\x1ai\x12]]\xfc\xb7\xb8\xc2e\x90)9[\xdf'),
             ]
         ),
     )

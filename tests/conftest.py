@@ -64,7 +64,7 @@ def smc_handler(smc_testing_config):
     assert get_code(w3, deployment_receipt.contractAddress) != b''
     smc_handler = SMC(
         address=deployment_receipt.contractAddress,
-        private_key=private_key,
+        default_priv_key=private_key,
         config=smc_testing_config,
     )
 

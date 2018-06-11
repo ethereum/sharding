@@ -12,6 +12,7 @@ from web3.contract import (
 )
 from eth_utils import (
     decode_hex,
+    to_canonical_address,
 )
 
 from sharding.handler.utils.smc_handler_utils import (
@@ -40,19 +41,19 @@ class SMC(Contract):
     abi = smc_json["abi"]
     bytecode = decode_hex(smc_json["bytecode"])
 
-    private_key = None  # type: datatypes.PrivateKey
-    sender_address = None  # type: Address
+    default_priv_key = None  # type: datatypes.PrivateKey
+    default_sender_address = None  # type: Address
     config = None  # type: Dict[str, Any]
 
     _estimate_gas_dict = dict()  # type: Dict[str, Any]
 
     def __init__(self,
                  *args: Any,
-                 private_key: datatypes.PrivateKey,
+                 default_priv_key: datatypes.PrivateKey,
                  config: Dict[str, Any],
                  **kwargs: Any) -> None:
-        self.private_key = private_key
-        self.sender_address = self.private_key.public_key.to_canonical_address()
+        self.default_priv_key = default_priv_key
+        self.default_sender_address = self.default_priv_key.public_key.to_canonical_address()
         self.config = config
 
         # Extract estimate gas from abi
@@ -69,7 +70,7 @@ class SMC(Contract):
     @property
     def basic_call_context(self) -> Dict[str, Any]:
         return make_call_context(
-            sender_address=self.sender_address,
+            sender_address=self.default_sender_address,
         )
 
     #
@@ -85,7 +86,8 @@ class SMC(Contract):
         return self.functions.notary_pool_len().call(self.basic_call_context)
 
     def notary_pool(self, pool_index: int) -> List[Address]:
-        return self.functions.notary_pool(pool_index).call(self.basic_call_context)
+        notary_address = self.functions.notary_pool(pool_index).call(self.basic_call_context)
+        return to_canonical_address(notary_address)
 
     def empty_slots_stack_top(self) -> int:
         return self.functions.empty_slots_stack_top().call(self.basic_call_context)
@@ -109,10 +111,11 @@ class SMC(Contract):
         return self.functions.head_collation_period(shard_id).call(self.basic_call_context)
 
     def get_member_of_committee(self, shard_id: int, index: int) -> Address:
-        return self.functions.get_member_of_committee(
+        notary_address = self.functions.get_member_of_committee(
             shard_id,
             index,
         ).call(self.basic_call_context)
+        return to_canonical_address(notary_address)
 
     def get_collation_chunk_root(self, shard_id: int, period: int) -> Hash32:
         return self.functions.collation_records__chunk_root(
@@ -121,10 +124,11 @@ class SMC(Contract):
         ).call(self.basic_call_context)
 
     def get_collation_proposer(self, shard_id: int, period: int) -> Address:
-        return self.functions.collation_records__proposer(
+        proposer_address = self.functions.collation_records__proposer(
             shard_id,
             period,
         ).call(self.basic_call_context)
+        return to_canonical_address(proposer_address)
 
     def get_collation_is_elected(self, shard_id: int, period: int) -> bool:
         return self.functions.collation_records__is_elected(

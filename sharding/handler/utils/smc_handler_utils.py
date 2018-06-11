@@ -5,7 +5,7 @@ from typing import (
 )
 
 from eth_utils import (
-    is_canonical_address,
+    is_address,
     to_checksum_address,
     to_dict,
 )
@@ -23,8 +23,8 @@ def make_call_context(sender_address: Address,
     """
     Makes the context for message call.
     """
-    if not is_canonical_address(sender_address):
-        raise ValueError('sender_address should be provided in the canonical format')
+    if not is_address(sender_address):
+        raise ValueError('Message call sender provided is not an address')
     # 'from' is required in eth_tester
     yield 'from', to_checksum_address(sender_address)
     if gas is not None:
