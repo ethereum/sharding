@@ -48,7 +48,7 @@ class SMC(Contract):
     _estimate_gas_dict = {
         entry['name']: entry['gas']
         for entry in smc_json["abi"]
-        if entry['type'] == 'function' and not entry['constant']
+        if entry['type'] == 'function'
     }  # type: Dict[str, int]
 
     def __init__(self,
