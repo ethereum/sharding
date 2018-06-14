@@ -37,7 +37,7 @@ smc_json = get_smc_json()
 
 class SMC(Contract):
 
-    logger = logging.getLogger("evm.chain.sharding.SMC")
+    logger = logging.getLogger("sharding.SMC")
     abi = smc_json["abi"]
     bytecode = decode_hex(smc_json["bytecode"])
 
