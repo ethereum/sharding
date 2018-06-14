@@ -45,7 +45,11 @@ class SMC(Contract):
     default_sender_address = None  # type: Address
     config = None  # type: Dict[str, Any]
 
-    _estimate_gas_dict = dict()  # type: Dict[str, Any]
+    _estimate_gas_dict = {
+        entry['name']: entry['gas']
+        for entry in smc_json["abi"]
+        if entry['type'] == 'function' and not entry['constant']
+    }  # type: Dict[str, int]
 
     def __init__(self,
                  *args: Any,
@@ -55,12 +59,6 @@ class SMC(Contract):
         self.default_priv_key = default_priv_key
         self.default_sender_address = self.default_priv_key.public_key.to_canonical_address()
         self.config = config
-
-        # Extract estimate gas from abi
-        for entry in self.abi:
-            if entry['type'] == 'function':
-                if not entry['constant']:
-                    self._estimate_gas_dict[entry['name']] = entry['gas']
 
         super().__init__(*args, **kwargs)
 
