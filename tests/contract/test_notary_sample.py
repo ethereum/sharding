@@ -348,13 +348,13 @@ def test_committee_change_with_deregister_then_register(smc_handler):  # noqa: F
     smc_handler.deregister_notary(private_key=NotaryAccount(notary_index).private_key)
     mine(w3, 1)
     # Check that first slot in committee is now empty
-    assert smc_handler.get_member_of_committee(0, 0) == '0x' + '00' * 20
+    assert smc_handler.get_member_of_committee(0, 0) == b'\x00' * 20
 
     # Register notary 9
     smc_handler.register_notary(private_key=NotaryAccount(9).private_key)
     mine(w3, 1)
     # Check that first slot in committee is replaced by notary 9
-    assert smc_handler.get_member_of_committee(0, 0) == NotaryAccount(9).checksum_address
+    assert smc_handler.get_member_of_committee(0, 0) == NotaryAccount(9).canonical_address
 
 
 def test_get_sample_result(smc_handler):  # noqa: F811
@@ -383,7 +383,7 @@ def test_get_sample_result(smc_handler):  # noqa: F811
     for (period, shard_id, sampling_index) in notary_0_sampling_result:
         assert period == current_period
         # Check that notary is correctly sampled in get_committee_list
-        assert committee_group[shard_id][sampling_index] == notary_0.checksum_address
+        assert committee_group[shard_id][sampling_index] == notary_0.canonical_address
         # Check that notary is correctly sampled in SMC
         assert smc_handler.get_member_of_committee(shard_id, sampling_index) \
-            == notary_0.checksum_address
+            == notary_0.canonical_address

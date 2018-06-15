@@ -10,7 +10,7 @@ from sharding.handler.utils.smc_handler_utils import (
 
 ZERO_ADDR = b'\x00' * 20
 
-logger = logging.getLogger('evm.chain.sharding.mainchain_handler.SMCHandler')
+logger = logging.getLogger('evm.chain.sharding.mainchain_handler.SMC')
 
 
 def test_make_transaction_context():
@@ -40,11 +40,6 @@ def test_make_call_context():
     )
     assert 'from' in call_context
     assert 'gas' in call_context
-    with pytest.raises(ValueError):
-        call_context = make_call_context(
-            sender_address=ZERO_ADDR,
-            gas=None,
-        )
     with pytest.raises(ValueError):
         call_context = make_call_context(
             sender_address=None,

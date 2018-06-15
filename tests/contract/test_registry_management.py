@@ -57,7 +57,6 @@ def test_normal_register(smc_handler):  # noqa: F811
 
 def test_register_without_enough_ether(smc_handler):  # noqa: F811
     w3 = smc_handler.web3
-    default_gas = smc_handler.config['DEFAULT_GAS']
 
     notary_0 = NotaryAccount(0)
 
@@ -70,7 +69,7 @@ def test_register_without_enough_ether(smc_handler):  # noqa: F811
         args=[],
         private_key=notary_0.private_key,
         value=smc_handler.config['NOTARY_DEPOSIT'] // 10000,
-        gas=default_gas,
+        gas=smc_handler._estimate_gas_dict['register_notary'],
     )
     mine(w3, 1)
 

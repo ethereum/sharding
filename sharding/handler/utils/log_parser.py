@@ -7,9 +7,12 @@ from typing import (
 )
 
 from eth_utils import (
-    to_checksum_address,
+    to_canonical_address,
     decode_hex,
     big_endian_to_int,
+)
+from eth_typing import (
+    Address,
 )
 
 from sharding.contracts.utils.smc_utils import (
@@ -62,11 +65,11 @@ class LogParser(object):
             val = self._parse_value(val_type=type_, val=data_bytes[i * 32: (i + 1) * 32])
             setattr(self, name, val)
 
-    def _parse_value(self, *, val_type: str, val: bytes) -> Union[bool, str, bytes, int]:
+    def _parse_value(self, *, val_type: str, val: bytes) -> Union[bool, Address, bytes, int]:
         if val_type == 'bool':
             return bool(big_endian_to_int(val))
         elif val_type == 'address':
-            return to_checksum_address(val[-20:])
+            return to_canonical_address(val[-20:])
         elif val_type == 'bytes32':
             return val
         elif 'int' in val_type:

@@ -12,7 +12,7 @@ from sharding.handler.shard_tracker import (  # noqa: F401
     ShardTracker,
 )
 from sharding.handler.smc_handler import (  # noqa: F401
-    SMCHandler,
+    SMC,
 )
 
 

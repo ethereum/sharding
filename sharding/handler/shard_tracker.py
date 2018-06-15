@@ -1,3 +1,5 @@
+from web3 import Web3
+
 from typing import (
     Any,
     Dict,
@@ -35,16 +37,16 @@ class ShardTracker:
     """
 
     def __init__(self,
+                 w3: Web3,
                  config: Optional[Dict[str, Any]],
                  shard_id: int,
-                 log_handler: LogHandler,
                  smc_handler_address: Address) -> None:
         if config is None:
             self.config = get_sharding_config()
         else:
             self.config = config
         self.shard_id = shard_id
-        self.log_handler = log_handler
+        self.log_handler = LogHandler(w3, self.config['PERIOD_LENGTH'])
         self.smc_handler_address = smc_handler_address
 
     def _get_logs_by_shard_id(self,
